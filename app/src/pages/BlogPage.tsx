@@ -57,6 +57,12 @@ export function BlogPage() {
     loadPosts();
   }, []);
 
+  useEffect(() => {
+    if (isAdmin) {
+      loadPosts();
+    }
+  }, [statusFilter, isAdmin]);
+
   const handleSearch = () => {
     setIsLoading(true);
     loadPosts();
@@ -108,14 +114,32 @@ export function BlogPage() {
   }, [isAdmin]);
 
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <BookOpen className="w-6 h-6 text-primary" />
+    <div className="max-w-6xl mx-auto p-6 space-y-12">
+      {/* Blog Hero Header */}
+      <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-primary to-accent-violet text-white h-[300px] flex flex-col items-center justify-center text-center p-8">
+        <div className="absolute inset-0">
+          <img
+            src="/blog-header.png"
+            alt="Neural Pathways"
+            className="w-full h-full object-cover mix-blend-overlay opacity-50"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/60" />
+        </div>
+        <div className="relative z-10 space-y-4">
+          <Badge className="bg-white/20 backdrop-blur-md text-white border-white/30 px-4 py-1">
+            <BookOpen className="w-4 h-4 mr-2" />
             NeuroNest Blog
-          </h1>
-          <p className="text-sm text-neutral-500">Guides, updates, and community insights.</p>
+          </Badge>
+          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">Insights for the <br /><span className="text-peach">Neurodivergent</span> Mind</h1>
+          <p className="text-white/80 max-w-xl mx-auto text-lg">
+            Guides, updates, and community stories built by ND people, for ND people.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between px-2">
+        <div>
+          <h2 className="text-2xl font-bold">Latest Articles</h2>
         </div>
         {isAdmin && (
           <Button onClick={() => setShowComposer((prev) => !prev)} className="bg-primary hover:bg-primary-600">
