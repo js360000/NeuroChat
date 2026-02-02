@@ -5,3 +5,5 @@ export { messagesApi, type Message, type Conversation } from './messages';
 export { aiApi, type AIExplanation } from './ai';
 export { paymentsApi, type Subscription, type Payment } from './payments';
 export { adminApi, type AdminUser, type DashboardStats, type DailyActivity } from './admin';
+export { blogApi, type BlogPost, type BlogComment } from './blog';
+export { communityApi, type CommunityPost, type CommunityComment } from './community';

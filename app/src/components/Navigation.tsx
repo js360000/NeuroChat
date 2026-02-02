@@ -8,7 +8,9 @@ import {
   Menu, 
   X, 
   LogOut,
-  Sparkles
+  Sparkles,
+  Users,
+  BookOpen
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +26,8 @@ export function Navigation() {
     { path: '/dashboard', label: 'Discover', icon: Sparkles },
     { path: '/matches', label: 'Matches', icon: Heart },
     { path: '/messages', label: 'Messages', icon: MessageCircle },
+    { path: '/community', label: 'Community', icon: Users },
+    { path: '/blog', label: 'Blog', icon: BookOpen },
   ];
 
   const handleLogout = async () => {

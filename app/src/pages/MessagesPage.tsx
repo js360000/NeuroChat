@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Send, Brain, Smile, Mic, MessageCircle, Sparkles, Loader2 } from 'lucide-react';
+import { io, type Socket } from 'socket.io-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -9,6 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { messagesApi, type Conversation, type Message } from '@/lib/api/messages';
 import { aiApi, type AIExplanation } from '@/lib/api/ai';
+import { useAuthStore } from '@/lib/stores/auth';
 import { toast } from 'sonner';
 
 const TONE_TAGS = [
@@ -25,6 +27,7 @@ const TONE_TAGS = [
 export function MessagesPage() {
   const { conversationId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -37,13 +40,94 @@ export function MessagesPage() {
   const [aiExplanation, setAiExplanation] = useState<AIExplanation | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAvailable, setAiAvailable] = useState(true);
+  const [typingUserId, setTypingUserId] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const typingTimeoutRef = useRef<number | null>(null);
 
   // Load conversations
   useEffect(() => {
     loadConversations();
   }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem('neuronest_token');
+    if (!token) return;
+
+    const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
+    const socketUrl = apiUrl ? apiUrl.replace(/\/api\/?$/, '') : undefined;
+    const socket = io(socketUrl, {
+      auth: { token }
+    });
+    socketRef.current = socket;
+
+    socket.on('message', (payload: { conversationId: string; message: Message }) => {
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === payload.conversationId
+            ? {
+                ...conv,
+                lastMessage: {
+                  id: payload.message.id,
+                  content: payload.message.content,
+                  toneTag: payload.message.toneTag,
+                  createdAt: payload.message.createdAt,
+                  isMe: payload.message.sender.id === user?.id
+                },
+                unreadCount:
+                  payload.conversationId === conversationId || payload.message.sender.id === user?.id
+                    ? conv.unreadCount
+                    : conv.unreadCount + 1,
+                updatedAt: payload.message.createdAt
+              }
+            : conv
+        )
+      );
+
+      if (payload.conversationId !== conversationId) return;
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === payload.message.id)) return prev;
+        return [
+          ...prev,
+          {
+            ...payload.message,
+            isMe: payload.message.sender.id === user?.id
+          }
+        ];
+      });
+    });
+
+    socket.on('typing', (payload: { conversationId: string; userId: string; isTyping: boolean }) => {
+      if (payload.conversationId !== conversationId) return;
+      if (payload.userId === user?.id) return;
+      if (payload.isTyping) {
+        setTypingUserId(payload.userId);
+        if (typingTimeoutRef.current) {
+          window.clearTimeout(typingTimeoutRef.current);
+        }
+        typingTimeoutRef.current = window.setTimeout(() => {
+          setTypingUserId(null);
+        }, 2000);
+      } else {
+        setTypingUserId(null);
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [user?.id, conversationId]);
+
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket || !conversationId) return;
+    socket.emit('join', conversationId);
+    return () => {
+      socket.emit('leave', conversationId);
+    };
+  }, [conversationId]);
 
   // Load messages when conversation changes
   useEffect(() => {
@@ -75,6 +159,9 @@ export function MessagesPage() {
       
       // Mark as read
       await messagesApi.markAsRead(id);
+      setConversations((prev) =>
+        prev.map((conv) => (conv.id === id ? { ...conv, unreadCount: 0 } : conv))
+      );
     } catch (error) {
       toast.error('Failed to load messages');
     }
@@ -91,7 +178,7 @@ export function MessagesPage() {
         selectedToneTag
       );
       
-      setMessages([...messages, response.message]);
+      setMessages((prev) => [...prev, response.message]);
       setInputMessage('');
       setSelectedToneTag(undefined);
       
@@ -117,7 +204,7 @@ export function MessagesPage() {
       );
       setAiExplanation(response.explanation);
     } catch (error: any) {
-      if (error.status === 503) {
+      if (error.statusCode === 503) {
         setAiAvailable(false);
         toast.error('AI features are currently unavailable');
         setExplainModalOpen(false);
@@ -133,6 +220,20 @@ export function MessagesPage() {
   };
 
   const currentConversation = conversations.find(c => c.id === conversationId);
+
+  const handleInputChange = (value: string) => {
+    setInputMessage(value);
+    const socket = socketRef.current;
+    if (socket && conversationId) {
+      socket.emit('typing', { conversationId, isTyping: true });
+      if (typingTimeoutRef.current) {
+        window.clearTimeout(typingTimeoutRef.current);
+      }
+      typingTimeoutRef.current = window.setTimeout(() => {
+        socket.emit('typing', { conversationId, isTyping: false });
+      }, 1200);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -270,6 +371,9 @@ export function MessagesPage() {
                   </div>
                 </div>
               ))}
+              {typingUserId && (
+                <div className="text-xs text-neutral-400">Someone is typing...</div>
+              )}
               <div ref={messagesEndRef} />
             </div>
           </ScrollArea>
@@ -286,7 +390,7 @@ export function MessagesPage() {
                   className="text-neutral-400 hover:text-neutral-600"
                 >
                   <span className="sr-only">Remove tone tag</span>
-                  ×
+                  x
                 </button>
               </div>
             )}
@@ -316,7 +420,7 @@ export function MessagesPage() {
 
               <Input
                 value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
+                onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 placeholder="Type a message..."
                 className="flex-1"

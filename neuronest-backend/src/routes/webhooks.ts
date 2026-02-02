@@ -4,8 +4,9 @@ import { db, findUserById } from '../db/index.js';
 
 const router = Router();
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
 
 // Map Stripe customer IDs to user IDs for webhook processing
 const stripeCustomerToUser: Map<string, string> = new Map();
@@ -17,6 +18,9 @@ export function linkStripeCustomer(userId: string, customerId: string) {
 // POST / - Stripe webhook handler (mounted at /api/webhooks/stripe)
 // Note: This endpoint must receive raw body, not parsed JSON
 router.post('/', async (req: Request, res: Response) => {
+  if (!stripe || !webhookSecret) {
+    return res.status(503).json({ error: 'Stripe webhooks are not configured.' });
+  }
   const sig = req.headers['stripe-signature'] as string;
 
   let event: Stripe.Event;

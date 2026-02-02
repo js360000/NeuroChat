@@ -6,11 +6,14 @@ import { Server } from 'socket.io';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import jwt from 'jsonwebtoken';
 import routes from './routes/index.js';
 import webhooksRouter from './routes/webhooks.js';
+import { setIO } from './realtime.js';
+import { db } from './db/index.js';
 
 // Validate required environment variables
-const requiredEnvVars = ['JWT_SECRET', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET'];
+const requiredEnvVars = ['JWT_SECRET'];
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {
     console.error(`Missing required environment variable: ${envVar}`);
@@ -21,6 +24,12 @@ for (const envVar of requiredEnvVars) {
 // Warn if optional AI features are disabled
 if (!process.env.OPENAI_API_KEY) {
   console.warn('OPENAI_API_KEY not provided - AI features will be disabled');
+}
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.warn('STRIPE_SECRET_KEY not provided - payments will be disabled');
+}
+if (!process.env.STRIPE_WEBHOOK_SECRET) {
+  console.warn('STRIPE_WEBHOOK_SECRET not provided - webhooks will be disabled');
 }
 
 const app = express();
@@ -38,6 +47,13 @@ const io = new Server(httpServer, {
     methods: ['GET', 'POST'],
   },
 });
+setIO(io);
+
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret) {
+  console.error('Missing required environment variable: JWT_SECRET');
+  process.exit(1);
+}
 
 app.use(cors({
   origin: frontendUrl,
@@ -68,10 +84,36 @@ if (fs.existsSync(frontendDist)) {
   console.warn(`Frontend build not found at ${frontendDist}`);
 }
 
+io.use((socket, next) => {
+  const authToken = socket.handshake.auth?.token as string | undefined;
+  const header = socket.handshake.headers.authorization;
+  const headerToken = header?.toString().split(' ')[1];
+  const token = authToken || headerToken;
+
+  if (!token) {
+    return next(new Error('Unauthorized'));
+  }
+
+  try {
+    const decoded = jwt.verify(token, jwtSecret) as { id: string; email: string };
+    socket.data.userId = decoded.id;
+    socket.data.userEmail = decoded.email;
+    return next();
+  } catch {
+    return next(new Error('Unauthorized'));
+  }
+});
+
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
   socket.on('join', (conversationId: string) => {
+    const userId = socket.data.userId as string | undefined;
+    if (!userId) return;
+    const conversation = db.conversations.find((c) => c.id === conversationId);
+    if (!conversation || !conversation.participants.includes(userId)) {
+      return;
+    }
     socket.join(conversationId);
   });
 
@@ -79,12 +121,14 @@ io.on('connection', (socket) => {
     socket.leave(conversationId);
   });
 
-  socket.on('message', (data: { conversationId: string; message: unknown }) => {
-    io.to(data.conversationId).emit('message', data.message);
-  });
-
-  socket.on('typing', (data: { conversationId: string; userId: string }) => {
-    socket.to(data.conversationId).emit('typing', data.userId);
+  socket.on('typing', (data: { conversationId: string; isTyping: boolean }) => {
+    const userId = socket.data.userId as string | undefined;
+    if (!userId) return;
+    socket.to(data.conversationId).emit('typing', {
+      conversationId: data.conversationId,
+      userId,
+      isTyping: data.isTyping
+    });
   });
 
   socket.on('disconnect', () => {

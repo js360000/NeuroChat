@@ -5,7 +5,8 @@ import { db, findUserById } from '../db/index.js';
 
 const router = Router();
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
 
 // Map user IDs to Stripe customer IDs
 const userToStripeCustomer: Map<string, string> = new Map();
@@ -13,6 +14,9 @@ const userToStripeCustomer: Map<string, string> = new Map();
 // POST /checkout - Create Stripe Checkout session for subscription
 router.post('/checkout', authenticateToken, async (req: Request, res: Response) => {
   try {
+    if (!stripe) {
+      return res.status(503).json({ error: 'Payments are not configured yet.' });
+    }
     const userId = req.user!.id;
     const { plan, billing } = req.body;
 
@@ -88,6 +92,9 @@ router.post('/checkout', authenticateToken, async (req: Request, res: Response) 
 // GET /checkout/:sessionId - Verify completed checkout session
 router.get('/checkout/:sessionId', authenticateToken, async (req: Request, res: Response) => {
   try {
+    if (!stripe) {
+      return res.status(503).json({ error: 'Payments are not configured yet.' });
+    }
     const { sessionId } = req.params;
     const userId = req.user!.id;
 
@@ -124,6 +131,9 @@ router.get('/checkout/:sessionId', authenticateToken, async (req: Request, res: 
 // GET /subscription - Get current subscription status
 router.get('/subscription', authenticateToken, async (req: Request, res: Response) => {
   try {
+    if (!stripe) {
+      return res.status(503).json({ error: 'Payments are not configured yet.' });
+    }
     const userId = req.user!.id;
     const user = findUserById(userId);
 
@@ -159,6 +169,9 @@ router.get('/subscription', authenticateToken, async (req: Request, res: Respons
 // POST /portal - Create Stripe Customer Portal session
 router.post('/portal', authenticateToken, async (req: Request, res: Response) => {
   try {
+    if (!stripe) {
+      return res.status(503).json({ error: 'Payments are not configured yet.' });
+    }
     const userId = req.user!.id;
     const customerId = userToStripeCustomer.get(userId);
 
@@ -181,6 +194,9 @@ router.post('/portal', authenticateToken, async (req: Request, res: Response) =>
 // POST /cancel - Cancel subscription
 router.post('/cancel', authenticateToken, async (req: Request, res: Response) => {
   try {
+    if (!stripe) {
+      return res.status(503).json({ error: 'Payments are not configured yet.' });
+    }
     const userId = req.user!.id;
     const customerId = userToStripeCustomer.get(userId);
 
@@ -217,6 +233,9 @@ router.post('/cancel', authenticateToken, async (req: Request, res: Response) =>
 // GET /history - Get payment history from Stripe
 router.get('/history', authenticateToken, async (req: Request, res: Response) => {
   try {
+    if (!stripe) {
+      return res.status(503).json({ error: 'Payments are not configured yet.' });
+    }
     const userId = req.user!.id;
     const customerId = userToStripeCustomer.get(userId);
 

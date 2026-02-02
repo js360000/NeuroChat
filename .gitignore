@@ -3,5 +3,4 @@ dist/
 app/dist/
 neuronest-backend/dist/
 *.log
-.env
-.env.*
+

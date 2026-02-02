@@ -13,6 +13,9 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { MessagesPage } from './pages/MessagesPage';
+import { CommunityPage } from './pages/CommunityPage';
+import { BlogPage } from './pages/BlogPage';
+import { BlogPostPage } from './pages/BlogPostPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { MatchesPage } from './pages/MatchesPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -109,6 +112,21 @@ function App() {
             <Route path="/messages/:conversationId" element={
               <ProtectedRoute>
                 <MessagesPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/community" element={
+              <ProtectedRoute>
+                <CommunityPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/blog" element={
+              <ProtectedRoute>
+                <BlogPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/blog/:slug" element={
+              <ProtectedRoute>
+                <BlogPostPage />
               </ProtectedRoute>
             } />
             <Route path="/matches" element={

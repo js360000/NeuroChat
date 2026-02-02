@@ -57,6 +57,59 @@ export interface Message {
   readAt?: Date;
 }
 
+export interface BlogPost {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string;
+  content: string;
+  tags: string[];
+  coverImage?: string;
+  status: 'draft' | 'published';
+  authorId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  publishedAt?: Date;
+}
+
+export interface BlogComment {
+  id: string;
+  postId: string;
+  authorId: string;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CommunityPost {
+  id: string;
+  title?: string;
+  content: string;
+  tags: string[];
+  toneTag?: string;
+  contentWarning?: string;
+  authorId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CommunityComment {
+  id: string;
+  postId: string;
+  authorId: string;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CommunityReaction {
+  id: string;
+  postId: string;
+  userId: string;
+  type: 'like' | 'support' | 'insightful';
+  createdAt: Date;
+}
+
 export interface Like {
   id: string;
   fromUserId: string;
@@ -191,11 +244,67 @@ const seedUsers: User[] = [
   },
 ];
 
+const now = new Date();
+const seedBlogPosts: BlogPost[] = [
+  {
+    id: uuidv4(),
+    slug: 'welcome-to-neuronest',
+    title: 'Welcome to NeuroNest',
+    excerpt: 'Why we built a calmer, clearer social space for neurodivergent connection.',
+    content: `NeuroNest is built to reduce ambiguity, lower social friction, and create a safer space for connection.\n\nWe focus on clear communication tools like tone tags, gentle pacing, and transparent preferences so people can meet with less stress and more clarity.`,
+    tags: ['Product', 'Community'],
+    status: 'published',
+    authorId: seedUsers[0].id,
+    createdAt: now,
+    updatedAt: now,
+    publishedAt: now
+  },
+  {
+    id: uuidv4(),
+    slug: 'how-tone-tags-help',
+    title: 'How Tone Tags Help Conversations',
+    excerpt: 'A quick guide on tone tags and when to use them.',
+    content: `Tone tags make intent explicit. They help reduce misunderstandings in text-based communication and can make conversations feel safer.\n\nExamples include /j for joking, /srs for serious, and /nm for not mad.`,
+    tags: ['Guides', 'Accessibility'],
+    status: 'published',
+    authorId: seedUsers[1].id,
+    createdAt: now,
+    updatedAt: now,
+    publishedAt: now
+  }
+];
+
+const seedCommunityPosts: CommunityPost[] = [
+  {
+    id: uuidv4(),
+    title: 'Favorite ways to decompress after social time?',
+    content: 'After a long day of socializing, I like quiet music and a short walk. What helps you reset?',
+    tags: ['Self-care', 'Routines'],
+    authorId: seedUsers[2].id,
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: uuidv4(),
+    title: 'Looking for book recommendations',
+    content: 'Anyone have cozy sci-fi or fantasy recs?',
+    tags: ['Books', 'SpecialInterests'],
+    authorId: seedUsers[4].id,
+    createdAt: now,
+    updatedAt: now
+  }
+];
+
 export const db = {
   users: [...seedUsers],
   matches: [] as Match[],
   conversations: [] as Conversation[],
   messages: [] as Message[],
+  blogPosts: [...seedBlogPosts],
+  blogComments: [] as BlogComment[],
+  communityPosts: [...seedCommunityPosts],
+  communityComments: [] as CommunityComment[],
+  communityReactions: [] as CommunityReaction[],
   likes: [] as Like[],
   blocks: [] as Block[],
   reports: [] as Report[],

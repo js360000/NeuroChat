@@ -1,0 +1,227 @@
+import { Router, Request, Response } from 'express';
+import { v4 as uuidv4 } from 'uuid';
+import { authenticateToken } from '../middleware/auth.js';
+import {
+  db,
+  CommunityPost,
+  CommunityComment,
+  CommunityReaction,
+  findUserById
+} from '../db/index.js';
+
+const router = Router();
+
+function serializePost(post: CommunityPost) {
+  const author = findUserById(post.authorId);
+  const reactions = db.communityReactions.filter((r) => r.postId === post.id);
+  const commentCount = db.communityComments.filter((c) => c.postId === post.id).length;
+
+  const reactionCounts = reactions.reduce(
+    (acc, reaction) => {
+      acc[reaction.type] = (acc[reaction.type] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
+  return {
+    id: post.id,
+    title: post.title,
+    content: post.content,
+    tags: post.tags,
+    toneTag: post.toneTag,
+    contentWarning: post.contentWarning,
+    author: author
+      ? { id: author.id, name: author.name, avatar: author.avatar }
+      : { id: post.authorId, name: 'Unknown' },
+    createdAt: post.createdAt.toISOString(),
+    updatedAt: post.updatedAt.toISOString(),
+    reactionCounts,
+    commentCount
+  };
+}
+
+router.get('/', authenticateToken, (req: Request, res: Response) => {
+  const q = (req.query.q as string)?.toLowerCase();
+  const tag = (req.query.tag as string)?.toLowerCase();
+  const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
+  const offset = parseInt(req.query.offset as string) || 0;
+
+  let posts = [...db.communityPosts];
+  if (q) {
+    posts = posts.filter(
+      (post) =>
+        post.title?.toLowerCase().includes(q) ||
+        post.content.toLowerCase().includes(q)
+    );
+  }
+  if (tag) {
+    posts = posts.filter((post) => post.tags.some((t) => t.toLowerCase() === tag));
+  }
+
+  posts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+  const total = posts.length;
+  const results = posts.slice(offset, offset + limit).map(serializePost);
+  res.json({ posts: results, total });
+});
+
+router.get('/:id', authenticateToken, (req: Request, res: Response) => {
+  const post = db.communityPosts.find((p) => p.id === req.params.id);
+  if (!post) {
+    return res.status(404).json({ error: 'Post not found' });
+  }
+  res.json({ post: serializePost(post) });
+});
+
+router.post('/', authenticateToken, (req: Request, res: Response) => {
+  const { title, content, tags, toneTag, contentWarning } = req.body;
+  if (!content) {
+    return res.status(400).json({ error: 'Content is required' });
+  }
+
+  const now = new Date();
+  const post: CommunityPost = {
+    id: uuidv4(),
+    title,
+    content,
+    tags: Array.isArray(tags) ? tags : [],
+    toneTag,
+    contentWarning,
+    authorId: req.user!.id,
+    createdAt: now,
+    updatedAt: now
+  };
+
+  db.communityPosts.push(post);
+  res.status(201).json({ post: serializePost(post) });
+});
+
+router.patch('/:id', authenticateToken, (req: Request, res: Response) => {
+  const post = db.communityPosts.find((p) => p.id === req.params.id);
+  if (!post) {
+    return res.status(404).json({ error: 'Post not found' });
+  }
+  if (post.authorId !== req.user!.id) {
+    return res.status(403).json({ error: 'Not authorized' });
+  }
+
+  const { title, content, tags, toneTag, contentWarning } = req.body;
+  if (title !== undefined) post.title = title;
+  if (content !== undefined) post.content = content;
+  if (Array.isArray(tags)) post.tags = tags;
+  if (toneTag !== undefined) post.toneTag = toneTag;
+  if (contentWarning !== undefined) post.contentWarning = contentWarning;
+
+  post.updatedAt = new Date();
+  res.json({ post: serializePost(post) });
+});
+
+router.delete('/:id', authenticateToken, (req: Request, res: Response) => {
+  const index = db.communityPosts.findIndex((p) => p.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ error: 'Post not found' });
+  }
+  if (db.communityPosts[index].authorId !== req.user!.id) {
+    return res.status(403).json({ error: 'Not authorized' });
+  }
+  db.communityPosts.splice(index, 1);
+  res.json({ success: true });
+});
+
+router.get('/:id/comments', authenticateToken, (req: Request, res: Response) => {
+  const postId = req.params.id;
+  const comments = db.communityComments
+    .filter((c) => c.postId === postId)
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    .map((comment) => {
+      const author = findUserById(comment.authorId);
+      return {
+        id: comment.id,
+        content: comment.content,
+        author: author
+          ? { id: author.id, name: author.name, avatar: author.avatar }
+          : { id: comment.authorId, name: 'Unknown' },
+        createdAt: comment.createdAt.toISOString(),
+        updatedAt: comment.updatedAt.toISOString()
+      };
+    });
+
+  res.json({ comments });
+});
+
+router.post('/:id/comments', authenticateToken, (req: Request, res: Response) => {
+  const postId = req.params.id;
+  const post = db.communityPosts.find((p) => p.id === postId);
+  if (!post) {
+    return res.status(404).json({ error: 'Post not found' });
+  }
+  const { content } = req.body;
+  if (!content) {
+    return res.status(400).json({ error: 'Content is required' });
+  }
+  const now = new Date();
+  const comment: CommunityComment = {
+    id: uuidv4(),
+    postId,
+    authorId: req.user!.id,
+    content,
+    createdAt: now,
+    updatedAt: now
+  };
+  db.communityComments.push(comment);
+  const author = findUserById(comment.authorId);
+  res.status(201).json({
+    comment: {
+      id: comment.id,
+      content: comment.content,
+      author: author
+        ? { id: author.id, name: author.name, avatar: author.avatar }
+        : { id: comment.authorId, name: 'Unknown' },
+      createdAt: comment.createdAt.toISOString(),
+      updatedAt: comment.updatedAt.toISOString()
+    }
+  });
+});
+
+router.post('/:id/reactions', authenticateToken, (req: Request, res: Response) => {
+  const postId = req.params.id;
+  const post = db.communityPosts.find((p) => p.id === postId);
+  if (!post) {
+    return res.status(404).json({ error: 'Post not found' });
+  }
+
+  const type = (req.body.type as CommunityReaction['type']) || 'like';
+  const existing = db.communityReactions.find(
+    (reaction) =>
+      reaction.postId === postId &&
+      reaction.userId === req.user!.id &&
+      reaction.type === type
+  );
+
+  if (existing) {
+    db.communityReactions = db.communityReactions.filter((reaction) => reaction.id !== existing.id);
+  } else {
+    const reaction: CommunityReaction = {
+      id: uuidv4(),
+      postId,
+      userId: req.user!.id,
+      type,
+      createdAt: new Date()
+    };
+    db.communityReactions.push(reaction);
+  }
+
+  const reactions = db.communityReactions.filter((r) => r.postId === postId);
+  const reactionCounts = reactions.reduce(
+    (acc, reaction) => {
+      acc[reaction.type] = (acc[reaction.type] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
+  res.json({ reactionCounts });
+});
+
+export default router;

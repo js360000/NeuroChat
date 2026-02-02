@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { authenticateToken } from '../middleware/auth.js';
 import { db, findUserById } from '../db/index.js';
+import { getIO } from '../realtime.js';
 
 const router = Router();
 
@@ -133,21 +134,33 @@ router.post('/conversations/:conversationId', (req, res) => {
   db.messages.push(message);
   conversation.updatedAt = new Date();
   
-  res.json({
-    message: {
-      id: message.id,
-      content: message.content,
-      toneTag: message.toneTag,
-      sender: {
-        id: userId,
-        name: sender?.name || 'Unknown',
-        avatar: sender?.avatar
-      },
-      createdAt: message.createdAt,
-      readAt: message.readAt,
-      isMe: true
-    }
-  });
+  const formattedMessage = {
+    id: message.id,
+    conversationId,
+    content: message.content,
+    toneTag: message.toneTag,
+    sender: {
+      id: userId,
+      name: sender?.name || 'Unknown',
+      avatar: sender?.avatar
+    },
+    createdAt: message.createdAt,
+    readAt: message.readAt,
+    isMe: true
+  };
+
+  const io = getIO();
+  if (io) {
+    io.to(conversationId).emit('message', {
+      conversationId,
+      message: {
+        ...formattedMessage,
+        isMe: false
+      }
+    });
+  }
+
+  res.json({ message: formattedMessage });
 });
 
 // POST /conversations/:conversationId/read - Mark as read
@@ -169,7 +182,15 @@ router.post('/conversations/:conversationId/read', (req, res) => {
     .forEach(m => {
       m.readAt = new Date();
     });
-  
+
+  const io = getIO();
+  if (io) {
+    io.to(conversationId).emit('read', {
+      conversationId,
+      userId
+    });
+  }
+
   res.json({ success: true });
 });
 

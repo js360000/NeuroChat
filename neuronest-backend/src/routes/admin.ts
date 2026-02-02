@@ -4,7 +4,8 @@ import { authenticateToken } from '../middleware/auth.js';
 import { db, findUserById } from '../db/index.js';
 
 const router = Router();
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
 
 router.use(authenticateToken);
 
@@ -322,19 +323,28 @@ router.get('/integrations', async (req: Request, res: Response) => {
   const integrations = [];
 
   // Check Stripe connection
-  try {
-    await stripe.accounts.retrieve();
+  if (stripe) {
+    try {
+      await stripe.accounts.retrieve();
+      integrations.push({
+        id: 'stripe',
+        name: 'Stripe',
+        status: 'connected',
+        description: 'Payment processing'
+      });
+    } catch {
+      integrations.push({
+        id: 'stripe',
+        name: 'Stripe',
+        status: 'error',
+        description: 'Payment processing'
+      });
+    }
+  } else {
     integrations.push({
       id: 'stripe',
       name: 'Stripe',
-      status: 'connected',
-      description: 'Payment processing'
-    });
-  } catch {
-    integrations.push({
-      id: 'stripe',
-      name: 'Stripe',
-      status: process.env.STRIPE_SECRET_KEY ? 'error' : 'disconnected',
+      status: 'disconnected',
       description: 'Payment processing'
     });
   }
