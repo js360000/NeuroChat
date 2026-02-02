@@ -31,6 +31,14 @@ interface WorkflowSummary {
   active: boolean;
 }
 
+interface ScheduleEntry {
+  id: string;
+  channel: string;
+  title: string;
+  scheduledAt?: string;
+  caption?: string;
+}
+
 const CHANNELS = [
   { value: 'instagram', label: 'Instagram' },
   { value: 'facebook', label: 'Facebook' },
@@ -62,9 +70,11 @@ export function AdminAutomation() {
   const [config, setConfig] = useState<N8nConfig | null>(null);
   const [apiKeyDraft, setApiKeyDraft] = useState('');
   const [workflows, setWorkflows] = useState<WorkflowSummary[]>([]);
+  const [workflowBusy, setWorkflowBusy] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState('instagram');
+  const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
   const [payload, setPayload] = useState({
     title: '',
     caption: '',
@@ -111,6 +121,21 @@ export function AdminAutomation() {
     }
   };
 
+  const toggleWorkflow = async (workflow: WorkflowSummary, nextActive: boolean) => {
+    setWorkflowBusy((prev) => ({ ...prev, [workflow.id]: true }));
+    try {
+      await adminApi.setN8nWorkflowActive(workflow.id, nextActive);
+      setWorkflows((prev) =>
+        prev.map((item) => (item.id === workflow.id ? { ...item, active: nextActive } : item))
+      );
+      toast.success(`Workflow ${nextActive ? 'activated' : 'paused'}`);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || 'Failed to update workflow');
+    } finally {
+      setWorkflowBusy((prev) => ({ ...prev, [workflow.id]: false }));
+    }
+  };
+
   const saveConfig = async () => {
     if (!config) return;
     setIsSaving(true);
@@ -139,10 +164,42 @@ export function AdminAutomation() {
         channel: selectedChannel,
         payload
       });
+      setScheduleEntries((prev) => [
+        {
+          id: `${Date.now()}`,
+          channel: selectedChannel,
+          title: payload.title || TEMPLATE_COPY[selectedChannel].title,
+          scheduledAt: payload.scheduledAt || undefined,
+          caption: payload.caption || undefined
+        },
+        ...prev
+      ]);
       toast.success('Payload sent to n8n');
     } catch (error: any) {
       toast.error(error?.response?.data?.error || 'Failed to send payload');
     }
+  };
+
+  const calendarDays = useMemo(() => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    return Array.from({ length: 7 }, (_, index) => {
+      const day = new Date(start);
+      day.setDate(start.getDate() + index);
+      return day;
+    });
+  }, []);
+
+  const getEntriesForDay = (day: Date) => {
+    return scheduleEntries.filter((entry) => {
+      if (!entry.scheduledAt) return false;
+      const scheduled = new Date(entry.scheduledAt);
+      return (
+        scheduled.getFullYear() === day.getFullYear() &&
+        scheduled.getMonth() === day.getMonth() &&
+        scheduled.getDate() === day.getDate()
+      );
+    });
   };
 
   if (isLoading) {
@@ -256,9 +313,16 @@ export function AdminAutomation() {
                     <p className="font-medium">{workflow.name}</p>
                     <p className="text-xs text-neutral-500">ID {workflow.id}</p>
                   </div>
-                  <Badge className={workflow.active ? 'bg-green-100 text-green-700' : 'bg-neutral-100 text-neutral-600'}>
-                    {workflow.active ? 'Active' : 'Paused'}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge className={workflow.active ? 'bg-green-100 text-green-700' : 'bg-neutral-100 text-neutral-600'}>
+                      {workflow.active ? 'Active' : 'Paused'}
+                    </Badge>
+                    <Switch
+                      checked={workflow.active}
+                      disabled={workflowBusy[workflow.id]}
+                      onCheckedChange={(value) => toggleWorkflow(workflow, value)}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -355,6 +419,65 @@ export function AdminAutomation() {
                 </Button>
               </div>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Workflow className="w-5 h-5 text-primary" />
+            Campaign calendar
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid md:grid-cols-7 gap-2">
+            {calendarDays.map((day) => {
+              const entries = getEntriesForDay(day);
+              return (
+                <div key={day.toISOString()} className="border border-neutral-200 rounded-xl p-3 min-h-[140px]">
+                  <div className="text-xs font-medium text-neutral-500 mb-2">
+                    {day.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                  </div>
+                  <div className="space-y-2">
+                    {entries.length === 0 && (
+                      <p className="text-xs text-neutral-400">No scheduled posts</p>
+                    )}
+                    {entries.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="rounded-lg bg-primary/10 text-primary text-xs px-2 py-1"
+                      >
+                        {entry.title}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Queued items</p>
+            {scheduleEntries.length === 0 ? (
+              <p className="text-sm text-neutral-500">No payloads queued yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {scheduleEntries.slice(0, 6).map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="flex items-center justify-between border border-neutral-200 rounded-xl px-3 py-2"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{entry.title}</p>
+                      <p className="text-xs text-neutral-500">
+                        {entry.channel} {entry.scheduledAt ? `• ${entry.scheduledAt}` : '• Draft'}
+                      </p>
+                    </div>
+                    <Badge variant="secondary">{entry.channel}</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

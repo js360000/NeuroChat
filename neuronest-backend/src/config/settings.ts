@@ -45,5 +45,20 @@ export function getN8nConfig(): N8nConfig {
 
 export function updateN8nConfig(updates: Partial<N8nConfig>): N8nConfig {
   n8nConfig = { ...n8nConfig, ...updates };
+  if (updates.baseUrl !== undefined) {
+    process.env.N8N_BASE_URL = updates.baseUrl;
+  }
+  if (updates.apiKey !== undefined) {
+    process.env.N8N_API_KEY = updates.apiKey;
+  }
+  if (updates.apiVersion !== undefined) {
+    process.env.N8N_API_VERSION = String(updates.apiVersion);
+  }
+  if (updates.webhookUrl !== undefined) {
+    process.env.N8N_WEBHOOK_URL = updates.webhookUrl;
+  }
+  if (updates.enabled !== undefined) {
+    process.env.N8N_ENABLED = updates.enabled ? 'true' : 'false';
+  }
   return n8nConfig;
 }

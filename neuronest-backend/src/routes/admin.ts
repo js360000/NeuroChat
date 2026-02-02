@@ -21,6 +21,76 @@ function maskApiKey(key: string) {
   return `${key.slice(0, 3)}***${key.slice(-3)}`;
 }
 
+const ENV_ALLOWLIST = [
+  {
+    key: 'N8N_BASE_URL',
+    description: 'Base URL for n8n instance',
+    isSecret: false,
+    restartRequired: false
+  },
+  {
+    key: 'N8N_API_KEY',
+    description: 'n8n API key',
+    isSecret: true,
+    restartRequired: false
+  },
+  {
+    key: 'N8N_WEBHOOK_URL',
+    description: 'Default n8n webhook URL',
+    isSecret: false,
+    restartRequired: false
+  },
+  {
+    key: 'N8N_API_VERSION',
+    description: 'n8n API version',
+    isSecret: false,
+    restartRequired: false
+  },
+  {
+    key: 'N8N_ENABLED',
+    description: 'Enable n8n integration',
+    isSecret: false,
+    restartRequired: false
+  },
+  {
+    key: 'STRIPE_SECRET_KEY',
+    description: 'Stripe API secret key',
+    isSecret: true,
+    restartRequired: true
+  },
+  {
+    key: 'STRIPE_WEBHOOK_SECRET',
+    description: 'Stripe webhook signing secret',
+    isSecret: true,
+    restartRequired: true
+  },
+  {
+    key: 'OPENAI_API_KEY',
+    description: 'OpenAI API key',
+    isSecret: true,
+    restartRequired: true
+  },
+  {
+    key: 'FRONTEND_URL',
+    description: 'Frontend URL for redirects',
+    isSecret: false,
+    restartRequired: true
+  },
+  {
+    key: 'JWT_SECRET',
+    description: 'JWT signing secret',
+    isSecret: true,
+    restartRequired: true
+  }
+];
+
+function maskEnvValue(value: string, isSecret: boolean) {
+  if (!value) return '';
+  if (!isSecret) return value;
+  if (value.length <= 6) return '*'.repeat(value.length);
+  return `${value.slice(0, 3)}***${value.slice(-3)}`;
+}
+
 async function checkN8nConnection() {
   const config = getN8nConfig();
   if (!config.enabled || !config.baseUrl || !config.apiKey) {
@@ -606,6 +676,39 @@ router.patch('/n8n/config', (req: Request, res: Response) => {
   });
 });
 
+// POST /n8n/workflows/:id/activate - Toggle workflow active status
+router.post('/n8n/workflows/:id/activate', async (req: Request, res: Response) => {
+  const { baseUrl, apiKey, apiVersion, enabled } = getN8nConfig();
+  if (!enabled || !baseUrl || !apiKey) {
+    return res.status(400).json({ error: 'n8n is not configured' });
+  }
+  const active = req.body.active === true;
+  const action = active ? 'activate' : 'deactivate';
+  const url = `${normalizeBaseUrl(baseUrl)}/api/v${apiVersion}/workflows/${req.params.id}/${action}`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-N8N-API-KEY': apiKey
+      }
+    });
+    if (!response.ok) {
+      return res.status(response.status).json({ error: 'Failed to update workflow status' });
+    }
+    db.auditLogs.push({
+      id: uuidv4(),
+      actorId: req.user!.id,
+      action: `workflow_${action}`,
+      targetType: 'integration',
+      targetId: req.params.id,
+      createdAt: new Date()
+    });
+    res.json({ ok: true, active });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Failed to update workflow status' });
+  }
+});
+
 // GET /n8n/workflows - List workflows from n8n
 router.get('/n8n/workflows', async (req: Request, res: Response) => {
   const { baseUrl, apiKey, apiVersion, enabled } = getN8nConfig();
@@ -663,6 +766,70 @@ router.post('/n8n/trigger', async (req: Request, res: Response) => {
   } catch (error: any) {
     res.status(500).json({ error: error.message || 'Failed to trigger webhook' });
   }
+});
+
+// GET /env - view environment variables
+router.get('/env', (req: Request, res: Response) => {
+  const envVars = ENV_ALLOWLIST.map((entry) => {
+    const value = process.env[entry.key] || '';
+    return {
+      key: entry.key,
+      description: entry.description,
+      isSecret: entry.isSecret,
+      restartRequired: entry.restartRequired,
+      isSet: Boolean(value),
+      valueMasked: maskEnvValue(value, entry.isSecret)
+    };
+  });
+
+  res.json({ vars: envVars });
+});
+
+// PATCH /env - update environment variables
+router.patch('/env', (req: Request, res: Response) => {
+  const key = req.body.key as string;
+  const value = req.body.value as string | undefined;
+  const entry = ENV_ALLOWLIST.find((envVar) => envVar.key === key);
+
+  if (!entry) {
+    return res.status(400).json({ error: 'Unsupported environment variable' });
+  }
+
+  if (value === undefined) {
+    return res.status(400).json({ error: 'Missing value' });
+  }
+
+  if (value === '') {
+    delete process.env[key];
+  } else {
+    process.env[key] = value;
+  }
+
+  if (key.startsWith('N8N_')) {
+    const updates: Partial<ReturnType<typeof getN8nConfig>> = {};
+    if (key === 'N8N_BASE_URL') updates.baseUrl = value;
+    if (key === 'N8N_API_KEY') updates.apiKey = value;
+    if (key === 'N8N_API_VERSION') updates.apiVersion = Number(value) || 1;
+    if (key === 'N8N_WEBHOOK_URL') updates.webhookUrl = value;
+    if (key === 'N8N_ENABLED') updates.enabled = value === 'true';
+    updateN8nConfig(updates);
+  }
+
+  db.auditLogs.push({
+    id: uuidv4(),
+    actorId: req.user!.id,
+    action: 'update_env_var',
+    targetType: 'system',
+    metadata: { key },
+    createdAt: new Date()
+  });
+
+  res.json({
+    key,
+    valueMasked: maskEnvValue(process.env[key] || '', entry.isSecret),
+    isSet: Boolean(process.env[key]),
+    restartRequired: entry.restartRequired
+  });
 });
 
 // GET /integrations - Check real integration status

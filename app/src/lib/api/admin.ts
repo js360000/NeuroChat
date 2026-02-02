@@ -120,8 +120,23 @@ export const adminApi = {
     return api.get<{ workflows: any[] }>(`/admin/n8n/workflows${suffix}`);
   },
 
+  setN8nWorkflowActive: async (id: string, active: boolean) => {
+    return api.post(`/admin/n8n/workflows/${id}/activate`, { active });
+  },
+
   triggerN8nWebhook: async (payload: { event: string; channel: string; payload: any; webhookUrl?: string }) => {
     return api.post('/admin/n8n/trigger', payload);
+  },
+
+  getEnvVars: async () => {
+    return api.get<{ vars: any[] }>('/admin/env');
+  },
+
+  updateEnvVar: async (key: string, value: string) => {
+    return api.patch<{ key: string; valueMasked: string; isSet: boolean; restartRequired: boolean }>(
+      '/admin/env',
+      { key, value }
+    );
   },
 
   getReports: async (params?: { status?: string; targetType?: string }) => {
