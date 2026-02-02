@@ -7,6 +7,7 @@ import aiRouter from './ai.js';
 import adminRouter from './admin.js';
 import blogRouter from './blog.js';
 import communityRouter from './community.js';
+import pagesRouter from './pages.js';
 
 const router = Router();
 
@@ -18,6 +19,7 @@ router.use('/ai', aiRouter);
 router.use('/admin', adminRouter);
 router.use('/blog', blogRouter);
 router.use('/community', communityRouter);
+router.use('/pages', pagesRouter);
 
 // Health check
 router.get('/health', (req, res) => {

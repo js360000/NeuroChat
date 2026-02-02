@@ -325,6 +325,10 @@ export function LandingPage() {
             <Link to="/blog" className="hover:text-white">Blog</Link>
             <Link to="/community" className="hover:text-white">Community</Link>
             <Link to="/games" className="hover:text-white">Games</Link>
+            <Link to="/about" className="hover:text-white">About</Link>
+            <Link to="/contact" className="hover:text-white">Contact</Link>
+            <Link to="/terms" className="hover:text-white">Terms</Link>
+            <Link to="/privacy" className="hover:text-white">Privacy</Link>
           </div>
           <p className="text-neutral-400 text-sm">
             (c) 2025 NeuroNest. All rights reserved. Built with care for the ND community.

@@ -176,6 +176,18 @@ export const adminApi = {
     );
   },
 
+  getSitePages: async () => {
+    return api.get<{ pages: any[] }>('/admin/pages');
+  },
+
+  getSitePage: async (slug: string) => {
+    return api.get<{ page: any }>(`/admin/pages/${slug}`);
+  },
+
+  updateSitePage: async (slug: string, payload: { title?: string; summary?: string; body?: string }) => {
+    return api.patch<{ page: any }>(`/admin/pages/${slug}`, payload);
+  },
+
   getReports: async (params?: { status?: string; targetType?: string }) => {
     const query = new URLSearchParams();
     if (params?.status) query.append('status', params.status);

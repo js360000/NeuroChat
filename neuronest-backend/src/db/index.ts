@@ -179,6 +179,16 @@ export interface N8nWorkflowRun {
   triggeredBy: string;
 }
 
+export interface SitePage {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string;
+  body: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 const hashedPassword = bcrypt.hashSync('password123', 10);
 const adminPassword = bcrypt.hashSync('changethis!', 10);
 
@@ -368,6 +378,45 @@ const seedCommunityPosts: CommunityPost[] = [
   }
 ];
 
+const seedSitePages: SitePage[] = [
+  {
+    id: uuidv4(),
+    slug: 'about',
+    title: 'About NeuroNest',
+    summary: 'A calmer social space built with neurodivergent needs in mind.',
+    body: `NeuroNest exists to make social connection feel safer, clearer, and more joyful for neurodivergent adults.\n\nWe focus on clear communication tools, slower pacing, and supportive community features that reduce ambiguity and social strain.\n\nOur team is committed to listening, iterating with our community, and building features that support real life friendships, dating, and belonging.`,
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: uuidv4(),
+    slug: 'contact',
+    title: 'Contact Us',
+    summary: 'Questions, support, or partnership ideas? We are here to help.',
+    body: `Support email: support@neuronest.app\n\nPartnerships: partnerships@neuronest.app\n\nIf you need help with your account, include your email address and a short description of the issue.`,
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: uuidv4(),
+    slug: 'terms',
+    title: 'Terms of Use',
+    summary: 'Please review the terms that govern your use of NeuroNest.',
+    body: `By using NeuroNest, you agree to follow our community guidelines and respect other members.\n\nYou must be at least 18 years old to use the platform.\n\nWe reserve the right to suspend accounts that violate safety policies, abuse other users, or attempt fraud.\n\nThese terms may be updated as the platform evolves.`,
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: uuidv4(),
+    slug: 'privacy',
+    title: 'Privacy Policy',
+    summary: 'How we handle your data, and what you can control.',
+    body: `We collect only the data needed to operate NeuroNest and improve safety.\n\nYou control your profile visibility, and you can request deletion of your account at any time.\n\nWe do not sell personal data. Data is used to provide services, ensure safety, and improve the product.`,
+    createdAt: now,
+    updatedAt: now
+  }
+];
+
 export const db = {
   users: [...seedUsers],
   matches: [] as Match[],
@@ -385,6 +434,7 @@ export const db = {
   socialSchedules: [] as SocialScheduleEntry[],
   n8nWorkflowHooks: [] as N8nWorkflowHook[],
   n8nWorkflowRuns: [] as N8nWorkflowRun[],
+  sitePages: [...seedSitePages],
 };
 
 export function findUserByEmail(email: string): User | undefined {
@@ -454,4 +504,8 @@ export function updateUser(id: string, updates: Partial<User>): User | undefined
   if (!user) return undefined;
   Object.assign(user, updates, { updatedAt: new Date() });
   return user;
+}
+
+export function findSitePageBySlug(slug: string): SitePage | undefined {
+  return db.sitePages.find((page) => page.slug === slug);
 }

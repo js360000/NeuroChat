@@ -10,7 +10,8 @@ import {
   FileText,
   Loader2,
   Workflow,
-  Server
+  Server,
+  ScrollText
 } from 'lucide-react';
 import { adminApi, type DashboardStats } from '@/lib/api/admin';
 import { useAuthStore } from '@/lib/stores/auth';
@@ -25,6 +26,7 @@ import { AdminModeration } from './admin/Moderation';
 import { AdminContent } from './admin/Content';
 import { AdminAutomation } from './admin/Automation';
 import { AdminEnvironment } from './admin/Environment';
+import { AdminPages } from './admin/Pages';
 
 export function AdminPage() {
   const location = useLocation();
@@ -53,6 +55,7 @@ export function AdminPage() {
     { path: '/admin/payments', label: 'Payments', icon: CreditCard },
     { path: '/admin/moderation', label: 'Moderation', icon: Shield },
     { path: '/admin/content', label: 'Content', icon: FileText },
+    { path: '/admin/pages', label: 'Pages', icon: ScrollText },
     { path: '/admin/automation', label: 'Automation', icon: Workflow },
     { path: '/admin/environment', label: 'Environment', icon: Server },
     { path: '/admin/settings', label: 'Settings', icon: Settings },
@@ -124,6 +127,7 @@ export function AdminPage() {
           <Route path="/payments" element={<AdminPayments />} />
           <Route path="/moderation" element={<AdminModeration />} />
           <Route path="/content" element={<AdminContent />} />
+          <Route path="/pages" element={<AdminPages />} />
           <Route path="/automation" element={<AdminAutomation />} />
           <Route path="/environment" element={<AdminEnvironment />} />
           <Route path="/settings" element={<AdminSettings />} />

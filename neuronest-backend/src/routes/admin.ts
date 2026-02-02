@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import Stripe from 'stripe';
 import { authenticateToken, requireAdmin } from '../middleware/auth.js';
-import { db, findUserById } from '../db/index.js';
+import { db, findUserById, findSitePageBySlug } from '../db/index.js';
 import { v4 as uuidv4 } from 'uuid';
 import { getSettings, updateSettings, getN8nConfig, updateN8nConfig } from '../config/settings.js';
 
@@ -638,6 +638,70 @@ router.patch('/settings', (req: Request, res: Response) => {
   });
 
   res.json({ settings: next });
+});
+
+// GET /pages - list site pages
+router.get('/pages', (req: Request, res: Response) => {
+  const pages = db.sitePages.map((page) => ({
+    id: page.id,
+    slug: page.slug,
+    title: page.title,
+    summary: page.summary,
+    updatedAt: page.updatedAt.toISOString()
+  }));
+  res.json({ pages });
+});
+
+// GET /pages/:slug - get site page
+router.get('/pages/:slug', (req: Request, res: Response) => {
+  const page = findSitePageBySlug(req.params.slug);
+  if (!page) {
+    return res.status(404).json({ error: 'Page not found' });
+  }
+  res.json({
+    page: {
+      id: page.id,
+      slug: page.slug,
+      title: page.title,
+      summary: page.summary,
+      body: page.body,
+      updatedAt: page.updatedAt.toISOString()
+    }
+  });
+});
+
+// PATCH /pages/:slug - update site page content
+router.patch('/pages/:slug', (req: Request, res: Response) => {
+  const page = findSitePageBySlug(req.params.slug);
+  if (!page) {
+    return res.status(404).json({ error: 'Page not found' });
+  }
+
+  const { title, summary, body } = req.body;
+  if (typeof title === 'string') page.title = title;
+  if (typeof summary === 'string') page.summary = summary;
+  if (typeof body === 'string') page.body = body;
+  page.updatedAt = new Date();
+
+  db.auditLogs.push({
+    id: uuidv4(),
+    actorId: req.user!.id,
+    action: 'update_site_page',
+    targetType: 'system',
+    metadata: { slug: page.slug },
+    createdAt: new Date()
+  });
+
+  res.json({
+    page: {
+      id: page.id,
+      slug: page.slug,
+      title: page.title,
+      summary: page.summary,
+      body: page.body,
+      updatedAt: page.updatedAt.toISOString()
+    }
+  });
 });
 
 // GET /social/schedule - list scheduled social posts

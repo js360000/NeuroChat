@@ -18,6 +18,10 @@ import { BlogPage } from './pages/BlogPage';
 import { BlogPostPage } from './pages/BlogPostPage';
 import { CompareHikiPage } from './pages/CompareHikiPage';
 import { GamesPage } from './pages/GamesPage';
+import { AboutPage } from './pages/AboutPage';
+import { ContactPage } from './pages/ContactPage';
+import { TermsPage } from './pages/TermsPage';
+import { PrivacyPage } from './pages/PrivacyPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { MatchesPage } from './pages/MatchesPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -29,6 +33,7 @@ import { PaymentCancelPage } from './pages/PaymentCancelPage';
 // Stores
 import { useAuthStore } from './lib/stores/auth';
 import { applyA11ySettings, loadA11ySettings } from './lib/a11y';
+import { CookieConsent } from './components/CookieConsent';
 
 // Components
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -83,11 +88,16 @@ function App() {
     <BrowserRouter>
       <AppInitializer>
         <Toaster position="top-right" richColors />
+        <CookieConsent />
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/compare/hiki" element={<CompareHikiPage />} />
           <Route path="/games" element={<GamesPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
           
           {/* Auth Routes */}
           <Route element={<AuthLayout />}>
