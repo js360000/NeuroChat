@@ -7,18 +7,21 @@ import { Card, CardContent } from '@/components/ui/card';
 const FEATURES = [
   {
     icon: Brain,
+    image: '/ai_analysis_feature_illustration_1770055034329.png',
     title: 'AI Message Analysis',
     description: 'Click "Explain" on any message to get AI-powered insights on tone, hidden meanings, and suggested responses.',
     badge: 'Powered by Gemini'
   },
   {
     icon: MessageCircle,
+    image: '/tone_tags_illustration_1770055069365.png',
     title: 'Tone Tags',
     description: 'Add tone indicators like /j (joking), /srs (serious), /lh (light hearted) to make your intent crystal clear.',
     badge: '8 Tone Options'
   },
   {
     icon: Shield,
+    image: '/safe_verified_illustration_1770055050348.png',
     title: 'Safe & Verified',
     description: 'Multi-layer verification including ID checks, photo verification, and community moderation to keep you safe.',
     badge: 'Secure'
@@ -29,17 +32,20 @@ const TESTIMONIALS = [
   {
     quote: "The AI Explain feature is a game-changer! I no longer worry about misreading messages.",
     author: "Alex M.",
-    role: "Autistic & ADHD"
+    role: "Autistic & ADHD",
+    avatar: "/user_headshot_1_alex_1770055210671.png"
   },
   {
     quote: "Tone tags have made communication so much easier. No more awkward misunderstandings!",
     author: "Jordan K.",
-    role: "Autistic"
+    role: "Autistic",
+    avatar: "/user_headshot_2_jordan_1770055223957.png"
   },
   {
     quote: "I've made more genuine friends on NeuroNest in 3 months than in my entire life.",
     author: "Sam T.",
-    role: "ADHD"
+    role: "ADHD",
+    avatar: "/user_headshot_3_sam_1770055235874.png"
   }
 ];
 
@@ -88,54 +94,67 @@ export function LandingPage() {
       </nav>
 
       {/* Hero */}
-      <section className="pt-32 pb-20 px-4 bg-gradient-to-br from-primary/5 via-peach/30 to-primary/5">
-        <div className="max-w-6xl mx-auto text-center">
-          <Badge className="mb-6 bg-peach text-dark">
-            <Sparkles className="w-4 h-4 mr-1" />
-            Designed for the Neurodivergent Community
-          </Badge>
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-dark mb-6">
-            Find Your Perfect{' '}
-            <span className="text-gradient">Connection</span>
-          </h1>
-          <p className="text-lg text-neutral-500 max-w-2xl mx-auto mb-8">
-            A safe, understanding space where neurodivergent adults can find friendship, love, and community. 
-            Built by ND people, for ND people.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/register">
-              <Button size="lg" className="bg-primary hover:bg-primary-600 px-8">
-                Get Started Free
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-            </Link>
-            <Link to="/login">
-              <Button size="lg" variant="outline">
-                Already have an account?
-              </Button>
-            </Link>
-          </div>
-
-          {/* Social Proof */}
-          <div className="flex items-center justify-center gap-4 mt-12">
-            <div className="flex -space-x-2">
-              {[1, 2, 3, 4].map((i) => (
-                <div
-                  key={i}
-                  className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent-violet border-2 border-white"
-                />
-              ))}
+      <section className="pt-32 pb-20 px-4 bg-gradient-to-br from-primary/5 via-peach/30 to-primary/5 overflow-hidden">
+        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
+          <div className="text-left">
+            <Badge className="mb-6 bg-peach text-dark">
+              <Sparkles className="w-4 h-4 mr-1" />
+              Designed for the Neurodivergent Community
+            </Badge>
+            <h1 className="text-5xl lg:text-7xl font-bold text-dark mb-6 leading-tight">
+              Find Your Perfect{' '}
+              <span className="text-gradient">Connection</span>
+            </h1>
+            <p className="text-xl text-neutral-500 max-w-2xl mb-8 leading-relaxed">
+              A safe, understanding space where neurodivergent adults can find friendship, love, and community.
+              Built by ND people, for ND people.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Link to="/register">
+                <Button size="lg" className="bg-primary hover:bg-primary-600 px-8 text-lg h-14">
+                  Get Started Free
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </Link>
+              <Link to="/login">
+                <Button size="lg" variant="outline" className="text-lg h-14">
+                  Already a member?
+                </Button>
+              </Link>
             </div>
-            <div className="text-left">
-              <div className="flex">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+
+            {/* Social Proof */}
+            <div className="flex items-center gap-4 mt-12">
+              <div className="flex -space-x-3">
+                {TESTIMONIALS.map((t, i) => (
+                  <img
+                    key={i}
+                    src={t.avatar}
+                    alt={t.author}
+                    className="w-12 h-12 rounded-full border-4 border-white object-cover"
+                  />
                 ))}
               </div>
-              <p className="text-sm text-neutral-500">
-                From <span className="font-semibold">10,000+</span> happy members
-              </p>
+              <div className="text-left">
+                <div className="flex">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                  ))}
+                </div>
+                <p className="text-sm text-neutral-500">
+                  From <span className="font-semibold text-dark">10,000+</span> happy members
+                </p>
+              </div>
             </div>
+          </div>
+
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-accent-violet/20 rounded-3xl blur-3xl transform rotate-3 scale-95" />
+            <img
+              src="/landing_hero_neurodivergent_connection_1770055018741.png"
+              alt="Neurodivergent people connecting"
+              className="relative rounded-3xl shadow-glow border border-white/20 object-cover w-full h-[500px] lg:h-[600px] animate-in fade-in zoom-in duration-1000"
+            />
           </div>
         </div>
       </section>
@@ -152,14 +171,19 @@ export function LandingPage() {
 
           <div className="grid md:grid-cols-3 gap-8">
             {FEATURES.map((feature) => (
-              <Card key={feature.title} className="hover:shadow-card-hover transition-shadow">
+              <Card key={feature.title} className="hover:shadow-card-hover transition-all duration-300 group">
                 <CardContent className="p-6">
                   <Badge className="mb-4">{feature.badge}</Badge>
-                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
-                    <feature.icon className="w-6 h-6 text-primary" />
+                  <div className="relative mb-6">
+                    <div className="absolute inset-0 bg-primary/10 blur-xl rounded-full transform scale-75 group-hover:scale-100 transition-transform duration-500" />
+                    <img
+                      src={feature.image}
+                      alt={feature.title}
+                      className="relative w-32 h-32 mx-auto object-contain transform group-hover:scale-110 transition-transform duration-500"
+                    />
                   </div>
                   <h3 className="text-xl font-bold mb-2">{feature.title}</h3>
-                  <p className="text-neutral-500">{feature.description}</p>
+                  <p className="text-neutral-500 leading-relaxed">{feature.description}</p>
                 </CardContent>
               </Card>
             ))}
@@ -176,17 +200,24 @@ export function LandingPage() {
 
           <div className="grid md:grid-cols-3 gap-6">
             {TESTIMONIALS.map((testimonial) => (
-              <Card key={testimonial.author}>
+              <Card key={testimonial.author} className="hover:shadow-card transition-shadow">
                 <CardContent className="p-6">
                   <div className="flex mb-4">
                     {[1, 2, 3, 4, 5].map((i) => (
-                      <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                      <Star key={i} className="w-3 h-3 fill-yellow-400 text-yellow-400" />
                     ))}
                   </div>
-                  <p className="text-neutral-600 mb-4">"{testimonial.quote}"</p>
-                  <div>
-                    <p className="font-semibold">{testimonial.author}</p>
-                    <p className="text-sm text-neutral-500">{testimonial.role}</p>
+                  <p className="text-neutral-600 mb-6 italic leading-relaxed">"{testimonial.quote}"</p>
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={testimonial.avatar}
+                      alt={testimonial.author}
+                      className="w-12 h-12 rounded-full object-cover border-2 border-primary/20"
+                    />
+                    <div>
+                      <p className="font-bold text-dark">{testimonial.author}</p>
+                      <p className="text-xs text-neutral-500">{testimonial.role}</p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -230,11 +261,10 @@ export function LandingPage() {
                   </ul>
                   <Link to="/register" className="block">
                     <Button
-                      className={`w-full ${
-                        plan.featured
+                      className={`w-full ${plan.featured
                           ? 'bg-primary hover:bg-primary-600'
                           : 'bg-neutral-100 hover:bg-neutral-200 text-dark'
-                      }`}
+                        }`}
                     >
                       Get Started
                     </Button>

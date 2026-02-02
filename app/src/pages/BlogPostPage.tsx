@@ -71,6 +71,15 @@ export function BlogPostPage() {
         Back to blog
       </Link>
 
+      <div className="relative overflow-hidden rounded-2xl border border-neutral-200">
+        <img
+          src="/blog_header_neural_pathways_1770055085954.png"
+          alt="Neural pathways"
+          className="h-48 w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/10 to-black/60" />
+      </div>
+
       <div className="space-y-3">
         <div className="flex flex-wrap gap-2">
           {post.tags.map((tag) => (

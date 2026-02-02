@@ -149,11 +149,30 @@ export function CommunityPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="max-w-6xl mx-auto p-6 space-y-12">
+      {/* Community Hero Header */}
+      <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-accent-violet to-primary text-white h-[250px] flex flex-col items-center justify-center text-center p-8">
+        <img
+          src="/safe_verified_illustration_1770055050348.png"
+          alt="Safe community illustration"
+          className="absolute -right-6 top-6 w-44 opacity-30 sm:w-56"
+        />
+        <div className="relative z-10 space-y-4">
+          <Badge className="bg-white/20 backdrop-blur-md text-white border-white/30 px-4 py-1">
+            <Sparkles className="w-4 h-4 mr-2" />
+            NeuroNest Community
+          </Badge>
+          <h1 className="text-4xl font-bold tracking-tight">Your Safe Space to <span className="text-peach">Belong</span></h1>
+          <p className="text-white/80 max-w-xl mx-auto text-lg leading-relaxed">
+            Connect with people who get it. Share your world, ask questions, and find your people.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between px-2">
         <div>
-          <h1 className="text-2xl font-bold">Community Feed</h1>
-          <p className="text-sm text-neutral-500">Share updates, ask questions, and connect.</p>
+          <h2 className="text-2xl font-bold">Community Feed</h2>
+          <p className="text-sm text-neutral-500 italic">Real connections, zero judgment.</p>
         </div>
       </div>
 

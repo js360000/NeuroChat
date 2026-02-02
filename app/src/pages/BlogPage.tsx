@@ -19,6 +19,7 @@ function isAdminEmail(email?: string) {
 
 export function BlogPage() {
   const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin' || isAdminEmail(user?.email);
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -105,8 +106,6 @@ export function BlogPage() {
     }
   };
 
-  const isAdmin = user?.role === 'admin' || isAdminEmail(user?.email);
-
   useEffect(() => {
     if (isAdmin) {
       setStatusFilter('all');
@@ -119,7 +118,7 @@ export function BlogPage() {
       <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-primary to-accent-violet text-white h-[300px] flex flex-col items-center justify-center text-center p-8">
         <div className="absolute inset-0">
           <img
-            src="/blog-header.png"
+            src="/blog_header_neural_pathways_1770055085954.png"
             alt="Neural Pathways"
             className="w-full h-full object-cover mix-blend-overlay opacity-50"
           />
