@@ -141,7 +141,7 @@ export interface AuditLog {
   id: string;
   actorId: string;
   action: string;
-  targetType: 'user' | 'community_post' | 'report' | 'system';
+  targetType: 'user' | 'community_post' | 'report' | 'system' | 'integration';
   targetId?: string;
   metadata?: Record<string, unknown>;
   createdAt: Date;

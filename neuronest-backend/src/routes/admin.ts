@@ -3,13 +3,44 @@ import Stripe from 'stripe';
 import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 import { db, findUserById } from '../db/index.js';
 import { v4 as uuidv4 } from 'uuid';
-import { getSettings, updateSettings } from '../config/settings.js';
+import { getSettings, updateSettings, getN8nConfig, updateN8nConfig } from '../config/settings.js';
 
 const router = Router();
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
 
 router.use(authenticateToken, requireAdmin);
+
+function normalizeBaseUrl(url: string) {
+  return url.replace(/\/+$/, '');
+}
+
+function maskApiKey(key: string) {
+  if (!key) return '';
+  if (key.length <= 6) return `${'*'.repeat(key.length)}`;
+  return `${key.slice(0, 3)}***${key.slice(-3)}`;
+}
+
+async function checkN8nConnection() {
+  const config = getN8nConfig();
+  if (!config.enabled || !config.baseUrl || !config.apiKey) {
+    return { status: 'disconnected' as const };
+  }
+  const url = `${normalizeBaseUrl(config.baseUrl)}/api/v${config.apiVersion}/workflows?limit=1`;
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'X-N8N-API-KEY': config.apiKey
+      }
+    });
+    if (!response.ok) {
+      return { status: 'error' as const };
+    }
+    return { status: 'connected' as const };
+  } catch {
+    return { status: 'error' as const };
+  }
+}
 
 
 // GET /overview - Dashboard stats from real data
@@ -518,6 +549,122 @@ router.patch('/settings', (req: Request, res: Response) => {
   res.json({ settings: next });
 });
 
+// GET /n8n/config - Get n8n configuration (masked)
+router.get('/n8n/config', (req: Request, res: Response) => {
+  const config = getN8nConfig();
+  res.json({
+    config: {
+      baseUrl: config.baseUrl,
+      apiVersion: config.apiVersion,
+      webhookUrl: config.webhookUrl,
+      enabled: config.enabled,
+      apiKeyMasked: maskApiKey(config.apiKey)
+    }
+  });
+});
+
+// PATCH /n8n/config - Update n8n configuration
+router.patch('/n8n/config', (req: Request, res: Response) => {
+  const allowedKeys: (keyof ReturnType<typeof getN8nConfig>)[] = [
+    'baseUrl', 'apiKey', 'apiVersion', 'webhookUrl', 'enabled'
+  ];
+
+  const updates: Partial<ReturnType<typeof getN8nConfig>> = {};
+  for (const key of allowedKeys) {
+    if (req.body[key] !== undefined) {
+      (updates as any)[key] = req.body[key];
+    }
+  }
+
+  if (typeof updates.apiKey === 'string' && updates.apiKey.trim() === '') {
+    delete updates.apiKey;
+  }
+
+  const next = updateN8nConfig(updates);
+  db.auditLogs.push({
+    id: uuidv4(),
+    actorId: req.user!.id,
+    action: 'update_n8n_config',
+    targetType: 'integration',
+    metadata: {
+      baseUrl: next.baseUrl,
+      apiVersion: next.apiVersion,
+      webhookUrl: next.webhookUrl,
+      enabled: next.enabled
+    },
+    createdAt: new Date()
+  });
+
+  res.json({
+    config: {
+      baseUrl: next.baseUrl,
+      apiVersion: next.apiVersion,
+      webhookUrl: next.webhookUrl,
+      enabled: next.enabled,
+      apiKeyMasked: maskApiKey(next.apiKey)
+    }
+  });
+});
+
+// GET /n8n/workflows - List workflows from n8n
+router.get('/n8n/workflows', async (req: Request, res: Response) => {
+  const { baseUrl, apiKey, apiVersion, enabled } = getN8nConfig();
+  if (!enabled || !baseUrl || !apiKey) {
+    return res.status(400).json({ error: 'n8n is not configured' });
+  }
+  const active = req.query.active as string | undefined;
+  const query = active ? `?active=${active}` : '';
+  const url = `${normalizeBaseUrl(baseUrl)}/api/v${apiVersion}/workflows${query}`;
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'X-N8N-API-KEY': apiKey
+      }
+    });
+    if (!response.ok) {
+      return res.status(response.status).json({ error: 'Failed to fetch workflows' });
+    }
+    const data = await response.json();
+    res.json({ workflows: data?.data ?? data });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Failed to fetch workflows' });
+  }
+});
+
+// POST /n8n/trigger - Send payload to a configured n8n webhook
+router.post('/n8n/trigger', async (req: Request, res: Response) => {
+  const { webhookUrl } = getN8nConfig();
+  const targetUrl = (req.body.webhookUrl as string) || webhookUrl;
+  if (!targetUrl) {
+    return res.status(400).json({ error: 'No webhook URL configured' });
+  }
+  const payload = {
+    event: req.body.event || 'social_schedule',
+    channel: req.body.channel || 'generic',
+    payload: req.body.payload || {},
+    source: 'neuronest-admin',
+    createdAt: new Date().toISOString()
+  };
+  try {
+    const response = await fetch(targetUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    db.auditLogs.push({
+      id: uuidv4(),
+      actorId: req.user!.id,
+      action: 'trigger_n8n_webhook',
+      targetType: 'integration',
+      metadata: { event: payload.event, channel: payload.channel },
+      createdAt: new Date()
+    });
+    res.json({ ok: response.ok, status: response.status });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Failed to trigger webhook' });
+  }
+});
+
 // GET /integrations - Check real integration status
 router.get('/integrations', async (req: Request, res: Response) => {
   const integrations = [];
@@ -555,6 +702,14 @@ router.get('/integrations', async (req: Request, res: Response) => {
     name: 'OpenAI',
     status: process.env.OPENAI_API_KEY ? 'connected' : 'disconnected',
     description: 'AI message explanations'
+  });
+
+  const n8nStatus = await checkN8nConnection();
+  integrations.push({
+    id: 'n8n',
+    name: 'n8n',
+    status: n8nStatus.status,
+    description: 'Social scheduling & automation workflows'
   });
 
   res.json({ integrations });

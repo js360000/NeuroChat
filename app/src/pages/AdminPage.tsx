@@ -8,7 +8,8 @@ import {
   LogOut,
   Shield,
   FileText,
-  Loader2
+  Loader2,
+  Workflow
 } from 'lucide-react';
 import { adminApi, type DashboardStats } from '@/lib/api/admin';
 import { useAuthStore } from '@/lib/stores/auth';
@@ -21,6 +22,7 @@ import { AdminPayments } from './admin/Payments';
 import { AdminSettings } from './admin/Settings';
 import { AdminModeration } from './admin/Moderation';
 import { AdminContent } from './admin/Content';
+import { AdminAutomation } from './admin/Automation';
 
 export function AdminPage() {
   const location = useLocation();
@@ -49,6 +51,7 @@ export function AdminPage() {
     { path: '/admin/payments', label: 'Payments', icon: CreditCard },
     { path: '/admin/moderation', label: 'Moderation', icon: Shield },
     { path: '/admin/content', label: 'Content', icon: FileText },
+    { path: '/admin/automation', label: 'Automation', icon: Workflow },
     { path: '/admin/settings', label: 'Settings', icon: Settings },
   ];
 
@@ -118,6 +121,7 @@ export function AdminPage() {
           <Route path="/payments" element={<AdminPayments />} />
           <Route path="/moderation" element={<AdminModeration />} />
           <Route path="/content" element={<AdminContent />} />
+          <Route path="/automation" element={<AdminAutomation />} />
           <Route path="/settings" element={<AdminSettings />} />
         </Routes>
       </main>

@@ -105,6 +105,25 @@ export const adminApi = {
     return api.get<{ integrations: any[] }>('/admin/integrations');
   },
 
+  getN8nConfig: async () => {
+    return api.get<{ config: any }>('/admin/n8n/config');
+  },
+
+  updateN8nConfig: async (config: any) => {
+    return api.patch<{ config: any }>('/admin/n8n/config', config);
+  },
+
+  getN8nWorkflows: async (params?: { active?: boolean }) => {
+    const query = new URLSearchParams();
+    if (params?.active !== undefined) query.append('active', String(params.active));
+    const suffix = query.toString() ? `?${query}` : '';
+    return api.get<{ workflows: any[] }>(`/admin/n8n/workflows${suffix}`);
+  },
+
+  triggerN8nWebhook: async (payload: { event: string; channel: string; payload: any; webhookUrl?: string }) => {
+    return api.post('/admin/n8n/trigger', payload);
+  },
+
   getReports: async (params?: { status?: string; targetType?: string }) => {
     const query = new URLSearchParams();
     if (params?.status) query.append('status', params.status);
