@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom';
+import { useEffect } from 'react';
 import { Heart, Brain, MessageCircle, Shield, Sparkles, Star, ArrowRight, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { applySeo } from '@/lib/seo';
 
 const FEATURES = [
   {
@@ -69,6 +71,16 @@ const PLANS = [
 ];
 
 export function LandingPage() {
+  useEffect(() => {
+    applySeo({
+      title: 'NeuroNest — Neurodivergent Dating, Friendship & Community',
+      description:
+        'NeuroNest is a neurodivergent-first platform for dating, friendship, and community. Clear communication tools, safety-first design, and a welcoming community.',
+      canonical: 'https://arcane-waters-46868-5bf57db34e8e.herokuapp.com/',
+      ogImage: '/landing_hero_neurodivergent_connection_1770055018741.png'
+    });
+  }, []);
+
   return (
     <div className="min-h-screen">
       {/* Navigation */}
@@ -302,6 +314,11 @@ export function LandingPage() {
               <Heart className="w-4 h-4 text-white" />
             </div>
             <span className="text-lg font-bold">NeuroNest</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-4 text-sm text-neutral-300 mb-3">
+            <Link to="/compare/hiki" className="hover:text-white">Hiki Alternative</Link>
+            <Link to="/blog" className="hover:text-white">Blog</Link>
+            <Link to="/community" className="hover:text-white">Community</Link>
           </div>
           <p className="text-neutral-400 text-sm">
             © 2025 NeuroNest. All rights reserved. Built with 💜 for the ND community.

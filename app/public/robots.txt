@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://arcane-waters-46868-5bf57db34e8e.herokuapp.com/sitemap.xml

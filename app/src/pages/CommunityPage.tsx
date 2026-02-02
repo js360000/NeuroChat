@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ContentWarningDialog } from '@/components/ContentWarningDialog';
 import { communityApi, type CommunityPost, type CommunityComment } from '@/lib/api/community';
 import { scanTextForWarnings } from '@/lib/safety';
+import { applySeo } from '@/lib/seo';
 import { toast } from 'sonner';
 
 export function CommunityPage() {
@@ -48,6 +49,16 @@ export function CommunityPage() {
 
   useEffect(() => {
     loadFeed();
+  }, []);
+
+  useEffect(() => {
+    applySeo({
+      title: 'NeuroNest Community — Safe Neurodivergent Space',
+      description:
+        'Join the NeuroNest community feed to share experiences, ask questions, and connect with neurodivergent peers.',
+      canonical: 'https://arcane-waters-46868-5bf57db34e8e.herokuapp.com/community',
+      ogImage: '/safe_verified_illustration_1770055050348.png'
+    });
   }, []);
 
   const handleCreatePost = async () => {

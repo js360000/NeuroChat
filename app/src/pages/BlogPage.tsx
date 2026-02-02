@@ -10,6 +10,7 @@ import { ContentWarningDialog } from '@/components/ContentWarningDialog';
 import { blogApi, type BlogPost } from '@/lib/api/blog';
 import { useAuthStore } from '@/lib/stores/auth';
 import { scanTextForWarnings } from '@/lib/safety';
+import { applySeo } from '@/lib/seo';
 import { toast } from 'sonner';
 
 function isAdminEmail(email?: string) {
@@ -56,6 +57,16 @@ export function BlogPage() {
 
   useEffect(() => {
     loadPosts();
+  }, []);
+
+  useEffect(() => {
+    applySeo({
+      title: 'NeuroNest Blog — Guides & Stories',
+      description:
+        'Read NeuroNest blog posts on neurodivergent dating, communication tools, and community stories.',
+      canonical: 'https://arcane-waters-46868-5bf57db34e8e.herokuapp.com/blog',
+      ogImage: '/blog_header_neural_pathways_1770055085954.png'
+    });
   }, []);
 
   useEffect(() => {

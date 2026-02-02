@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ContentWarningDialog } from '@/components/ContentWarningDialog';
 import { blogApi, type BlogPost, type BlogComment } from '@/lib/api/blog';
 import { scanTextForWarnings } from '@/lib/safety';
+import { applySeo } from '@/lib/seo';
 import { toast } from 'sonner';
 
 export function BlogPostPage() {
@@ -37,6 +38,16 @@ export function BlogPostPage() {
   useEffect(() => {
     loadPost();
   }, [slug]);
+
+  useEffect(() => {
+    if (!post) return;
+    applySeo({
+      title: `${post.title} — NeuroNest Blog`,
+      description: post.excerpt || 'Read the latest NeuroNest blog post.',
+      canonical: `https://arcane-waters-46868-5bf57db34e8e.herokuapp.com/blog/${post.slug}`,
+      ogImage: '/blog_header_neural_pathways_1770055085954.png'
+    });
+  }, [post]);
 
   const handleAddComment = async () => {
     if (!post || !newComment.trim()) return;
