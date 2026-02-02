@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import Stripe from 'stripe';
 import { authenticateToken, requireAdmin } from '../middleware/auth.js';
-import { db, findUserById, findSitePageBySlug } from '../db/index.js';
+import { db, findUserById, findSitePageBySlug, persistDb } from '../db/index.js';
 import { v4 as uuidv4 } from 'uuid';
 import { getSettings, updateSettings, getN8nConfig, updateN8nConfig } from '../config/settings.js';
 
@@ -702,6 +702,7 @@ router.patch('/pages/:slug', (req: Request, res: Response) => {
       updatedAt: page.updatedAt.toISOString()
     }
   });
+  persistDb();
 });
 
 // GET /social/schedule - list scheduled social posts
@@ -771,6 +772,7 @@ router.post('/social/schedule', (req: Request, res: Response) => {
   });
 
   res.json({ schedule: { ...entry, createdAt: entry.createdAt.toISOString(), updatedAt: entry.updatedAt.toISOString() } });
+  persistDb();
 });
 
 // PATCH /social/schedule/:id - update schedule status
@@ -789,6 +791,7 @@ router.patch('/social/schedule/:id', (req: Request, res: Response) => {
   entry.updatedAt = new Date();
 
   res.json({ schedule: { ...entry, createdAt: entry.createdAt.toISOString(), updatedAt: entry.updatedAt.toISOString() } });
+  persistDb();
 });
 
 // GET /n8n/config - Get n8n configuration (masked)
@@ -881,6 +884,7 @@ router.patch('/n8n/workflows/:id/hook', (req: Request, res: Response) => {
       updatedAt: hook.updatedAt.toISOString()
     }
   });
+  persistDb();
 });
 
 // POST /n8n/workflows/:id/run - Trigger workflow webhook
@@ -915,6 +919,7 @@ router.post('/n8n/workflows/:id/run', async (req: Request, res: Response) => {
       triggeredAt: new Date(),
       triggeredBy: req.user!.id
     });
+    persistDb();
 
     res.json({ ok: response.ok, status: response.status });
   } catch (error: any) {
@@ -927,6 +932,7 @@ router.post('/n8n/workflows/:id/run', async (req: Request, res: Response) => {
       triggeredAt: new Date(),
       triggeredBy: req.user!.id
     });
+    persistDb();
     res.status(500).json({ error: error.message || 'Failed to run workflow' });
   }
 });
@@ -1049,6 +1055,7 @@ router.post('/n8n/trigger', async (req: Request, res: Response) => {
       createdAt: new Date()
     });
     res.json({ ok: response.ok, status: response.status });
+    persistDb();
   } catch (error: any) {
     res.status(500).json({ error: error.message || 'Failed to trigger webhook' });
   }

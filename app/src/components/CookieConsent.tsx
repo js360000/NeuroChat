@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { consentApi } from '@/lib/api/consent';
 
 const STORAGE_KEY = 'neuronest_cookie_consent';
 
@@ -25,13 +26,18 @@ export function CookieConsent() {
     }
   }, []);
 
-  const saveConsent = (next: ConsentState) => {
+  const saveConsent = async (next: ConsentState) => {
     const payload = {
       ...next,
       timestamp: new Date().toISOString()
     };
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     setIsOpen(false);
+    try {
+      await consentApi.logConsent({ analytics: next.analytics, marketing: next.marketing });
+    } catch {
+      // Best-effort logging
+    }
   };
 
   if (!isOpen) return null;

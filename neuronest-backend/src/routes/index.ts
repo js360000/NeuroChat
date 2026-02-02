@@ -8,6 +8,7 @@ import adminRouter from './admin.js';
 import blogRouter from './blog.js';
 import communityRouter from './community.js';
 import pagesRouter from './pages.js';
+import consentRouter from './consent.js';
 
 const router = Router();
 
@@ -20,6 +21,7 @@ router.use('/admin', adminRouter);
 router.use('/blog', blogRouter);
 router.use('/community', communityRouter);
 router.use('/pages', pagesRouter);
+router.use('/consent', consentRouter);
 
 // Health check
 router.get('/health', (req, res) => {

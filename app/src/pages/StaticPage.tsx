@@ -85,7 +85,7 @@ export function StaticPage({ slug }: StaticPageProps) {
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-neutral-50">
+    <div className="min-h-[calc(100vh-4rem)] bg-background">
       <div className="max-w-4xl mx-auto px-6 py-12 space-y-6">
         <div className="space-y-3">
           <Badge className="bg-primary/10 text-primary">{page.slug.toUpperCase()}</Badge>
@@ -93,7 +93,7 @@ export function StaticPage({ slug }: StaticPageProps) {
           <p className="text-neutral-500 text-lg">{page.summary}</p>
         </div>
 
-        <Card className="border border-neutral-200">
+        <Card className="border border-border">
           <CardContent className="p-6 space-y-4">{content}</CardContent>
         </Card>
       </div>
