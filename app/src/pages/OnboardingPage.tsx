@@ -61,6 +61,8 @@ const GOAL_OPTIONS = [
 ];
 
 const STEP_TITLES = ['Calm your space', 'Communication style', 'Identity & goals'];
+const PACE_OPTIONS: Array<'slow' | 'balanced' | 'fast'> = ['slow', 'balanced', 'fast'];
+const DIRECTNESS_OPTIONS: Array<'gentle' | 'direct'> = ['gentle', 'direct'];
 
 export function OnboardingPage() {
   const navigate = useNavigate();
@@ -300,7 +302,7 @@ export function OnboardingPage() {
                 <div className="space-y-3">
                   <p className="text-sm font-medium text-neutral-600">Response pace</p>
                   <div className="flex flex-wrap gap-2">
-                    {['slow', 'balanced', 'fast'].map((pace) => (
+                    {PACE_OPTIONS.map((pace) => (
                       <Button
                         key={pace}
                         type="button"
@@ -317,7 +319,7 @@ export function OnboardingPage() {
                 <div className="space-y-3">
                   <p className="text-sm font-medium text-neutral-600">Directness</p>
                   <div className="flex flex-wrap gap-2">
-                    {['gentle', 'direct'].map((tone) => (
+                    {DIRECTNESS_OPTIONS.map((tone) => (
                       <Button
                         key={tone}
                         type="button"
