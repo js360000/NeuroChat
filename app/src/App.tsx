@@ -34,6 +34,8 @@ import { PaymentCancelPage } from './pages/PaymentCancelPage';
 import { useAuthStore } from './lib/stores/auth';
 import { applyA11ySettings, loadA11ySettings } from './lib/a11y';
 import { CookieConsent } from './components/CookieConsent';
+import { PwaInstallPrompt } from './components/PwaInstallPrompt';
+import { OfflineNotice } from './components/OfflineNotice';
 
 // Components
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -89,6 +91,8 @@ function App() {
       <AppInitializer>
         <Toaster position="top-right" richColors />
         <CookieConsent />
+        <OfflineNotice />
+        <PwaInstallPrompt />
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />

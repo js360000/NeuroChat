@@ -10,7 +10,7 @@ import jwt from 'jsonwebtoken';
 import routes from './routes/index.js';
 import webhooksRouter from './routes/webhooks.js';
 import { setIO } from './realtime.js';
-import { db } from './db/index.js';
+import { db, initPersistence } from './db/index.js';
 
 // Validate required environment variables
 const requiredEnvVars = ['JWT_SECRET'];
@@ -31,6 +31,8 @@ if (!process.env.STRIPE_SECRET_KEY) {
 if (!process.env.STRIPE_WEBHOOK_SECRET) {
   console.warn('STRIPE_WEBHOOK_SECRET not provided - webhooks will be disabled');
 }
+
+await initPersistence();
 
 const app = express();
 const httpServer = createServer(app);

@@ -318,6 +318,19 @@ export function SettingsPage() {
               </Button>
             </div>
 
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-medium">Cookie preferences</p>
+                <p className="text-sm text-neutral-500">Review and update your consent choices.</p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => window.dispatchEvent(new Event('neuronest:open-consent'))}
+              >
+                Manage cookies
+              </Button>
+            </div>
+
             <div className="rounded-xl border border-red-200 bg-red-50/40 p-4 space-y-3">
               <div>
                 <p className="font-medium text-red-700">Delete account</p>

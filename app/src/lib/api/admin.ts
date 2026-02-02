@@ -188,6 +188,20 @@ export const adminApi = {
     return api.patch<{ page: any }>(`/admin/pages/${slug}`, payload);
   },
 
+  getConsentLogs: async (params?: { limit?: number; offset?: number; analytics?: string; marketing?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.limit) query.append('limit', String(params.limit));
+    if (params?.offset) query.append('offset', String(params.offset));
+    if (params?.analytics) query.append('analytics', params.analytics);
+    if (params?.marketing) query.append('marketing', params.marketing);
+    const suffix = query.toString() ? `?${query}` : '';
+    return api.get<{ logs: any[]; total: number }>(`/admin/consent${suffix}`);
+  },
+
+  exportConsentLogs: async () => {
+    return api.get<{ logs: any[] }>('/admin/consent/export');
+  },
+
   getReports: async (params?: { status?: string; targetType?: string }) => {
     const query = new URLSearchParams();
     if (params?.status) query.append('status', params.status);

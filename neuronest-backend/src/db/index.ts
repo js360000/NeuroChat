@@ -1,7 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcryptjs';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import path from 'path';
+import { initPersistence as initPersistenceStore, persistDbSnapshot, type PersistenceDb } from './persistence.js';
 
 export interface User {
   id: string;
@@ -447,6 +446,20 @@ export const db = {
   n8nWorkflowRuns: [] as N8nWorkflowRun[],
   sitePages: [...seedSitePages],
   cookieConsents: [] as CookieConsentLog[],
+} as PersistenceDb & {
+  users: User[];
+  matches: Match[];
+  conversations: Conversation[];
+  messages: Message[];
+  blogPosts: BlogPost[];
+  blogComments: BlogComment[];
+  communityPosts: CommunityPost[];
+  communityComments: CommunityComment[];
+  communityReactions: CommunityReaction[];
+  likes: Like[];
+  blocks: Block[];
+  reports: Report[];
+  auditLogs: AuditLog[];
 };
 
 export function findUserByEmail(email: string): User | undefined {
@@ -522,100 +535,10 @@ export function findSitePageBySlug(slug: string): SitePage | undefined {
   return db.sitePages.find((page) => page.slug === slug);
 }
 
-type PersistentStore = {
-  sitePages?: Array<Omit<SitePage, 'createdAt' | 'updatedAt'> & { createdAt: string; updatedAt: string }>;
-  socialSchedules?: Array<Omit<SocialScheduleEntry, 'createdAt' | 'updatedAt'> & { createdAt: string; updatedAt: string }>;
-  n8nWorkflowHooks?: Array<Omit<N8nWorkflowHook, 'createdAt' | 'updatedAt'> & { createdAt: string; updatedAt: string }>;
-  n8nWorkflowRuns?: Array<Omit<N8nWorkflowRun, 'triggeredAt'> & { triggeredAt: string }>;
-  cookieConsents?: Array<Omit<CookieConsentLog, 'createdAt'> & { createdAt: string }>;
-};
-
-const STORE_PATH = path.resolve(process.cwd(), 'data', 'store.json');
-
-function loadPersistentStore(): PersistentStore | null {
-  try {
-    if (!existsSync(STORE_PATH)) {
-      return null;
-    }
-    const raw = readFileSync(STORE_PATH, 'utf-8');
-    return JSON.parse(raw) as PersistentStore;
-  } catch {
-    return null;
-  }
-}
-
-function hydrateDbFromStore(store: PersistentStore | null) {
-  if (!store) return;
-  if (store.sitePages && store.sitePages.length > 0) {
-    db.sitePages = store.sitePages.map((page) => ({
-      ...page,
-      createdAt: new Date(page.createdAt),
-      updatedAt: new Date(page.updatedAt)
-    }));
-  }
-  if (store.socialSchedules && store.socialSchedules.length > 0) {
-    db.socialSchedules = store.socialSchedules.map((entry) => ({
-      ...entry,
-      createdAt: new Date(entry.createdAt),
-      updatedAt: new Date(entry.updatedAt)
-    }));
-  }
-  if (store.n8nWorkflowHooks && store.n8nWorkflowHooks.length > 0) {
-    db.n8nWorkflowHooks = store.n8nWorkflowHooks.map((hook) => ({
-      ...hook,
-      createdAt: new Date(hook.createdAt),
-      updatedAt: new Date(hook.updatedAt)
-    }));
-  }
-  if (store.n8nWorkflowRuns && store.n8nWorkflowRuns.length > 0) {
-    db.n8nWorkflowRuns = store.n8nWorkflowRuns.map((run) => ({
-      ...run,
-      triggeredAt: new Date(run.triggeredAt)
-    }));
-  }
-  if (store.cookieConsents && store.cookieConsents.length > 0) {
-    db.cookieConsents = store.cookieConsents.map((consent) => ({
-      ...consent,
-      createdAt: new Date(consent.createdAt)
-    }));
-  }
+export async function initPersistence() {
+  await initPersistenceStore(db);
 }
 
 export function persistDb() {
-  try {
-    const dir = path.dirname(STORE_PATH);
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
-    }
-    const payload: PersistentStore = {
-      sitePages: db.sitePages.map((page) => ({
-        ...page,
-        createdAt: page.createdAt.toISOString(),
-        updatedAt: page.updatedAt.toISOString()
-      })),
-      socialSchedules: db.socialSchedules.map((entry) => ({
-        ...entry,
-        createdAt: entry.createdAt.toISOString(),
-        updatedAt: entry.updatedAt.toISOString()
-      })),
-      n8nWorkflowHooks: db.n8nWorkflowHooks.map((hook) => ({
-        ...hook,
-        createdAt: hook.createdAt.toISOString(),
-        updatedAt: hook.updatedAt.toISOString()
-      })),
-      n8nWorkflowRuns: db.n8nWorkflowRuns.map((run) => ({
-        ...run,
-        triggeredAt: run.triggeredAt.toISOString()
-      })),
-      cookieConsents: db.cookieConsents.map((consent) => ({
-        ...consent,
-        createdAt: consent.createdAt.toISOString()
-      }))
-    };
-    writeFileSync(STORE_PATH, JSON.stringify(payload, null, 2));
-  } catch {
-    // Ignore persistence errors to avoid crashing the server.
-  }
+  void persistDbSnapshot(db);
 }
-
-hydrateDbFromStore(loadPersistentStore());

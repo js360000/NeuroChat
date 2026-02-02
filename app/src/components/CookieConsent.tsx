@@ -26,6 +26,12 @@ export function CookieConsent() {
     }
   }, []);
 
+  useEffect(() => {
+    const handler = () => setIsOpen(true);
+    window.addEventListener('neuronest:open-consent', handler);
+    return () => window.removeEventListener('neuronest:open-consent', handler);
+  }, []);
+
   const saveConsent = async (next: ConsentState) => {
     const payload = {
       ...next,

@@ -652,6 +652,58 @@ router.get('/pages', (req: Request, res: Response) => {
   res.json({ pages });
 });
 
+// GET /consent - list cookie consent logs
+router.get('/consent', (req: Request, res: Response) => {
+  const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+  const offset = parseInt(req.query.offset as string) || 0;
+  const analytics = req.query.analytics as string | undefined;
+  const marketing = req.query.marketing as string | undefined;
+
+  let logs = [...db.cookieConsents];
+  if (analytics === 'true') {
+    logs = logs.filter((log) => log.analytics);
+  }
+  if (analytics === 'false') {
+    logs = logs.filter((log) => !log.analytics);
+  }
+  if (marketing === 'true') {
+    logs = logs.filter((log) => log.marketing);
+  }
+  if (marketing === 'false') {
+    logs = logs.filter((log) => !log.marketing);
+  }
+
+  const total = logs.length;
+  const results = logs
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(offset, offset + limit)
+    .map((log) => ({
+      id: log.id,
+      analytics: log.analytics,
+      marketing: log.marketing,
+      userAgent: log.userAgent,
+      ip: log.ip,
+      createdAt: log.createdAt.toISOString()
+    }));
+
+  res.json({ logs: results, total });
+});
+
+// GET /consent/export - export consent logs (json)
+router.get('/consent/export', (req: Request, res: Response) => {
+  const logs = db.cookieConsents
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .map((log) => ({
+      id: log.id,
+      analytics: log.analytics,
+      marketing: log.marketing,
+      userAgent: log.userAgent,
+      ip: log.ip,
+      createdAt: log.createdAt.toISOString()
+    }));
+  res.json({ logs });
+});
+
 // GET /pages/:slug - get site page
 router.get('/pages/:slug', (req: Request, res: Response) => {
   const page = findSitePageBySlug(req.params.slug);
