@@ -1,0 +1,105 @@
+import { useEffect, useState } from 'react';
+import { Routes, Route, Link, useLocation } from 'react-router-dom';
+import { 
+  BarChart3, 
+  Users, 
+  CreditCard, 
+  Settings, 
+  LogOut,
+  Loader2
+} from 'lucide-react';
+import { adminApi, type DashboardStats } from '@/lib/api/admin';
+import { toast } from 'sonner';
+
+// Admin sub-pages
+import { AdminOverview } from './admin/Overview';
+import { AdminUsers } from './admin/Users';
+import { AdminPayments } from './admin/Payments';
+import { AdminSettings } from './admin/Settings';
+
+export function AdminPage() {
+  const location = useLocation();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  const loadStats = async () => {
+    try {
+      const response = await adminApi.getOverview();
+      setStats(response);
+    } catch (error) {
+      toast.error('Failed to load admin data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const navItems = [
+    { path: '/admin', label: 'Overview', icon: BarChart3 },
+    { path: '/admin/users', label: 'Users', icon: Users },
+    { path: '/admin/payments', label: 'Payments', icon: CreditCard },
+    { path: '/admin/settings', label: 'Settings', icon: Settings },
+  ];
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-neutral-50 flex">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white border-r border-neutral-200 flex-shrink-0">
+        <div className="p-4 border-b border-neutral-200">
+          <Link to="/dashboard" className="flex items-center gap-2">
+            <span className="text-xl font-bold">NeuroNest</span>
+            <span className="text-xs bg-primary text-white px-2 py-0.5 rounded">Admin</span>
+          </Link>
+        </div>
+
+        <nav className="p-2">
+          {navItems.map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+                location.pathname === item.path
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-neutral-600 hover:bg-neutral-50'
+              }`}
+            >
+              <item.icon className="w-5 h-5" />
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-neutral-200">
+          <Link
+            to="/dashboard"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-neutral-600 hover:bg-neutral-50"
+          >
+            <LogOut className="w-5 h-5" />
+            Exit Admin
+          </Link>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-auto">
+        <Routes>
+          <Route path="/" element={<AdminOverview stats={stats} />} />
+          <Route path="/users" element={<AdminUsers />} />
+          <Route path="/payments" element={<AdminPayments />} />
+          <Route path="/settings" element={<AdminSettings />} />
+        </Routes>
+      </main>
+    </div>
+  );
+}

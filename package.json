@@ -1,0 +1,12 @@
+{
+  "name": "neuronest-ai",
+  "private": true,
+  "workspaces": [
+    "app",
+    "neuronest-backend"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace app && npm run build --workspace neuronest-backend",
+    "start": "npm run start --workspace neuronest-backend"
+  }
+}

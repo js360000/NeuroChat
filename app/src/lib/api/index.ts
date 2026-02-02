@@ -1,0 +1,7 @@
+export { api, ApiError } from './client';
+export { authApi, type User, type LoginCredentials, type RegisterData } from './auth';
+export { usersApi, type UserProfile, type Match } from './users';
+export { messagesApi, type Message, type Conversation } from './messages';
+export { aiApi, type AIExplanation } from './ai';
+export { paymentsApi, type Subscription, type Payment } from './payments';
+export { adminApi, type AdminUser, type DashboardStats, type DailyActivity } from './admin';
