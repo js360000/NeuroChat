@@ -13,16 +13,29 @@ export interface User {
     preferredToneTags: boolean;
     aiExplanations: boolean;
     voiceMessages: boolean;
+    responsePace?: 'slow' | 'balanced' | 'fast';
+    directness?: 'direct' | 'gentle';
   };
+  experiencePreferences?: {
+    calmMode: number;
+    density: 'cozy' | 'balanced' | 'compact';
+    reduceMotion: boolean;
+    reduceSaturation: boolean;
+  };
+  connectionGoals?: string[];
   subscription: {
     plan: 'free' | 'premium' | 'pro';
-    status: 'active' | 'cancelled' | 'past_due';
+    status: 'active' | 'inactive' | 'cancelled' | 'past_due';
     expiresAt?: string;
   };
   verification: {
     email: boolean;
     photo: boolean;
     id: boolean;
+  };
+  onboarding?: {
+    completed: boolean;
+    completedAt?: string;
   };
 }
 

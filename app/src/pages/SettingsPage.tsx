@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Bell, Moon, Shield, CreditCard, Loader2, ExternalLink, Download, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -9,14 +9,28 @@ import { Input } from '@/components/ui/input';
 import { useAuthStore } from '@/lib/stores/auth';
 import { paymentsApi } from '@/lib/api/payments';
 import { usersApi } from '@/lib/api/users';
+import { Slider } from '@/components/ui/slider';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
+import {
+  applyExperiencePreferences,
+  DEFAULT_EXPERIENCE_PREFERENCES,
+  type ExperiencePreferences
+} from '@/lib/experience';
 import { toast } from 'sonner';
 
 export function SettingsPage() {
-  const { user, logout } = useAuthStore();
+  const { user, logout, updateProfile } = useAuthStore();
   const [billingLoading, setBillingLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [experienceSaving, setExperienceSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [settings, setSettings] = useState({
     notifications: {
@@ -35,6 +49,28 @@ export function SettingsPage() {
       reducedMotion: false
     }
   });
+  const [experience, setExperience] = useState<ExperiencePreferences>({
+    calmMode: user?.experiencePreferences?.calmMode ?? DEFAULT_EXPERIENCE_PREFERENCES.calmMode,
+    density: user?.experiencePreferences?.density ?? DEFAULT_EXPERIENCE_PREFERENCES.density,
+    reduceMotion:
+      user?.experiencePreferences?.reduceMotion ?? DEFAULT_EXPERIENCE_PREFERENCES.reduceMotion,
+    reduceSaturation:
+      user?.experiencePreferences?.reduceSaturation ?? DEFAULT_EXPERIENCE_PREFERENCES.reduceSaturation
+  });
+
+  useEffect(() => {
+    if (!user?.experiencePreferences) return;
+    setExperience({
+      calmMode: user.experiencePreferences.calmMode,
+      density: user.experiencePreferences.density,
+      reduceMotion: user.experiencePreferences.reduceMotion,
+      reduceSaturation: user.experiencePreferences.reduceSaturation
+    });
+  }, [user?.experiencePreferences]);
+
+  useEffect(() => {
+    applyExperiencePreferences(experience);
+  }, [experience]);
 
   const updateSetting = (category: string, key: string, value: boolean) => {
     setSettings(prev => ({
@@ -110,6 +146,18 @@ export function SettingsPage() {
       toast.error('Failed to delete account');
     } finally {
       setDeleteLoading(false);
+    }
+  };
+
+  const handleSaveExperience = async () => {
+    setExperienceSaving(true);
+    try {
+      await updateProfile({ experiencePreferences: experience });
+      toast.success('Experience preferences saved');
+    } catch {
+      toast.error('Failed to update experience preferences');
+    } finally {
+      setExperienceSaving(false);
     }
   };
 
@@ -290,6 +338,89 @@ export function SettingsPage() {
                 checked={settings.appearance.reducedMotion}
                 onCheckedChange={(v) => updateSetting('appearance', 'reducedMotion', v)}
               />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Experience & Calm Mode */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Moon className="w-5 h-5" />
+              Experience & Calm Mode
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="calm-mode">Calm mode intensity</Label>
+                <Badge variant="secondary">{experience.calmMode}%</Badge>
+              </div>
+              <Slider
+                id="calm-mode"
+                value={[experience.calmMode]}
+                min={0}
+                max={100}
+                step={5}
+                onValueChange={(value) =>
+                  setExperience((prev) => ({ ...prev, calmMode: value[0] }))
+                }
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Layout density</Label>
+                <Select
+                  value={experience.density}
+                  onValueChange={(value: ExperiencePreferences['density']) =>
+                    setExperience((prev) => ({ ...prev, density: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose density" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cozy">Cozy</SelectItem>
+                    <SelectItem value="balanced">Balanced</SelectItem>
+                    <SelectItem value="compact">Compact</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium">Reduce motion</p>
+                  <p className="text-xs text-neutral-500">Minimize animations.</p>
+                </div>
+                <Switch
+                  checked={experience.reduceMotion}
+                  onCheckedChange={(value) =>
+                    setExperience((prev) => ({ ...prev, reduceMotion: value }))
+                  }
+                />
+              </div>
+              <div className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium">Lower saturation</p>
+                  <p className="text-xs text-neutral-500">Soften bold colors.</p>
+                </div>
+                <Switch
+                  checked={experience.reduceSaturation}
+                  onCheckedChange={(value) =>
+                    setExperience((prev) => ({ ...prev, reduceSaturation: value }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <p className="text-sm text-neutral-500">
+                These preferences are saved to your profile.
+              </p>
+              <Button onClick={handleSaveExperience} disabled={experienceSaving}>
+                {experienceSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Save experience
+              </Button>
             </div>
           </CardContent>
         </Card>

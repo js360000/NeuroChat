@@ -16,7 +16,16 @@ export interface User {
     preferredToneTags: boolean;
     aiExplanations: boolean;
     voiceMessages: boolean;
+    responsePace?: 'slow' | 'balanced' | 'fast';
+    directness?: 'direct' | 'gentle';
   };
+  experiencePreferences: {
+    calmMode: number;
+    density: 'cozy' | 'balanced' | 'compact';
+    reduceMotion: boolean;
+    reduceSaturation: boolean;
+  };
+  connectionGoals: string[];
   subscription: {
     plan: 'free' | 'premium' | 'pro';
     status: 'active' | 'inactive' | 'cancelled' | 'past_due';
@@ -29,6 +38,10 @@ export interface User {
   };
   isOnline: boolean;
   isSuspended: boolean;
+  onboarding: {
+    completed: boolean;
+    completedAt?: Date;
+  };
   lastActive: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -216,11 +229,21 @@ const seedUsers: User[] = [
       preferredToneTags: true,
       aiExplanations: true,
       voiceMessages: false,
+      responsePace: 'balanced',
+      directness: 'direct',
     },
+    experiencePreferences: {
+      calmMode: 25,
+      density: 'balanced',
+      reduceMotion: false,
+      reduceSaturation: false,
+    },
+    connectionGoals: ['Leadership', 'Community'],
     subscription: { plan: 'pro', status: 'active' },
     verification: { email: true, photo: true, id: true },
     isOnline: false,
     isSuspended: false,
+    onboarding: { completed: true, completedAt: new Date() },
     lastActive: new Date(),
     createdAt: new Date('2024-01-01'),
     updatedAt: new Date(),
@@ -238,11 +261,21 @@ const seedUsers: User[] = [
       preferredToneTags: true,
       aiExplanations: true,
       voiceMessages: false,
+      responsePace: 'fast',
+      directness: 'direct',
     },
+    experiencePreferences: {
+      calmMode: 15,
+      density: 'compact',
+      reduceMotion: false,
+      reduceSaturation: false,
+    },
+    connectionGoals: ['Friendship', 'Collaboration'],
     subscription: { plan: 'premium', status: 'active' },
     verification: { email: true, photo: true, id: false },
     isOnline: true,
     isSuspended: false,
+    onboarding: { completed: true, completedAt: new Date() },
     lastActive: new Date(),
     createdAt: new Date('2024-01-15'),
     updatedAt: new Date(),
@@ -260,11 +293,21 @@ const seedUsers: User[] = [
       preferredToneTags: true,
       aiExplanations: false,
       voiceMessages: true,
+      responsePace: 'slow',
+      directness: 'gentle',
     },
+    experiencePreferences: {
+      calmMode: 40,
+      density: 'cozy',
+      reduceMotion: true,
+      reduceSaturation: false,
+    },
+    connectionGoals: ['Friendship', 'Creative collaborators'],
     subscription: { plan: 'free', status: 'active' },
     verification: { email: true, photo: false, id: false },
     isOnline: false,
     isSuspended: false,
+    onboarding: { completed: true, completedAt: new Date() },
     lastActive: new Date(Date.now() - 3600000),
     createdAt: new Date('2024-02-20'),
     updatedAt: new Date(),
@@ -282,11 +325,21 @@ const seedUsers: User[] = [
       preferredToneTags: false,
       aiExplanations: true,
       voiceMessages: true,
+      responsePace: 'balanced',
+      directness: 'direct',
     },
+    experiencePreferences: {
+      calmMode: 20,
+      density: 'balanced',
+      reduceMotion: false,
+      reduceSaturation: false,
+    },
+    connectionGoals: ['Dating', 'Friendship'],
     subscription: { plan: 'pro', status: 'active' },
     verification: { email: true, photo: true, id: true },
     isOnline: true,
     isSuspended: false,
+    onboarding: { completed: true, completedAt: new Date() },
     lastActive: new Date(),
     createdAt: new Date('2024-01-05'),
     updatedAt: new Date(),
@@ -304,11 +357,21 @@ const seedUsers: User[] = [
       preferredToneTags: true,
       aiExplanations: true,
       voiceMessages: false,
+      responsePace: 'balanced',
+      directness: 'gentle',
     },
+    experiencePreferences: {
+      calmMode: 30,
+      density: 'cozy',
+      reduceMotion: false,
+      reduceSaturation: true,
+    },
+    connectionGoals: ['Friendship', 'Study buddies'],
     subscription: { plan: 'premium', status: 'active' },
     verification: { email: true, photo: true, id: false },
     isOnline: false,
     isSuspended: false,
+    onboarding: { completed: true, completedAt: new Date() },
     lastActive: new Date(Date.now() - 7200000),
     createdAt: new Date('2024-03-10'),
     updatedAt: new Date(),
@@ -326,11 +389,21 @@ const seedUsers: User[] = [
       preferredToneTags: true,
       aiExplanations: false,
       voiceMessages: false,
+      responsePace: 'slow',
+      directness: 'gentle',
     },
+    experiencePreferences: {
+      calmMode: 35,
+      density: 'cozy',
+      reduceMotion: true,
+      reduceSaturation: true,
+    },
+    connectionGoals: ['Friendship', 'Community events'],
     subscription: { plan: 'free', status: 'active' },
     verification: { email: true, photo: false, id: false },
     isOnline: true,
     isSuspended: false,
+    onboarding: { completed: true, completedAt: new Date() },
     lastActive: new Date(),
     createdAt: new Date('2024-04-01'),
     updatedAt: new Date(),
@@ -491,8 +564,17 @@ export function createUser(data: CreateUserInput): User {
     communicationPreferences: {
       preferredToneTags: true,
       aiExplanations: true,
-      voiceMessages: false
+      voiceMessages: false,
+      responsePace: 'balanced',
+      directness: 'gentle'
     },
+    experiencePreferences: {
+      calmMode: 20,
+      density: 'balanced',
+      reduceMotion: false,
+      reduceSaturation: false
+    },
+    connectionGoals: [],
     subscription: {
       plan: 'free',
       status: 'active'
@@ -504,6 +586,9 @@ export function createUser(data: CreateUserInput): User {
     },
     isOnline: true,
     isSuspended: false,
+    onboarding: {
+      completed: false
+    },
     lastActive: now,
     createdAt: now,
     updatedAt: now

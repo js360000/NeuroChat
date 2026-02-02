@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
@@ -29,17 +29,20 @@ import { PricingPage } from './pages/PricingPage';
 import { AdminPage } from './pages/AdminPage';
 import { PaymentSuccessPage } from './pages/PaymentSuccessPage';
 import { PaymentCancelPage } from './pages/PaymentCancelPage';
+import { OnboardingPage } from './pages/OnboardingPage';
 
 // Stores
 import { useAuthStore } from './lib/stores/auth';
 import { applyA11ySettings, loadA11ySettings } from './lib/a11y';
+import { applyExperiencePreferences, DEFAULT_EXPERIENCE_PREFERENCES } from './lib/experience';
 import { CookieConsent } from './components/CookieConsent';
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import { OfflineNotice } from './components/OfflineNotice';
 
 // Components
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading, user } = useAuthStore();
+  const location = useLocation();
   
   if (isLoading) {
     return (
@@ -52,12 +55,20 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
+
+  if (user?.onboarding && !user.onboarding.completed && location.pathname !== '/onboarding') {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  if (location.pathname === '/onboarding' && user?.onboarding?.completed) {
+    return <Navigate to="/dashboard" replace />;
+  }
   
   return <>{children}</>;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading, user } = useAuthStore();
   
   if (isLoading) {
     return (
@@ -68,6 +79,9 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   }
   
   if (isAuthenticated) {
+    if (user?.onboarding && !user.onboarding.completed) {
+      return <Navigate to="/onboarding" replace />;
+    }
     return <Navigate to="/dashboard" replace />;
   }
   
@@ -75,12 +89,16 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppInitializer({ children }: { children: React.ReactNode }) {
-  const { fetchUser } = useAuthStore();
+  const { fetchUser, user } = useAuthStore();
   
   useEffect(() => {
     fetchUser();
     applyA11ySettings(loadA11ySettings());
   }, [fetchUser]);
+
+  useEffect(() => {
+    applyExperiencePreferences(user?.experiencePreferences ?? DEFAULT_EXPERIENCE_PREFERENCES);
+  }, [user?.experiencePreferences]);
   
   return <>{children}</>;
 }
@@ -119,6 +137,11 @@ function App() {
           
           {/* Protected Routes */}
           <Route element={<MainLayout />}>
+            <Route path="/onboarding" element={
+              <ProtectedRoute>
+                <OnboardingPage />
+              </ProtectedRoute>
+            } />
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <DashboardPage />

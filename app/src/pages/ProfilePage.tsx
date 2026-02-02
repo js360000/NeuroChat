@@ -16,6 +16,17 @@ const NEURODIVERGENT_TRAITS = [
   'Tourette\'s', 'OCD', 'Bipolar', 'Anxiety', 'Sensory Processing'
 ];
 
+const CONNECTION_GOALS = [
+  'Friendship',
+  'Dating',
+  'Creative collaborators',
+  'Study buddies',
+  'Accountability partners',
+  'Community events',
+  'Co-working',
+  'Local meetups'
+];
+
 export function ProfilePage() {
   const { user, updateProfile } = useAuthStore();
   const [isEditing, setIsEditing] = useState(false);
@@ -26,6 +37,7 @@ export function ProfilePage() {
     bio: user?.bio || '',
     neurodivergentTraits: user?.neurodivergentTraits || [],
     specialInterests: user?.specialInterests || [],
+    connectionGoals: user?.connectionGoals || [],
     communicationPreferences: user?.communicationPreferences || {
       preferredToneTags: true,
       aiExplanations: true,
@@ -34,6 +46,7 @@ export function ProfilePage() {
   });
   
   const [newInterest, setNewInterest] = useState('');
+  const [newGoal, setNewGoal] = useState('');
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -71,6 +84,33 @@ export function ProfilePage() {
     setFormData(prev => ({
       ...prev,
       specialInterests: prev.specialInterests.filter(i => i !== interest)
+    }));
+  };
+
+  const toggleGoal = (goal: string) => {
+    setFormData(prev => ({
+      ...prev,
+      connectionGoals: prev.connectionGoals.includes(goal)
+        ? prev.connectionGoals.filter(g => g !== goal)
+        : [...prev.connectionGoals, goal]
+    }));
+  };
+
+  const addGoal = () => {
+    const trimmed = newGoal.trim();
+    if (trimmed && !formData.connectionGoals.includes(trimmed)) {
+      setFormData(prev => ({
+        ...prev,
+        connectionGoals: [...prev.connectionGoals, trimmed]
+      }));
+      setNewGoal('');
+    }
+  };
+
+  const removeGoal = (goal: string) => {
+    setFormData(prev => ({
+      ...prev,
+      connectionGoals: prev.connectionGoals.filter(g => g !== goal)
     }));
   };
 
@@ -201,6 +241,67 @@ export function ProfilePage() {
                   placeholder="Add an interest..."
                 />
                 <Button type="button" onClick={addInterest} variant="outline">
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Connection Goals */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Connection Goals</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {CONNECTION_GOALS.map((goal) => (
+                <button
+                  key={goal}
+                  onClick={() => isEditing && toggleGoal(goal)}
+                  disabled={!isEditing}
+                  className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                    formData.connectionGoals.includes(goal)
+                      ? 'bg-primary text-white'
+                      : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                  } ${!isEditing && 'cursor-default'}`}
+                >
+                  {goal}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {formData.connectionGoals
+                .filter((goal) => !CONNECTION_GOALS.includes(goal))
+                .map((goal) => (
+                  <Badge
+                    key={goal}
+                    variant="secondary"
+                    className="flex items-center gap-1"
+                  >
+                    {goal}
+                    {isEditing && (
+                      <button
+                        onClick={() => removeGoal(goal)}
+                        className="ml-1 hover:text-red-500"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </Badge>
+                ))}
+            </div>
+
+            {isEditing && (
+              <div className="flex gap-2">
+                <Input
+                  value={newGoal}
+                  onChange={(e) => setNewGoal(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addGoal()}
+                  placeholder="Add a goal..."
+                />
+                <Button type="button" onClick={addGoal} variant="outline">
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>

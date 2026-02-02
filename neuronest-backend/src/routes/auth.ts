@@ -121,6 +121,9 @@ router.patch('/profile', authenticateToken, async (req: Request, res: Response) 
       'neurodivergentTraits',
       'specialInterests',
       'communicationPreferences',
+      'experiencePreferences',
+      'connectionGoals',
+      'onboarding',
     ];
 
     const updates: Record<string, unknown> = {};
@@ -128,6 +131,14 @@ router.patch('/profile', authenticateToken, async (req: Request, res: Response) 
       if (req.body[field] !== undefined) {
         updates[field] = req.body[field];
       }
+    }
+
+    if (updates.onboarding && typeof updates.onboarding === 'object') {
+      const onboarding = updates.onboarding as { completed?: boolean; completedAt?: string | Date };
+      if (onboarding.completedAt) {
+        onboarding.completedAt = new Date(onboarding.completedAt);
+      }
+      updates.onboarding = onboarding;
     }
 
     const user = await updateUser(req.user!.id, updates);
