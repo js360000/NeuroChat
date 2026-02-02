@@ -3,7 +3,7 @@ import { Navigation } from '../components/Navigation';
 
 export function MainLayout() {
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-background">
       <Navigation />
       <main className="pt-16">
         <Outlet />

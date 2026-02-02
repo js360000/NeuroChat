@@ -28,6 +28,7 @@ import { PaymentCancelPage } from './pages/PaymentCancelPage';
 
 // Stores
 import { useAuthStore } from './lib/stores/auth';
+import { applyA11ySettings, loadA11ySettings } from './lib/a11y';
 
 // Components
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -71,6 +72,7 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
   
   useEffect(() => {
     fetchUser();
+    applyA11ySettings(loadA11ySettings());
   }, [fetchUser]);
   
   return <>{children}</>;

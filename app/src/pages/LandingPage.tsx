@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { applySeo } from '@/lib/seo';
+import { AccessibilityControls } from '@/components/AccessibilityControls';
 
 const FEATURES = [
   {
@@ -84,7 +85,7 @@ export function LandingPage() {
   return (
     <div className="min-h-screen">
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-b border-neutral-200">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-xl border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link to="/" className="flex items-center gap-2">
@@ -94,6 +95,7 @@ export function LandingPage() {
               <span className="text-xl font-bold text-dark">NeuroNest</span>
             </Link>
             <div className="flex items-center gap-4">
+              <AccessibilityControls />
               <Link to="/games" className="text-sm font-medium text-neutral-600 hover:text-dark">
                 Games
               </Link>

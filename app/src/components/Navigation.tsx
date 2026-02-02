@@ -16,6 +16,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/lib/stores/auth';
+import { AccessibilityControls } from '@/components/AccessibilityControls';
 
 export function Navigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -42,7 +43,7 @@ export function Navigation() {
   const isActive = (path: string) => location.pathname.startsWith(path);
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-b border-neutral-200">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-xl border-b border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -93,6 +94,8 @@ export function Navigation() {
               </Badge>
             )}
 
+            <AccessibilityControls />
+
             {/* Profile Dropdown */}
             <div className="relative group">
               <button className="flex items-center gap-2 p-2 rounded-xl hover:bg-neutral-100 transition-colors">
@@ -103,18 +106,18 @@ export function Navigation() {
               </button>
 
               {/* Dropdown Menu */}
-              <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-card border border-neutral-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+              <div className="absolute right-0 top-full mt-2 w-48 bg-popover rounded-xl shadow-card border border-border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
                 <div className="p-2">
                   <Link
                     to="/profile"
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-neutral-600 hover:bg-neutral-50"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-neutral-600 hover:bg-neutral-50 dark:text-muted-foreground dark:hover:bg-muted"
                   >
                     <User className="w-4 h-4" />
                     Profile
                   </Link>
                   <Link
                     to="/settings"
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-neutral-600 hover:bg-neutral-50"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-neutral-600 hover:bg-neutral-50 dark:text-muted-foreground dark:hover:bg-muted"
                   >
                     <Settings className="w-4 h-4" />
                     Settings
@@ -153,7 +156,7 @@ export function Navigation() {
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="md:hidden bg-white border-t border-neutral-200">
+        <div className="md:hidden bg-background border-t border-border">
           <div className="px-4 py-2 space-y-1">
             {navItems.map((item) => (
               <Link
