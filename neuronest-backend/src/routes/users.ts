@@ -35,6 +35,7 @@ router.get('/', authenticateToken, (req: Request, res: Response): void => {
     .filter(
       (user) =>
         user.id !== currentUserId &&
+        user.role !== 'admin' &&
         !blockedUserIds.has(user.id) &&
         !matchedUserIds.has(user.id)
     )
@@ -85,6 +86,10 @@ router.post('/:id/like', authenticateToken, (req: Request, res: Response): void 
   const targetUser = findUserById(targetUserId);
   if (!targetUser) {
     res.status(404).json({ error: 'User not found' });
+    return;
+  }
+  if (targetUser.role === 'admin') {
+    res.status(400).json({ error: 'User not available' });
     return;
   }
 
