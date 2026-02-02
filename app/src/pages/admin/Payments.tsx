@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { CheckCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { paymentsApi, type Payment } from '@/lib/api/payments';
+import { adminApi } from '@/lib/api/admin';
 import { toast } from 'sonner';
 
 export function AdminPayments() {
-  const [payments, setPayments] = useState<Payment[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [summary, setSummary] = useState<{ monthlyRevenue: number; activeSubscriptions: number; churnRate: number } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -15,8 +16,12 @@ export function AdminPayments() {
 
   const loadPayments = async () => {
     try {
-      const response = await paymentsApi.getPaymentHistory();
-      setPayments(response.payments);
+      const [summaryResponse, recentResponse] = await Promise.all([
+        adminApi.getPaymentsSummary(),
+        adminApi.getPaymentsRecent()
+      ]);
+      setSummary(summaryResponse.summary);
+      setPayments(recentResponse.payments);
     } catch (error) {
       toast.error('Failed to load payments');
     } finally {
@@ -40,19 +45,19 @@ export function AdminPayments() {
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-neutral-500">Monthly Revenue</p>
-            <p className="text-2xl font-bold">$24,580</p>
+            <p className="text-2xl font-bold">${summary?.monthlyRevenue.toLocaleString() ?? '0'}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-neutral-500">Active Subscriptions</p>
-            <p className="text-2xl font-bold">1,247</p>
+            <p className="text-2xl font-bold">{summary?.activeSubscriptions ?? 0}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-neutral-500">Churn Rate</p>
-            <p className="text-2xl font-bold">3.2%</p>
+            <p className="text-2xl font-bold">{summary?.churnRate ?? 0}%</p>
           </CardContent>
         </Card>
       </div>

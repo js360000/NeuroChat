@@ -15,6 +15,13 @@ interface Integration {
 export function AdminSettings() {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [settings, setSettings] = useState<{
+    siteName: string;
+    maintenanceMode: boolean;
+    registrationEnabled: boolean;
+    maxMatchesPerDay: number;
+    aiExplanationsEnabled: boolean;
+  } | null>(null);
 
   useEffect(() => {
     loadSettings();
@@ -22,12 +29,28 @@ export function AdminSettings() {
 
   const loadSettings = async () => {
     try {
-      const response = await adminApi.getIntegrations();
-      setIntegrations(response.integrations);
+      const [integrationsResponse, settingsResponse] = await Promise.all([
+        adminApi.getIntegrations(),
+        adminApi.getSettings()
+      ]);
+      setIntegrations(integrationsResponse.integrations);
+      setSettings(settingsResponse.settings);
     } catch (error) {
       toast.error('Failed to load settings');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const updateSetting = async (updates: Partial<typeof settings>) => {
+    if (!settings) return;
+    const next = { ...settings, ...updates };
+    setSettings(next);
+    try {
+      await adminApi.updateSettings(updates);
+    } catch (error) {
+      toast.error('Failed to update settings');
+      setSettings(settings);
     }
   };
 
@@ -89,21 +112,44 @@ export function AdminSettings() {
                 <p className="font-medium">AI Explanations</p>
                 <p className="text-sm text-neutral-500">Enable AI-powered message analysis</p>
               </div>
-              <Switch defaultChecked />
+              <Switch
+                checked={settings?.aiExplanationsEnabled ?? false}
+                onCheckedChange={(value) => updateSetting({ aiExplanationsEnabled: value })}
+              />
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium">Tone Tags</p>
                 <p className="text-sm text-neutral-500">Allow users to add tone indicators</p>
               </div>
-              <Switch defaultChecked />
+              <Switch checked />
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium">Voice Messages</p>
                 <p className="text-sm text-neutral-500">Enable voice message sending</p>
               </div>
-              <Switch defaultChecked />
+              <Switch checked />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">Registration</p>
+                <p className="text-sm text-neutral-500">Allow new user registrations</p>
+              </div>
+              <Switch
+                checked={settings?.registrationEnabled ?? false}
+                onCheckedChange={(value) => updateSetting({ registrationEnabled: value })}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">Maintenance Mode</p>
+                <p className="text-sm text-neutral-500">Temporarily disable the app</p>
+              </div>
+              <Switch
+                checked={settings?.maintenanceMode ?? false}
+                onCheckedChange={(value) => updateSetting({ maintenanceMode: value })}
+              />
             </div>
           </CardContent>
         </Card>

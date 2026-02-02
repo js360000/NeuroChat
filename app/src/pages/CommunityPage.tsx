@@ -314,6 +314,26 @@ export function CommunityPage() {
                     <MessageCircle className="w-4 h-4" />
                     {post.commentCount}
                   </button>
+                  <button
+                    className="flex items-center gap-1 text-xs text-neutral-400 hover:text-red-500"
+                    onClick={async () => {
+                      const reason = window.prompt('Report reason?');
+                      if (!reason) return;
+                      try {
+                        const response = await communityApi.reportPost(post.id, reason);
+                        if (response.hidden) {
+                          toast.success('Post reported and hidden for review.');
+                          loadFeed();
+                        } else {
+                          toast.success('Report submitted.');
+                        }
+                      } catch {
+                        toast.error('Failed to submit report');
+                      }
+                    }}
+                  >
+                    Report
+                  </button>
                 </div>
 
                 {expandedPosts[post.id] && (

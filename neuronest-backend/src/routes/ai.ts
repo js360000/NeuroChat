@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import OpenAI from 'openai';
 import { authenticateToken } from '../middleware/auth.js';
+import { getSettings } from '../config/settings.js';
 
 const router = Router();
 
@@ -28,6 +29,9 @@ router.post('/explain', async (req: Request, res: Response) => {
   try {
     if (!aiEnabled) {
       return res.status(503).json({ error: 'AI features are currently unavailable. Please contact support.' });
+    }
+    if (!getSettings().aiExplanationsEnabled) {
+      return res.status(403).json({ error: 'AI features are disabled by admin.' });
     }
 
     const client = getOpenAI();
@@ -81,6 +85,9 @@ router.post('/suggestions', async (req: Request, res: Response) => {
     if (!aiEnabled) {
       return res.status(503).json({ error: 'AI features are currently unavailable. Please contact support.' });
     }
+    if (!getSettings().aiExplanationsEnabled) {
+      return res.status(403).json({ error: 'AI features are disabled by admin.' });
+    }
 
     const client = getOpenAI();
     const { userInterests, myInterests, previousMessages } = req.body;
@@ -132,6 +139,9 @@ router.post('/compatibility', async (req: Request, res: Response) => {
   try {
     if (!aiEnabled) {
       return res.status(503).json({ error: 'AI features are currently unavailable. Please contact support.' });
+    }
+    if (!getSettings().aiExplanationsEnabled) {
+      return res.status(403).json({ error: 'AI features are disabled by admin.' });
     }
 
     const client = getOpenAI();

@@ -11,7 +11,16 @@ import {
 
 const router = Router();
 
-function serializePost(post: CommunityPost) {
+function isAdminUser(userId?: string): boolean {
+  if (!userId) return false;
+  const user = findUserById(userId);
+  return user?.role === 'admin';
+}
+
+function serializePost(post: CommunityPost, includeHidden = false) {
+  if (post.hidden && !includeHidden) {
+    return null;
+  }
   const author = findUserById(post.authorId);
   const reactions = db.communityReactions.filter((r) => r.postId === post.id);
   const commentCount = db.communityComments.filter((c) => c.postId === post.id).length;
@@ -31,6 +40,7 @@ function serializePost(post: CommunityPost) {
     tags: post.tags,
     toneTag: post.toneTag,
     contentWarning: post.contentWarning,
+    hidden: post.hidden,
     author: author
       ? { id: author.id, name: author.name, avatar: author.avatar }
       : { id: post.authorId, name: 'Unknown' },
@@ -46,6 +56,7 @@ router.get('/', authenticateToken, (req: Request, res: Response) => {
   const tag = (req.query.tag as string)?.toLowerCase();
   const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
   const offset = parseInt(req.query.offset as string) || 0;
+  const includeHidden = req.query.includeHidden === 'true' && isAdminUser(req.user?.id);
 
   let posts = [...db.communityPosts];
   if (q) {
@@ -62,7 +73,10 @@ router.get('/', authenticateToken, (req: Request, res: Response) => {
   posts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
   const total = posts.length;
-  const results = posts.slice(offset, offset + limit).map(serializePost);
+  const results = posts
+    .slice(offset, offset + limit)
+    .map((post) => serializePost(post, includeHidden))
+    .filter(Boolean);
   res.json({ posts: results, total });
 });
 
@@ -71,7 +85,12 @@ router.get('/:id', authenticateToken, (req: Request, res: Response) => {
   if (!post) {
     return res.status(404).json({ error: 'Post not found' });
   }
-  res.json({ post: serializePost(post) });
+  const includeHidden = isAdminUser(req.user?.id);
+  const serialized = serializePost(post, includeHidden);
+  if (!serialized) {
+    return res.status(404).json({ error: 'Post not found' });
+  }
+  res.json({ post: serialized });
 });
 
 router.post('/', authenticateToken, (req: Request, res: Response) => {
@@ -116,7 +135,7 @@ router.patch('/:id', authenticateToken, (req: Request, res: Response) => {
   if (contentWarning !== undefined) post.contentWarning = contentWarning;
 
   post.updatedAt = new Date();
-  res.json({ post: serializePost(post) });
+  res.json({ post: serializePost(post, true) });
 });
 
 router.delete('/:id', authenticateToken, (req: Request, res: Response) => {
@@ -160,6 +179,9 @@ router.post('/:id/comments', authenticateToken, (req: Request, res: Response) =>
   if (!post) {
     return res.status(404).json({ error: 'Post not found' });
   }
+  if (post.hidden) {
+    return res.status(403).json({ error: 'Post is unavailable' });
+  }
   const { content } = req.body;
   if (!content) {
     return res.status(400).json({ error: 'Content is required' });
@@ -194,6 +216,9 @@ router.post('/:id/reactions', authenticateToken, (req: Request, res: Response) =
   if (!post) {
     return res.status(404).json({ error: 'Post not found' });
   }
+  if (post.hidden) {
+    return res.status(403).json({ error: 'Post is unavailable' });
+  }
 
   const type = (req.body.type as CommunityReaction['type']) || 'like';
   const existing = db.communityReactions.find(
@@ -226,6 +251,38 @@ router.post('/:id/reactions', authenticateToken, (req: Request, res: Response) =
   );
 
   res.json({ reactionCounts });
+});
+
+router.post('/:id/report', authenticateToken, (req: Request, res: Response) => {
+  const postId = req.params.id;
+  const post = db.communityPosts.find((p) => p.id === postId);
+  if (!post) {
+    return res.status(404).json({ error: 'Post not found' });
+  }
+  const { reason, details } = req.body;
+  if (!reason) {
+    return res.status(400).json({ error: 'Reason is required' });
+  }
+
+  db.reports.push({
+    id: uuidv4(),
+    reporterId: req.user!.id,
+    targetType: 'community_post',
+    targetId: postId,
+    reason,
+    description: details,
+    status: 'pending',
+    createdAt: new Date()
+  });
+
+  const reportCount = db.reports.filter(
+    (report) => report.targetType === 'community_post' && report.targetId === postId
+  ).length;
+  if (reportCount >= 3) {
+    post.hidden = true;
+  }
+
+  res.json({ success: true, hidden: post.hidden === true });
 });
 
 export default router;

@@ -65,5 +65,9 @@ export const communityApi = {
 
   toggleReaction: async (postId: string, type: 'like' | 'support' | 'insightful' = 'like') => {
     return api.post<{ reactionCounts: Record<string, number> }>(`/community/${postId}/reactions`, { type });
+  },
+
+  reportPost: async (postId: string, reason: string, details?: string) => {
+    return api.post<{ success: boolean; hidden?: boolean }>(`/community/${postId}/report`, { reason, details });
   }
 };

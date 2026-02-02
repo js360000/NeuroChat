@@ -103,5 +103,44 @@ export const adminApi = {
 
   getIntegrations: async () => {
     return api.get<{ integrations: any[] }>('/admin/integrations');
+  },
+
+  getReports: async (params?: { status?: string; targetType?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.append('status', params.status);
+    if (params?.targetType) query.append('targetType', params.targetType);
+    return api.get<{ reports: any[] }>(`/admin/reports?${query}`);
+  },
+
+  reviewReport: async (id: string) => {
+    return api.post(`/admin/reports/${id}/review`, {});
+  },
+
+  resolveReport: async (id: string) => {
+    return api.post(`/admin/reports/${id}/resolve`, {});
+  },
+
+  getCommunityPosts: async (params?: { q?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.q) query.append('q', params.q);
+    return api.get<{ posts: any[] }>(`/admin/community/posts?${query}`);
+  },
+
+  hideCommunityPost: async (id: string) => {
+    return api.post(`/admin/community/posts/${id}/hide`, {});
+  },
+
+  unhideCommunityPost: async (id: string) => {
+    return api.post(`/admin/community/posts/${id}/unhide`, {});
+  },
+
+  getPaymentsSummary: async () => {
+    return api.get<{ summary: { monthlyRevenue: number; activeSubscriptions: number; churnRate: number } }>(
+      '/admin/payments/summary'
+    );
+  },
+
+  getPaymentsRecent: async () => {
+    return api.get<{ payments: any[] }>('/admin/payments/recent');
   }
 };

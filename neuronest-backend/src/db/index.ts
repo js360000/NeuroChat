@@ -89,6 +89,7 @@ export interface CommunityPost {
   tags: string[];
   toneTag?: string;
   contentWarning?: string;
+  hidden?: boolean;
   authorId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -128,10 +129,21 @@ export interface Block {
 export interface Report {
   id: string;
   reporterId: string;
-  reportedId: string;
+  targetType: 'user' | 'community_post' | 'message';
+  targetId: string;
   reason: string;
   description?: string;
   status: 'pending' | 'reviewed' | 'resolved';
+  createdAt: Date;
+}
+
+export interface AuditLog {
+  id: string;
+  actorId: string;
+  action: string;
+  targetType: 'user' | 'community_post' | 'report' | 'system';
+  targetId?: string;
+  metadata?: Record<string, unknown>;
   createdAt: Date;
 }
 
@@ -337,6 +349,7 @@ export const db = {
   likes: [] as Like[],
   blocks: [] as Block[],
   reports: [] as Report[],
+  auditLogs: [] as AuditLog[],
 };
 
 export function findUserByEmail(email: string): User | undefined {

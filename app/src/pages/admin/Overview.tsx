@@ -12,11 +12,21 @@ const COLORS = ['#e1e0e3', '#7c39f6', '#ec5ec2'];
 export function AdminOverview({ stats }: Props) {
   if (!stats) return null;
 
+  const activity = stats.dailyActivity;
+  const latest = activity[activity.length - 1];
+  const previous = activity[activity.length - 2];
+
+  const percentChange = (current = 0, prev = 0) => {
+    if (!prev) return '0%';
+    const value = Math.round(((current - prev) / prev) * 100);
+    return `${value >= 0 ? '+' : ''}${value}%`;
+  };
+
   const statCards = [
-    { title: 'Total Users', value: stats.stats.users.total, change: '+12%', icon: Users, color: 'bg-blue-100 text-blue-700' },
-    { title: 'Active Today', value: stats.stats.users.online, change: '+8%', icon: Activity, color: 'bg-green-100 text-green-700' },
-    { title: 'New Matches', value: stats.stats.matches.today, change: '+23%', icon: Heart, color: 'bg-pink-100 text-pink-700' },
-    { title: 'Premium Users', value: stats.stats.users.premium, change: '+15%', icon: DollarSign, color: 'bg-purple-100 text-purple-700' },
+    { title: 'Total Users', value: stats.stats.users.total, change: percentChange(latest?.users, previous?.users), icon: Users, color: 'bg-blue-100 text-blue-700' },
+    { title: 'Active Today', value: stats.stats.users.online, change: percentChange(latest?.users, previous?.users), icon: Activity, color: 'bg-green-100 text-green-700' },
+    { title: 'New Matches', value: stats.stats.matches.today, change: percentChange(latest?.matches, previous?.matches), icon: Heart, color: 'bg-pink-100 text-pink-700' },
+    { title: 'Premium Users', value: stats.stats.users.premium, change: percentChange(stats.stats.subscriptions.premium + stats.stats.subscriptions.pro, previous?.users), icon: DollarSign, color: 'bg-purple-100 text-purple-700' },
   ];
 
   const subscriptionData = [

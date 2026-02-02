@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { authenticateToken } from '../middleware/auth.js';
 import { findUserByEmail, findUserById, createUser, updateUser } from '../db/index.js';
+import { getSettings } from '../config/settings.js';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -13,6 +14,10 @@ if (!JWT_SECRET) {
 // POST /login
 router.post('/login', async (req: Request, res: Response) => {
   try {
+    const settings = getSettings();
+    if (settings.maintenanceMode) {
+      return res.status(503).json({ error: 'Service temporarily unavailable. Try again later.' });
+    }
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -50,6 +55,13 @@ router.post('/login', async (req: Request, res: Response) => {
 // POST /register
 router.post('/register', async (req: Request, res: Response) => {
   try {
+    const settings = getSettings();
+    if (settings.maintenanceMode) {
+      return res.status(503).json({ error: 'Service temporarily unavailable. Try again later.' });
+    }
+    if (!settings.registrationEnabled) {
+      return res.status(403).json({ error: 'Registration is currently disabled' });
+    }
     const { email, password, name } = req.body;
 
     if (!email || !password || !name) {

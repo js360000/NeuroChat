@@ -205,7 +205,8 @@ router.post('/:id/report', authenticateToken, (req: Request, res: Response): voi
   db.reports.push({
     id: uuidv4(),
     reporterId: currentUserId,
-    reportedId: targetUserId,
+    targetType: 'user',
+    targetId: targetUserId,
     reason,
     description: details,
     status: 'pending',
