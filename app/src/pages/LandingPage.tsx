@@ -73,7 +73,7 @@ const PLANS = [
 export function LandingPage() {
   useEffect(() => {
     applySeo({
-      title: 'NeuroNest — Neurodivergent Dating, Friendship & Community',
+      title: 'NeuroNest - Neurodivergent Dating, Friendship & Community',
       description:
         'NeuroNest is a neurodivergent-first platform for dating, friendship, and community. Clear communication tools, safety-first design, and a welcoming community.',
       canonical: 'https://arcane-waters-46868-5bf57db34e8e.herokuapp.com/',
@@ -94,6 +94,9 @@ export function LandingPage() {
               <span className="text-xl font-bold text-dark">NeuroNest</span>
             </Link>
             <div className="flex items-center gap-4">
+              <Link to="/games" className="text-sm font-medium text-neutral-600 hover:text-dark">
+                Games
+              </Link>
               <Link to="/login" className="text-sm font-medium text-neutral-600 hover:text-dark">
                 Log in
               </Link>
@@ -319,9 +322,10 @@ export function LandingPage() {
             <Link to="/compare/hiki" className="hover:text-white">Hiki Alternative</Link>
             <Link to="/blog" className="hover:text-white">Blog</Link>
             <Link to="/community" className="hover:text-white">Community</Link>
+            <Link to="/games" className="hover:text-white">Games</Link>
           </div>
           <p className="text-neutral-400 text-sm">
-            © 2025 NeuroNest. All rights reserved. Built with 💜 for the ND community.
+            (c) 2025 NeuroNest. All rights reserved. Built with care for the ND community.
           </p>
         </div>
       </footer>

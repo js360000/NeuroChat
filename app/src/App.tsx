@@ -17,6 +17,7 @@ import { CommunityPage } from './pages/CommunityPage';
 import { BlogPage } from './pages/BlogPage';
 import { BlogPostPage } from './pages/BlogPostPage';
 import { CompareHikiPage } from './pages/CompareHikiPage';
+import { GamesPage } from './pages/GamesPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { MatchesPage } from './pages/MatchesPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -84,6 +85,7 @@ function App() {
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/compare/hiki" element={<CompareHikiPage />} />
+          <Route path="/games" element={<GamesPage />} />
           
           {/* Auth Routes */}
           <Route element={<AuthLayout />}>

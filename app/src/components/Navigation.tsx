@@ -10,7 +10,8 @@ import {
   LogOut,
   Sparkles,
   Users,
-  BookOpen
+  BookOpen,
+  Gamepad2
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +29,7 @@ export function Navigation() {
     { path: '/messages', label: 'Messages', icon: MessageCircle },
     { path: '/community', label: 'Community', icon: Users },
     { path: '/blog', label: 'Blog', icon: BookOpen },
+    { path: '/games', label: 'Games', icon: Gamepad2 },
   ];
 
   const compareItem = { path: '/compare/hiki', label: 'Hiki Alternative', icon: Sparkles };
@@ -78,18 +80,6 @@ export function Navigation() {
               onClick={() => setIsMobileMenuOpen(false)}
             >
               <compareItem.icon className="w-5 h-5" />
-              {compareItem.label}
-            </Link>
-            <Link
-              key={compareItem.path}
-              to={compareItem.path}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                isActive(compareItem.path)
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-neutral-600 hover:bg-neutral-100'
-              }`}
-            >
-              <compareItem.icon className="w-4 h-4" />
               {compareItem.label}
             </Link>
           </div>
@@ -180,6 +170,18 @@ export function Navigation() {
                 {item.label}
               </Link>
             ))}
+            <Link
+              to={compareItem.path}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium ${
+                isActive(compareItem.path)
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-neutral-600 hover:bg-neutral-50'
+              }`}
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              <compareItem.icon className="w-5 h-5" />
+              {compareItem.label}
+            </Link>
             <hr className="my-2" />
             <Link
               to="/profile"
