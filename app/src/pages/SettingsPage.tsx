@@ -1,18 +1,23 @@
 import { useState } from 'react';
-import { Bell, Moon, Shield, CreditCard, Loader2, ExternalLink } from 'lucide-react';
+import { Bell, Moon, Shield, CreditCard, Loader2, ExternalLink, Download, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { useAuthStore } from '@/lib/stores/auth';
 import { paymentsApi } from '@/lib/api/payments';
+import { usersApi } from '@/lib/api/users';
 import { toast } from 'sonner';
 
 export function SettingsPage() {
-  const { user } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const [billingLoading, setBillingLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
   const [settings, setSettings] = useState({
     notifications: {
       newMatches: true,
@@ -66,6 +71,45 @@ export function SettingsPage() {
       toast.error('Failed to cancel subscription');
     } finally {
       setCancelLoading(false);
+    }
+  };
+
+  const handleExportData = async () => {
+    setExportLoading(true);
+    try {
+      const response = await usersApi.exportData();
+      const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'neuronest-data-export.json';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Export generated');
+    } catch {
+      toast.error('Failed to export data');
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirm !== 'DELETE') {
+      toast.error('Type DELETE to confirm');
+      return;
+    }
+    setDeleteLoading(true);
+    try {
+      await usersApi.deleteAccount(deleteConfirm);
+      await logout();
+      toast.success('Account deleted');
+      window.location.href = '/';
+    } catch {
+      toast.error('Failed to delete account');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -246,6 +290,61 @@ export function SettingsPage() {
                 checked={settings.appearance.reducedMotion}
                 onCheckedChange={(v) => updateSetting('appearance', 'reducedMotion', v)}
               />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Data & Privacy */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5" />
+              Data & Privacy
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-medium">Export your data</p>
+                <p className="text-sm text-neutral-500">Download a JSON file of your profile and activity.</p>
+              </div>
+              <Button onClick={handleExportData} disabled={exportLoading} variant="outline">
+                {exportLoading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
+                Export data
+              </Button>
+            </div>
+
+            <div className="rounded-xl border border-red-200 bg-red-50/40 p-4 space-y-3">
+              <div>
+                <p className="font-medium text-red-700">Delete account</p>
+                <p className="text-sm text-red-600">
+                  This permanently removes your profile, matches, and messages. Type DELETE to confirm.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  value={deleteConfirm}
+                  onChange={(event) => setDeleteConfirm(event.target.value)}
+                  placeholder="Type DELETE"
+                  className="max-w-[180px]"
+                />
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteAccount}
+                  disabled={deleteLoading}
+                >
+                  {deleteLoading ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4 mr-2" />
+                  )}
+                  Delete account
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

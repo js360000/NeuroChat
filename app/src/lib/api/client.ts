@@ -100,8 +100,11 @@ class ApiClient {
     });
   }
 
-  delete<T>(endpoint: string) {
-    return this.request<T>(endpoint, { method: 'DELETE' });
+  delete<T>(endpoint: string, body?: any) {
+    return this.request<T>(endpoint, {
+      method: 'DELETE',
+      body: body ? JSON.stringify(body) : undefined
+    });
   }
 }
 

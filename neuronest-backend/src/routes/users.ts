@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { authenticateToken } from '../middleware/auth.js';
-import { db, findUserById, User } from '../db/index.js';
+import { db, findUserById, User, persistDb } from '../db/index.js';
 
 const router = Router();
 
@@ -66,6 +66,105 @@ router.get('/me/matches', authenticateToken, (req: Request, res: Response): void
     });
 
   res.json({ matches });
+});
+
+router.get('/me/export', authenticateToken, (req: Request, res: Response): void => {
+  const currentUserId = req.user!.id;
+  const user = findUserById(currentUserId);
+  if (!user) {
+    res.status(404).json({ error: 'User not found' });
+    return;
+  }
+
+  const conversations = db.conversations.filter((conversation) =>
+    conversation.participants.includes(currentUserId)
+  );
+  const conversationIds = new Set(conversations.map((conversation) => conversation.id));
+
+  const exportBundle = {
+    profile: toUserProfile(user),
+    matches: db.matches.filter(
+      (match) => match.userId1 === currentUserId || match.userId2 === currentUserId
+    ),
+    conversations,
+    messages: db.messages.filter(
+      (message) => message.senderId === currentUserId || conversationIds.has(message.conversationId)
+    ),
+    likes: db.likes.filter(
+      (like) => like.fromUserId === currentUserId || like.toUserId === currentUserId
+    ),
+    blocks: db.blocks.filter(
+      (block) => block.blockerId === currentUserId || block.blockedId === currentUserId
+    ),
+    reports: db.reports.filter(
+      (report) => report.reporterId === currentUserId || report.targetId === currentUserId
+    ),
+    communityPosts: db.communityPosts.filter((post) => post.authorId === currentUserId),
+    communityComments: db.communityComments.filter((comment) => comment.authorId === currentUserId),
+    communityReactions: db.communityReactions.filter((reaction) => reaction.userId === currentUserId),
+    blogPosts: db.blogPosts.filter((post) => post.authorId === currentUserId),
+    blogComments: db.blogComments.filter((comment) => comment.authorId === currentUserId)
+  };
+
+  res.json({ data: exportBundle });
+});
+
+router.delete('/me', authenticateToken, (req: Request, res: Response): void => {
+  const currentUserId = req.user!.id;
+  const confirm = req.body?.confirm;
+  if (confirm !== 'DELETE') {
+    res.status(400).json({ error: 'Confirmation required' });
+    return;
+  }
+
+  const user = findUserById(currentUserId);
+  if (!user) {
+    res.status(404).json({ error: 'User not found' });
+    return;
+  }
+
+  const conversationsToRemove = db.conversations
+    .filter((conversation) => conversation.participants.includes(currentUserId))
+    .map((conversation) => conversation.id);
+
+  db.users = db.users.filter((u) => u.id !== currentUserId);
+  db.matches = db.matches.filter(
+    (match) => match.userId1 !== currentUserId && match.userId2 !== currentUserId
+  );
+  db.likes = db.likes.filter(
+    (like) => like.fromUserId !== currentUserId && like.toUserId !== currentUserId
+  );
+  db.blocks = db.blocks.filter(
+    (block) => block.blockerId !== currentUserId && block.blockedId !== currentUserId
+  );
+  db.reports = db.reports.filter(
+    (report) => report.reporterId !== currentUserId && report.targetId !== currentUserId
+  );
+  db.communityPosts = db.communityPosts.filter((post) => post.authorId !== currentUserId);
+  db.communityComments = db.communityComments.filter((comment) => comment.authorId !== currentUserId);
+  db.communityReactions = db.communityReactions.filter((reaction) => reaction.userId !== currentUserId);
+  db.blogPosts = db.blogPosts.filter((post) => post.authorId !== currentUserId);
+  db.blogComments = db.blogComments.filter((comment) => comment.authorId !== currentUserId);
+  db.messages = db.messages.filter(
+    (message) =>
+      message.senderId !== currentUserId &&
+      !conversationsToRemove.includes(message.conversationId)
+  );
+  db.conversations = db.conversations.filter(
+    (conversation) => !conversationsToRemove.includes(conversation.id)
+  );
+
+  db.auditLogs.push({
+    id: uuidv4(),
+    actorId: currentUserId,
+    action: 'delete_account',
+    targetType: 'system',
+    metadata: { userId: currentUserId },
+    createdAt: new Date()
+  });
+  persistDb();
+
+  res.json({ ok: true });
 });
 
 router.get('/:id', authenticateToken, (req: Request, res: Response): void => {

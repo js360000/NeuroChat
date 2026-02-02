@@ -259,7 +259,7 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] p-6">
+    <div className="min-h-[calc(100vh-4rem)] p-4 sm:p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -332,7 +332,7 @@ export function DashboardPage() {
         <div className="grid lg:grid-cols-[2fr,1fr] gap-6">
           <div className="space-y-6">
             {viewMode === 'constellation' ? (
-              <div className="relative h-[520px] rounded-3xl border border-neutral-200 bg-white overflow-hidden">
+              <div className="relative h-[420px] sm:h-[520px] rounded-3xl border border-neutral-200 bg-white overflow-hidden">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(124,57,246,0.12),_transparent_60%)]" />
                 {clusters.map((cluster, clusterIndex) => (
                   <div key={cluster.label} className="absolute inset-0">

@@ -1,0 +1,17 @@
+{
+  "name": "NeuroNest",
+  "short_name": "NeuroNest",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f0ff",
+  "theme_color": "#7c39f6",
+  "description": "NeuroNest is a neurodivergent-first platform for dating, friendship, and community.",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

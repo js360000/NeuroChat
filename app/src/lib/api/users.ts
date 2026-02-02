@@ -48,5 +48,13 @@ export const usersApi = {
 
   reportUser: async (id: string, reason: string, details?: string) => {
     return api.post(`/users/${id}/report`, { reason, details });
+  },
+
+  exportData: async () => {
+    return api.get<{ data: any }>('/users/me/export');
+  },
+
+  deleteAccount: async (confirm: string) => {
+    return api.delete('/users/me', { confirm });
   }
 };
