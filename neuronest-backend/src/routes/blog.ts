@@ -1,29 +1,15 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { authenticateToken, optionalAuth } from '../middleware/auth.js';
+import { authenticateToken, optionalAuth, requireAdmin } from '../middleware/auth.js';
 import { db, BlogPost, BlogComment, findUserById } from '../db/index.js';
 
 const router = Router();
 
-const adminEmails = (process.env.ADMIN_EMAILS || '')
-  .split(',')
-  .map((email) => email.trim().toLowerCase())
-  .filter(Boolean);
-
-function isAdminEmail(email?: string): boolean {
-  if (!email) return false;
-  const normalized = email.toLowerCase();
-  if (adminEmails.includes(normalized)) return true;
-  return normalized.includes('admin');
-}
-
-function ensureAdmin(req: Request, res: Response): boolean {
-  const email = req.user?.email;
-  if (!isAdminEmail(email)) {
-    res.status(403).json({ error: 'Admin access required' });
-    return false;
-  }
-  return true;
+function isAdminUser(req: Request): boolean {
+  const userId = req.user?.id;
+  if (!userId) return false;
+  const user = findUserById(userId);
+  return user?.role === 'admin';
 }
 
 function toExcerpt(content: string): string {
@@ -67,14 +53,16 @@ function serializePost(post: BlogPost) {
 
 router.get('/', optionalAuth, (req: Request, res: Response) => {
   const status = (req.query.status as string) || 'published';
+  const isAdmin = isAdminUser(req);
   const q = (req.query.q as string)?.toLowerCase();
   const tag = (req.query.tag as string)?.toLowerCase();
   const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
   const offset = parseInt(req.query.offset as string) || 0;
 
   let posts = [...db.blogPosts];
-  if (status !== 'all') {
-    posts = posts.filter((post) => post.status === status);
+  const effectiveStatus = !isAdmin && status !== 'published' ? 'published' : status;
+  if (effectiveStatus !== 'all') {
+    posts = posts.filter((post) => post.status === effectiveStatus);
   }
   if (q) {
     posts = posts.filter(
@@ -104,14 +92,13 @@ router.get('/:slug', optionalAuth, (req: Request, res: Response) => {
   if (!post) {
     return res.status(404).json({ error: 'Post not found' });
   }
-  if (post.status !== 'published' && !isAdminEmail(req.user?.email)) {
+  if (post.status !== 'published' && !isAdminUser(req)) {
     return res.status(403).json({ error: 'Post not available' });
   }
   res.json({ post: serializePost(post) });
 });
 
-router.post('/', authenticateToken, (req: Request, res: Response) => {
-  if (!ensureAdmin(req, res)) return;
+router.post('/', authenticateToken, requireAdmin, (req: Request, res: Response) => {
 
   const { title, content, tags, coverImage, status } = req.body;
   if (!title || !content) {
@@ -143,8 +130,7 @@ router.post('/', authenticateToken, (req: Request, res: Response) => {
   res.status(201).json({ post: serializePost(post) });
 });
 
-router.patch('/:id', authenticateToken, (req: Request, res: Response) => {
-  if (!ensureAdmin(req, res)) return;
+router.patch('/:id', authenticateToken, requireAdmin, (req: Request, res: Response) => {
 
   const post = db.blogPosts.find((p) => p.id === req.params.id);
   if (!post) {
@@ -182,8 +168,7 @@ router.patch('/:id', authenticateToken, (req: Request, res: Response) => {
   res.json({ post: serializePost(post) });
 });
 
-router.delete('/:id', authenticateToken, (req: Request, res: Response) => {
-  if (!ensureAdmin(req, res)) return;
+router.delete('/:id', authenticateToken, requireAdmin, (req: Request, res: Response) => {
   const index = db.blogPosts.findIndex((p) => p.id === req.params.id);
   if (index === -1) {
     return res.status(404).json({ error: 'Post not found' });

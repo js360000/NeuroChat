@@ -9,6 +9,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { adminApi, type DashboardStats } from '@/lib/api/admin';
+import { useAuthStore } from '@/lib/stores/auth';
 import { toast } from 'sonner';
 
 // Admin sub-pages
@@ -19,6 +20,7 @@ import { AdminSettings } from './admin/Settings';
 
 export function AdminPage() {
   const location = useLocation();
+  const { user } = useAuthStore();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -43,6 +45,17 @@ export function AdminPage() {
     { path: '/admin/payments', label: 'Payments', icon: CreditCard },
     { path: '/admin/settings', label: 'Settings', icon: Settings },
   ];
+
+  if (user?.role !== 'admin') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-2">
+          <p className="text-lg font-semibold">Admin access required</p>
+          <p className="text-sm text-neutral-500">You do not have permission to view this page.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

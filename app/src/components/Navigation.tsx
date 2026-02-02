@@ -102,7 +102,7 @@ export function Navigation() {
                     <Settings className="w-4 h-4" />
                     Settings
                   </Link>
-                  {user?.email?.includes('admin') && (
+                  {user?.role === 'admin' && (
                     <Link
                       to="/admin"
                       className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-primary hover:bg-primary/5"

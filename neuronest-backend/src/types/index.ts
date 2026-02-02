@@ -4,6 +4,7 @@ export interface User {
   name: string;
   avatar?: string;
   bio?: string;
+  role: 'user' | 'admin';
   neurodivergentTraits: string[];
   specialInterests: string[];
   communicationPreferences: {

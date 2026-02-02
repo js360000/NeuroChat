@@ -102,7 +102,9 @@ router.patch('/:id', authenticateToken, (req: Request, res: Response) => {
   if (!post) {
     return res.status(404).json({ error: 'Post not found' });
   }
-  if (post.authorId !== req.user!.id) {
+  const user = findUserById(req.user!.id);
+  const isAdmin = user?.role === 'admin';
+  if (post.authorId !== req.user!.id && !isAdmin) {
     return res.status(403).json({ error: 'Not authorized' });
   }
 
@@ -122,7 +124,9 @@ router.delete('/:id', authenticateToken, (req: Request, res: Response) => {
   if (index === -1) {
     return res.status(404).json({ error: 'Post not found' });
   }
-  if (db.communityPosts[index].authorId !== req.user!.id) {
+  const user = findUserById(req.user!.id);
+  const isAdmin = user?.role === 'admin';
+  if (db.communityPosts[index].authorId !== req.user!.id && !isAdmin) {
     return res.status(403).json({ error: 'Not authorized' });
   }
   db.communityPosts.splice(index, 1);

@@ -6,8 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ContentWarningDialog } from '@/components/ContentWarningDialog';
 import { blogApi, type BlogPost } from '@/lib/api/blog';
 import { useAuthStore } from '@/lib/stores/auth';
+import { scanTextForWarnings } from '@/lib/safety';
 import { toast } from 'sonner';
 
 function isAdminEmail(email?: string) {
@@ -21,16 +23,27 @@ export function BlogPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [tagFilter, setTagFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'published' | 'draft' | 'all'>('published');
   const [showComposer, setShowComposer] = useState(false);
   const [draftTitle, setDraftTitle] = useState('');
   const [draftContent, setDraftContent] = useState('');
   const [draftTags, setDraftTags] = useState('');
+  const [draftStatus, setDraftStatus] = useState<'published' | 'draft'>('published');
+  const [warningOpen, setWarningOpen] = useState(false);
+  const [warningMessages, setWarningMessages] = useState<string[]>([]);
+  const [pendingPost, setPendingPost] = useState<{
+    title: string;
+    content: string;
+    tags: string[];
+    status: 'draft' | 'published';
+  } | null>(null);
 
   const loadPosts = async () => {
     try {
       const response = await blogApi.getPosts({
         q: query || undefined,
-        tag: tagFilter || undefined
+        tag: tagFilter || undefined,
+        status: statusFilter
       });
       setPosts(response.posts);
     } catch (error) {
@@ -55,17 +68,29 @@ export function BlogPage() {
       return;
     }
     try {
-      await blogApi.createPost({
+      const payload = {
         title: draftTitle.trim(),
         content: draftContent.trim(),
         tags: draftTags
           .split(',')
           .map((tag) => tag.trim())
-          .filter(Boolean)
-      });
+          .filter(Boolean),
+        status: draftStatus
+      };
+
+      const warnings = scanTextForWarnings(`${payload.title} ${payload.content}`);
+      if (warnings.length > 0) {
+        setWarningMessages(warnings.map((warning) => warning.message));
+        setPendingPost(payload);
+        setWarningOpen(true);
+        return;
+      }
+
+      await blogApi.createPost(payload);
       setDraftTitle('');
       setDraftContent('');
       setDraftTags('');
+      setDraftStatus('published');
       setShowComposer(false);
       loadPosts();
       toast.success('Post published');
@@ -74,7 +99,13 @@ export function BlogPage() {
     }
   };
 
-  const isAdmin = isAdminEmail(user?.email);
+  const isAdmin = user?.role === 'admin' || isAdminEmail(user?.email);
+
+  useEffect(() => {
+    if (isAdmin) {
+      setStatusFilter('all');
+    }
+  }, [isAdmin]);
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-6">
@@ -110,6 +141,17 @@ export function BlogPage() {
             placeholder="Tag filter"
             className="sm:w-48"
           />
+          {isAdmin && (
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as 'published' | 'draft' | 'all')}
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="all">All</option>
+              <option value="published">Published</option>
+              <option value="draft">Drafts</option>
+            </select>
+          )}
           <Button variant="outline" onClick={handleSearch}>
             Filter
           </Button>
@@ -138,6 +180,17 @@ export function BlogPage() {
               onChange={(e) => setDraftTags(e.target.value)}
               placeholder="Tags (comma separated)"
             />
+            <div className="flex items-center justify-between">
+              <label className="text-sm text-neutral-500">Status</label>
+              <select
+                value={draftStatus}
+                onChange={(e) => setDraftStatus(e.target.value as 'draft' | 'published')}
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="published">Published</option>
+                <option value="draft">Draft</option>
+              </select>
+            </div>
             <div className="flex justify-end">
               <Button onClick={handleCreate} className="bg-primary hover:bg-primary-600">
                 Publish
@@ -162,6 +215,9 @@ export function BlogPage() {
                       {tag}
                     </Badge>
                   ))}
+                  {post.status === 'draft' && (
+                    <Badge variant="outline">Draft</Badge>
+                  )}
                 </div>
                 <Link to={`/blog/${post.slug}`} className="block">
                   <h2 className="text-xl font-semibold hover:text-primary transition-colors">
@@ -181,6 +237,37 @@ export function BlogPage() {
           ))}
         </div>
       )}
+
+      <ContentWarningDialog
+        open={warningOpen}
+        warnings={warningMessages}
+        onCancel={() => {
+          setWarningOpen(false);
+          setPendingPost(null);
+        }}
+        onConfirm={async () => {
+          if (!pendingPost) {
+            setWarningOpen(false);
+            return;
+          }
+          setWarningOpen(false);
+          try {
+            await blogApi.createPost(pendingPost);
+            setDraftTitle('');
+            setDraftContent('');
+            setDraftTags('');
+            setDraftStatus('published');
+            setShowComposer(false);
+            loadPosts();
+            toast.success('Post published');
+          } catch {
+            toast.error('Failed to publish post');
+          } finally {
+            setPendingPost(null);
+          }
+        }}
+        confirmLabel="Publish anyway"
+      />
     </div>
   );
 }

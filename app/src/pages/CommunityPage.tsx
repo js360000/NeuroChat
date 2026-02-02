@@ -5,7 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ContentWarningDialog } from '@/components/ContentWarningDialog';
 import { communityApi, type CommunityPost, type CommunityComment } from '@/lib/api/community';
+import { scanTextForWarnings } from '@/lib/safety';
 import { toast } from 'sonner';
 
 export function CommunityPage() {
@@ -16,9 +18,19 @@ export function CommunityPage() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tags, setTags] = useState('');
+  const [toneTag, setToneTag] = useState('');
+  const [contentWarning, setContentWarning] = useState('');
   const [expandedPosts, setExpandedPosts] = useState<Record<string, boolean>>({});
+  const [revealedPosts, setRevealedPosts] = useState<Record<string, boolean>>({});
   const [commentsByPost, setCommentsByPost] = useState<Record<string, CommunityComment[]>>({});
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [warningOpen, setWarningOpen] = useState(false);
+  const [warningMessages, setWarningMessages] = useState<string[]>([]);
+  const [pendingAction, setPendingAction] = useState<
+    | { type: 'post'; payload: { title?: string; content: string; tags?: string[]; toneTag?: string; contentWarning?: string } }
+    | { type: 'comment'; postId: string; content: string }
+    | null
+  >(null);
 
   const loadFeed = async () => {
     try {
@@ -43,19 +55,34 @@ export function CommunityPage() {
       toast.error('Post content is required');
       return;
     }
+
+    const payload = {
+      title: title.trim() || undefined,
+      content: content.trim(),
+      tags: tags
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+      toneTag: toneTag.trim() || undefined,
+      contentWarning: contentWarning.trim() || undefined
+    };
+
+    const warnings = scanTextForWarnings(`${payload.title || ''} ${payload.content}`);
+    if (warnings.length > 0) {
+      setWarningMessages(warnings.map((warning) => warning.message));
+      setPendingAction({ type: 'post', payload });
+      setWarningOpen(true);
+      return;
+    }
+
     try {
-      const response = await communityApi.createPost({
-        title: title.trim() || undefined,
-        content: content.trim(),
-        tags: tags
-          .split(',')
-          .map((tag) => tag.trim())
-          .filter(Boolean)
-      });
+      const response = await communityApi.createPost(payload);
       setPosts((prev) => [response.post, ...prev]);
       setTitle('');
       setContent('');
       setTags('');
+      setToneTag('');
+      setContentWarning('');
       toast.success('Post published');
     } catch (error) {
       toast.error('Failed to publish post');
@@ -77,6 +104,15 @@ export function CommunityPage() {
   const handleAddComment = async (postId: string) => {
     const draft = commentDrafts[postId];
     if (!draft?.trim()) return;
+
+    const warnings = scanTextForWarnings(draft);
+    if (warnings.length > 0) {
+      setWarningMessages(warnings.map((warning) => warning.message));
+      setPendingAction({ type: 'comment', postId, content: draft.trim() });
+      setWarningOpen(true);
+      return;
+    }
+
     try {
       const response = await communityApi.addComment(postId, draft.trim());
       setCommentsByPost((prev) => ({
@@ -140,6 +176,18 @@ export function CommunityPage() {
             placeholder="Share what's on your mind..."
             rows={4}
           />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              value={toneTag}
+              onChange={(e) => setToneTag(e.target.value)}
+              placeholder="Tone tag (optional)"
+            />
+            <Input
+              value={contentWarning}
+              onChange={(e) => setContentWarning(e.target.value)}
+              placeholder="Content warning (optional)"
+            />
+          </div>
           <Input
             value={tags}
             onChange={(e) => setTags(e.target.value)}
@@ -188,9 +236,32 @@ export function CommunityPage() {
                       {tag}
                     </Badge>
                   ))}
+                  {post.toneTag && (
+                    <Badge variant="outline">Tone: {post.toneTag}</Badge>
+                  )}
+                  {post.contentWarning && (
+                    <Badge variant="destructive">CW: {post.contentWarning}</Badge>
+                  )}
                 </div>
                 {post.title && <h3 className="text-lg font-semibold">{post.title}</h3>}
-                <p className="text-neutral-700">{post.content}</p>
+                {post.contentWarning && !revealedPosts[post.id] ? (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                    <p className="font-medium">Content warning</p>
+                    <p className="mt-1">{post.contentWarning}</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() =>
+                        setRevealedPosts((prev) => ({ ...prev, [post.id]: true }))
+                      }
+                    >
+                      Show content
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-neutral-700">{post.content}</p>
+                )}
                 <div className="text-xs text-neutral-500">
                   {post.author.name} • {new Date(post.createdAt).toLocaleDateString()}
                 </div>
@@ -252,6 +323,66 @@ export function CommunityPage() {
           ))}
         </div>
       )}
+
+      <ContentWarningDialog
+        open={warningOpen}
+        warnings={warningMessages}
+        onCancel={() => {
+          setWarningOpen(false);
+          setPendingAction(null);
+        }}
+        onConfirm={async () => {
+          if (!pendingAction) {
+            setWarningOpen(false);
+            return;
+          }
+          setWarningOpen(false);
+          if (pendingAction.type === 'post') {
+            try {
+              const response = await communityApi.createPost(pendingAction.payload);
+              setPosts((prev) => [response.post, ...prev]);
+              setTitle('');
+              setContent('');
+              setTags('');
+              setToneTag('');
+              setContentWarning('');
+              toast.success('Post published');
+            } catch {
+              toast.error('Failed to publish post');
+            } finally {
+              setPendingAction(null);
+            }
+          }
+          if (pendingAction.type === 'comment') {
+            try {
+              const response = await communityApi.addComment(
+                pendingAction.postId,
+                pendingAction.content
+              );
+              setCommentsByPost((prev) => ({
+                ...prev,
+                [pendingAction.postId]: [
+                  ...(prev[pendingAction.postId] || []),
+                  response.comment
+                ]
+              }));
+              setCommentDrafts((prev) => ({ ...prev, [pendingAction.postId]: '' }));
+              setPosts((prev) =>
+                prev.map((post) =>
+                  post.id === pendingAction.postId
+                    ? { ...post, commentCount: post.commentCount + 1 }
+                    : post
+                )
+              );
+            } catch {
+              toast.error('Failed to add comment');
+            } finally {
+              setPendingAction(null);
+            }
+          }
+        }}
+        confirmLabel="Post anyway"
+      />
     </div>
   );
 }

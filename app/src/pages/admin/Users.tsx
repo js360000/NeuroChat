@@ -68,6 +68,7 @@ export function AdminUsers() {
           <thead className="bg-neutral-50 border-b border-neutral-200">
             <tr>
               <th className="text-left py-3 px-4 text-sm font-medium text-neutral-500">User</th>
+              <th className="text-left py-3 px-4 text-sm font-medium text-neutral-500">Role</th>
               <th className="text-left py-3 px-4 text-sm font-medium text-neutral-500">Plan</th>
               <th className="text-left py-3 px-4 text-sm font-medium text-neutral-500">Status</th>
               <th className="text-left py-3 px-4 text-sm font-medium text-neutral-500">Joined</th>
@@ -88,6 +89,11 @@ export function AdminUsers() {
                       <p className="text-xs text-neutral-500">{user.email}</p>
                     </div>
                   </div>
+                </td>
+                <td className="py-3 px-4">
+                  <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                    {user.role || 'user'}
+                  </Badge>
                 </td>
                 <td className="py-3 px-4">
                   <Badge variant={user.subscription.plan === 'free' ? 'secondary' : 'default'}>

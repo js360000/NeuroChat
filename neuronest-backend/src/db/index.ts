@@ -8,6 +8,7 @@ export interface User {
   name: string;
   bio?: string;
   avatar?: string;
+  role: 'user' | 'admin';
   neurodivergentTraits: string[];
   specialInterests: string[];
   communicationPreferences: {
@@ -135,14 +136,38 @@ export interface Report {
 }
 
 const hashedPassword = bcrypt.hashSync('password123', 10);
+const adminPassword = bcrypt.hashSync('changethis!', 10);
 
 const seedUsers: User[] = [
+  {
+    id: uuidv4(),
+    email: 'joseph2x16@gmail.com',
+    password: adminPassword,
+    name: 'Joseph Admin',
+    bio: 'Platform administrator.',
+    role: 'admin',
+    neurodivergentTraits: [],
+    specialInterests: ['Product', 'Community'],
+    communicationPreferences: {
+      preferredToneTags: true,
+      aiExplanations: true,
+      voiceMessages: false,
+    },
+    subscription: { plan: 'pro', status: 'active' },
+    verification: { email: true, photo: true, id: true },
+    isOnline: false,
+    isSuspended: false,
+    lastActive: new Date(),
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date(),
+  },
   {
     id: uuidv4(),
     email: 'alex.chen@email.com',
     password: hashedPassword,
     name: 'Alex Chen',
     bio: 'Software developer who loves building things and playing strategy games.',
+    role: 'user',
     neurodivergentTraits: ['ADHD', 'Autism'],
     specialInterests: ['Technology', 'Gaming', 'Science'],
     communicationPreferences: {
@@ -164,6 +189,7 @@ const seedUsers: User[] = [
     password: hashedPassword,
     name: 'Maya Johnson',
     bio: 'Artist and nature enthusiast. I love painting landscapes and hiking.',
+    role: 'user',
     neurodivergentTraits: ['Dyslexia', 'Anxiety'],
     specialInterests: ['Art', 'Nature', 'Music'],
     communicationPreferences: {
@@ -185,6 +211,7 @@ const seedUsers: User[] = [
     password: hashedPassword,
     name: 'Sam Williams',
     bio: 'Music producer and anime fan. Always looking for new sounds and shows.',
+    role: 'user',
     neurodivergentTraits: ['Autism', 'OCD'],
     specialInterests: ['Music', 'Anime', 'Technology'],
     communicationPreferences: {
@@ -206,6 +233,7 @@ const seedUsers: User[] = [
     password: hashedPassword,
     name: 'Jordan Taylor',
     bio: 'Gamer and science nerd. I love discussing theories and playing RPGs.',
+    role: 'user',
     neurodivergentTraits: ['ADHD', 'Dyscalculia'],
     specialInterests: ['Gaming', 'Science', 'Reading'],
     communicationPreferences: {
@@ -227,6 +255,7 @@ const seedUsers: User[] = [
     password: hashedPassword,
     name: 'Riley Parker',
     bio: 'Cat lover and aspiring writer. I enjoy cozy games and fantasy novels.',
+    role: 'user',
     neurodivergentTraits: ['Anxiety', 'Autism', 'Dyspraxia'],
     specialInterests: ['Reading', 'Gaming', 'Animals'],
     communicationPreferences: {
@@ -333,6 +362,7 @@ export function createUser(data: CreateUserInput): User {
     email: data.email,
     password: data.password,
     name: data.name,
+    role: 'user',
     neurodivergentTraits: data.neurodivergentTraits || [],
     specialInterests: data.specialInterests || [],
     communicationPreferences: {

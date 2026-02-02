@@ -8,9 +8,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ContentWarningDialog } from '@/components/ContentWarningDialog';
 import { messagesApi, type Conversation, type Message } from '@/lib/api/messages';
 import { aiApi, type AIExplanation } from '@/lib/api/ai';
 import { useAuthStore } from '@/lib/stores/auth';
+import { scanTextForWarnings } from '@/lib/safety';
 import { toast } from 'sonner';
 
 const TONE_TAGS = [
@@ -41,6 +43,9 @@ export function MessagesPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAvailable, setAiAvailable] = useState(true);
   const [typingUserId, setTypingUserId] = useState<string | null>(null);
+  const [warningOpen, setWarningOpen] = useState(false);
+  const [warningMessages, setWarningMessages] = useState<string[]>([]);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -167,20 +172,21 @@ export function MessagesPage() {
     }
   };
 
-  const handleSend = async () => {
-    if (!inputMessage.trim() || !conversationId) return;
+  const sendMessage = async (messageText: string) => {
+    if (!messageText.trim() || !conversationId) return;
 
     setIsSending(true);
     try {
       const response = await messagesApi.sendMessage(
         conversationId,
-        inputMessage,
+        messageText,
         selectedToneTag
       );
       
       setMessages((prev) => [...prev, response.message]);
       setInputMessage('');
       setSelectedToneTag(undefined);
+      setPendingMessage(null);
       
       // Update conversation list
       loadConversations();
@@ -189,6 +195,18 @@ export function MessagesPage() {
     } finally {
       setIsSending(false);
     }
+  };
+
+  const handleSend = async () => {
+    if (!inputMessage.trim() || !conversationId) return;
+    const warnings = scanTextForWarnings(inputMessage);
+    if (warnings.length > 0) {
+      setWarningMessages(warnings.map((warning) => warning.message));
+      setPendingMessage(inputMessage);
+      setWarningOpen(true);
+      return;
+    }
+    await sendMessage(inputMessage);
   };
 
   const handleExplain = async (message: Message) => {
@@ -523,6 +541,19 @@ export function MessagesPage() {
           ) : null}
         </DialogContent>
       </Dialog>
+
+      <ContentWarningDialog
+        open={warningOpen}
+        warnings={warningMessages}
+        onCancel={() => setWarningOpen(false)}
+        onConfirm={() => {
+          setWarningOpen(false);
+          if (pendingMessage) {
+            sendMessage(pendingMessage);
+          }
+        }}
+        confirmLabel="Send anyway"
+      />
     </div>
   );
 }

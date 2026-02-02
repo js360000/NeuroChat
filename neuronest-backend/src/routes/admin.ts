@@ -1,13 +1,13 @@
 import { Router, Request, Response } from 'express';
 import Stripe from 'stripe';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 import { db, findUserById } from '../db/index.js';
 
 const router = Router();
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
 
-router.use(authenticateToken);
+router.use(authenticateToken, requireAdmin);
 
 // Admin settings stored in db
 interface AdminSettings {
@@ -139,6 +139,7 @@ router.get('/users', (req: Request, res: Response) => {
     email: u.email,
     name: u.name,
     avatar: u.avatar,
+    role: u.role,
     subscription: u.subscription,
     verification: u.verification,
     isSuspended: u.isSuspended,
@@ -167,6 +168,7 @@ router.get('/users/:id', (req: Request, res: Response) => {
       bio: user.bio,
       neurodivergentTraits: user.neurodivergentTraits,
       specialInterests: user.specialInterests,
+      role: user.role,
       subscription: user.subscription,
       verification: user.verification,
       isSuspended: user.isSuspended,

@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { ContentWarningDialog } from '@/components/ContentWarningDialog';
 import { blogApi, type BlogPost, type BlogComment } from '@/lib/api/blog';
+import { scanTextForWarnings } from '@/lib/safety';
 import { toast } from 'sonner';
 
 export function BlogPostPage() {
@@ -14,6 +16,9 @@ export function BlogPostPage() {
   const [comments, setComments] = useState<BlogComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [warningOpen, setWarningOpen] = useState(false);
+  const [warningMessages, setWarningMessages] = useState<string[]>([]);
+  const [pendingComment, setPendingComment] = useState<string | null>(null);
 
   const loadPost = async () => {
     if (!slug) return;
@@ -35,6 +40,13 @@ export function BlogPostPage() {
 
   const handleAddComment = async () => {
     if (!post || !newComment.trim()) return;
+    const warnings = scanTextForWarnings(newComment);
+    if (warnings.length > 0) {
+      setWarningMessages(warnings.map((warning) => warning.message));
+      setPendingComment(newComment.trim());
+      setWarningOpen(true);
+      return;
+    }
     try {
       const response = await blogApi.addComment(post.id, newComment.trim());
       setComments((prev) => [...prev, response.comment]);
@@ -114,6 +126,32 @@ export function BlogPostPage() {
           </div>
         </CardContent>
       </Card>
+
+      <ContentWarningDialog
+        open={warningOpen}
+        warnings={warningMessages}
+        onCancel={() => {
+          setWarningOpen(false);
+          setPendingComment(null);
+        }}
+        onConfirm={async () => {
+          if (!post || !pendingComment) {
+            setWarningOpen(false);
+            return;
+          }
+          setWarningOpen(false);
+          try {
+            const response = await blogApi.addComment(post.id, pendingComment);
+            setComments((prev) => [...prev, response.comment]);
+            setNewComment('');
+          } catch {
+            toast.error('Failed to add comment');
+          } finally {
+            setPendingComment(null);
+          }
+        }}
+        confirmLabel="Post anyway"
+      />
     </div>
   );
 }

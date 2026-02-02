@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { findUserById } from '../db/index.js';
 
 interface JwtPayload {
   id: string;
@@ -60,5 +61,19 @@ export function optionalAuth(req: Request, res: Response, next: NextFunction): v
     // Token invalid, but continue without user
   }
 
+  next();
+}
+
+export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({ error: 'Access token required' });
+    return;
+  }
+  const user = findUserById(userId);
+  if (!user || user.role !== 'admin') {
+    res.status(403).json({ error: 'Admin access required' });
+    return;
+  }
   next();
 }

@@ -5,6 +5,7 @@ export interface AdminUser {
   email: string;
   name: string;
   avatar?: string;
+  role?: 'user' | 'admin';
   subscription: {
     plan: string;
     status: string;
