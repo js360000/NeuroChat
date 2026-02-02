@@ -147,6 +147,38 @@ export interface AuditLog {
   createdAt: Date;
 }
 
+export interface SocialScheduleEntry {
+  id: string;
+  channel: string;
+  title: string;
+  caption?: string;
+  description?: string;
+  mediaUrl?: string;
+  scheduledAt?: string;
+  status: 'queued' | 'sent' | 'failed';
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface N8nWorkflowHook {
+  workflowId: string;
+  webhookUrl: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface N8nWorkflowRun {
+  id: string;
+  workflowId: string;
+  webhookUrl: string;
+  status: 'success' | 'failed';
+  responseStatus?: number;
+  error?: string;
+  triggeredAt: Date;
+  triggeredBy: string;
+}
+
 const hashedPassword = bcrypt.hashSync('password123', 10);
 const adminPassword = bcrypt.hashSync('changethis!', 10);
 
@@ -350,6 +382,9 @@ export const db = {
   blocks: [] as Block[],
   reports: [] as Report[],
   auditLogs: [] as AuditLog[],
+  socialSchedules: [] as SocialScheduleEntry[],
+  n8nWorkflowHooks: [] as N8nWorkflowHook[],
+  n8nWorkflowRuns: [] as N8nWorkflowRun[],
 };
 
 export function findUserByEmail(email: string): User | undefined {

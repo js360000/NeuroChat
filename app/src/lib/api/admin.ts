@@ -120,12 +120,49 @@ export const adminApi = {
     return api.get<{ workflows: any[] }>(`/admin/n8n/workflows${suffix}`);
   },
 
+  getN8nWorkflowHooks: async () => {
+    return api.get<{ hooks: any[] }>('/admin/n8n/workflows/hooks');
+  },
+
+  updateN8nWorkflowHook: async (id: string, webhookUrl: string) => {
+    return api.patch<{ hook: any }>(`/admin/n8n/workflows/${id}/hook`, { webhookUrl });
+  },
+
+  runN8nWorkflow: async (id: string, payload?: any, webhookUrl?: string) => {
+    return api.post(`/admin/n8n/workflows/${id}/run`, { payload, webhookUrl });
+  },
+
   setN8nWorkflowActive: async (id: string, active: boolean) => {
     return api.post(`/admin/n8n/workflows/${id}/activate`, { active });
   },
 
-  triggerN8nWebhook: async (payload: { event: string; channel: string; payload: any; webhookUrl?: string }) => {
+  getN8nRuns: async (params?: { workflowId?: string; limit?: number }) => {
+    const query = new URLSearchParams();
+    if (params?.workflowId) query.append('workflowId', params.workflowId);
+    if (params?.limit) query.append('limit', String(params.limit));
+    const suffix = query.toString() ? `?${query}` : '';
+    return api.get<{ runs: any[] }>(`/admin/n8n/runs${suffix}`);
+  },
+
+  triggerN8nWebhook: async (payload: { event: string; channel: string; payload: any; webhookUrl?: string; scheduleId?: string }) => {
     return api.post('/admin/n8n/trigger', payload);
+  },
+
+  getSocialSchedule: async (params?: { channel?: string; status?: string; limit?: number }) => {
+    const query = new URLSearchParams();
+    if (params?.channel) query.append('channel', params.channel);
+    if (params?.status) query.append('status', params.status);
+    if (params?.limit) query.append('limit', String(params.limit));
+    const suffix = query.toString() ? `?${query}` : '';
+    return api.get<{ schedules: any[] }>(`/admin/social/schedule${suffix}`);
+  },
+
+  createSocialSchedule: async (payload: any) => {
+    return api.post<{ schedule: any }>('/admin/social/schedule', payload);
+  },
+
+  updateSocialSchedule: async (id: string, payload: any) => {
+    return api.patch<{ schedule: any }>(`/admin/social/schedule/${id}`, payload);
   },
 
   getEnvVars: async () => {

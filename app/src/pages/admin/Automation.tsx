@@ -37,6 +37,16 @@ interface ScheduleEntry {
   title: string;
   scheduledAt?: string;
   caption?: string;
+  status?: string;
+}
+
+interface WorkflowRun {
+  id: string;
+  workflowId: string;
+  status: string;
+  responseStatus?: number;
+  triggeredAt: string;
+  error?: string;
 }
 
 const CHANNELS = [
@@ -71,6 +81,9 @@ export function AdminAutomation() {
   const [apiKeyDraft, setApiKeyDraft] = useState('');
   const [workflows, setWorkflows] = useState<WorkflowSummary[]>([]);
   const [workflowBusy, setWorkflowBusy] = useState<Record<string, boolean>>({});
+  const [workflowHooks, setWorkflowHooks] = useState<Record<string, string>>({});
+  const [hookDrafts, setHookDrafts] = useState<Record<string, string>>({});
+  const [runs, setRuns] = useState<WorkflowRun[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState('instagram');
@@ -85,6 +98,10 @@ export function AdminAutomation() {
 
   useEffect(() => {
     loadConfig();
+    loadWorkflows();
+    loadHooks();
+    loadSchedule();
+    loadRuns();
   }, []);
 
   const statusBadge = useMemo(() => {
@@ -121,6 +138,37 @@ export function AdminAutomation() {
     }
   };
 
+  const loadHooks = async () => {
+    try {
+      const response = await adminApi.getN8nWorkflowHooks();
+      const map: Record<string, string> = {};
+      response.hooks?.forEach((hook: any) => {
+        map[hook.workflowId] = hook.webhookUrl;
+      });
+      setWorkflowHooks(map);
+    } catch (error) {
+      toast.error('Failed to load workflow hooks');
+    }
+  };
+
+  const loadRuns = async () => {
+    try {
+      const response = await adminApi.getN8nRuns({ limit: 20 });
+      setRuns(response.runs || []);
+    } catch (error) {
+      toast.error('Failed to load workflow runs');
+    }
+  };
+
+  const loadSchedule = async () => {
+    try {
+      const response = await adminApi.getSocialSchedule({ limit: 50 });
+      setScheduleEntries(response.schedules || []);
+    } catch (error) {
+      toast.error('Failed to load schedule entries');
+    }
+  };
+
   const toggleWorkflow = async (workflow: WorkflowSummary, nextActive: boolean) => {
     setWorkflowBusy((prev) => ({ ...prev, [workflow.id]: true }));
     try {
@@ -133,6 +181,31 @@ export function AdminAutomation() {
       toast.error(error?.response?.data?.error || 'Failed to update workflow');
     } finally {
       setWorkflowBusy((prev) => ({ ...prev, [workflow.id]: false }));
+    }
+  };
+
+  const saveWorkflowHook = async (workflowId: string) => {
+    const webhookUrl = hookDrafts[workflowId] || '';
+    if (!webhookUrl) {
+      toast.error('Enter a webhook URL to save');
+      return;
+    }
+    try {
+      const response = await adminApi.updateN8nWorkflowHook(workflowId, webhookUrl);
+      setWorkflowHooks((prev) => ({ ...prev, [workflowId]: response.hook.webhookUrl }));
+      toast.success('Webhook saved');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || 'Failed to save webhook');
+    }
+  };
+
+  const runWorkflow = async (workflowId: string) => {
+    try {
+      await adminApi.runN8nWorkflow(workflowId, { channel: selectedChannel, payload });
+      toast.success('Workflow triggered');
+      loadRuns();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || 'Failed to run workflow');
     }
   };
 
@@ -158,24 +231,29 @@ export function AdminAutomation() {
   };
 
   const sendPayload = async () => {
+    let scheduleId: string | null = null;
     try {
+      const schedule = await adminApi.createSocialSchedule({
+        channel: selectedChannel,
+        title: payload.title || TEMPLATE_COPY[selectedChannel].title,
+        caption: payload.caption,
+        description: payload.description,
+        mediaUrl: payload.mediaUrl,
+        scheduledAt: payload.scheduledAt || undefined
+      });
+      scheduleId = schedule.schedule.id;
       await adminApi.triggerN8nWebhook({
         event: 'social_schedule',
         channel: selectedChannel,
-        payload
+        payload,
+        scheduleId: scheduleId || undefined
       });
-      setScheduleEntries((prev) => [
-        {
-          id: `${Date.now()}`,
-          channel: selectedChannel,
-          title: payload.title || TEMPLATE_COPY[selectedChannel].title,
-          scheduledAt: payload.scheduledAt || undefined,
-          caption: payload.caption || undefined
-        },
-        ...prev
-      ]);
+      loadSchedule();
       toast.success('Payload sent to n8n');
     } catch (error: any) {
+      if (scheduleId) {
+        await adminApi.updateSocialSchedule(scheduleId, { status: 'failed' });
+      }
       toast.error(error?.response?.data?.error || 'Failed to send payload');
     }
   };
@@ -307,21 +385,41 @@ export function AdminAutomation() {
               {workflows.map((workflow) => (
                 <div
                   key={workflow.id}
-                  className="flex items-center justify-between border border-neutral-200 rounded-xl p-3"
+                  className="border border-neutral-200 rounded-xl p-3 space-y-3"
                 >
-                  <div>
-                    <p className="font-medium">{workflow.name}</p>
-                    <p className="text-xs text-neutral-500">ID {workflow.id}</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">{workflow.name}</p>
+                      <p className="text-xs text-neutral-500">ID {workflow.id}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge className={workflow.active ? 'bg-green-100 text-green-700' : 'bg-neutral-100 text-neutral-600'}>
+                        {workflow.active ? 'Active' : 'Paused'}
+                      </Badge>
+                      <Switch
+                        checked={workflow.active}
+                        disabled={workflowBusy[workflow.id]}
+                        onCheckedChange={(value) => toggleWorkflow(workflow, value)}
+                      />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge className={workflow.active ? 'bg-green-100 text-green-700' : 'bg-neutral-100 text-neutral-600'}>
-                      {workflow.active ? 'Active' : 'Paused'}
-                    </Badge>
-                    <Switch
-                      checked={workflow.active}
-                      disabled={workflowBusy[workflow.id]}
-                      onCheckedChange={(value) => toggleWorkflow(workflow, value)}
+                  <div className="space-y-2">
+                    <Label>Webhook URL</Label>
+                    <Input
+                      value={hookDrafts[workflow.id] ?? workflowHooks[workflow.id] ?? ''}
+                      onChange={(event) =>
+                        setHookDrafts((prev) => ({ ...prev, [workflow.id]: event.target.value }))
+                      }
+                      placeholder="https://n8n.yourdomain.com/webhook/your-flow"
                     />
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" variant="outline" onClick={() => saveWorkflowHook(workflow.id)}>
+                        Save webhook
+                      </Button>
+                      <Button size="sm" onClick={() => runWorkflow(workflow.id)}>
+                        Run now
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -427,6 +525,40 @@ export function AdminAutomation() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Workflow className="w-5 h-5 text-primary" />
+            Execution history
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {runs.length === 0 ? (
+            <p className="text-sm text-neutral-500">No workflow runs yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {runs.slice(0, 10).map((run) => (
+                <div
+                  key={run.id}
+                  className="flex flex-wrap items-center justify-between gap-2 border border-neutral-200 rounded-xl px-3 py-2"
+                >
+                  <div>
+                    <p className="text-sm font-medium">Workflow {run.workflowId}</p>
+                    <p className="text-xs text-neutral-500">
+                      {new Date(run.triggeredAt).toLocaleString()}
+                    </p>
+                    {run.error && <p className="text-xs text-red-500">{run.error}</p>}
+                  </div>
+                  <Badge className={run.status === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                    {run.status} {run.responseStatus ? `(${run.responseStatus})` : ''}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Workflow className="w-5 h-5 text-primary" />
             Campaign calendar
           </CardTitle>
         </CardHeader>
@@ -446,9 +578,12 @@ export function AdminAutomation() {
                     {entries.map((entry) => (
                       <div
                         key={entry.id}
-                        className="rounded-lg bg-primary/10 text-primary text-xs px-2 py-1"
+                        className="rounded-lg bg-primary/10 text-primary text-xs px-2 py-1 flex items-center justify-between gap-2"
                       >
-                        {entry.title}
+                        <span>{entry.title}</span>
+                        {entry.status && (
+                          <span className="text-[10px] text-neutral-500">{entry.status}</span>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -473,7 +608,14 @@ export function AdminAutomation() {
                         {entry.channel} {entry.scheduledAt ? `• ${entry.scheduledAt}` : '• Draft'}
                       </p>
                     </div>
-                    <Badge variant="secondary">{entry.channel}</Badge>
+                    <div className="flex items-center gap-2">
+                      {entry.status && (
+                        <Badge className={entry.status === 'sent' ? 'bg-green-100 text-green-700' : entry.status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}>
+                          {entry.status}
+                        </Badge>
+                      )}
+                      <Badge variant="secondary">{entry.channel}</Badge>
+                    </div>
                   </div>
                 ))}
               </div>

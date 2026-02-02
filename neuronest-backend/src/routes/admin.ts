@@ -91,6 +91,27 @@ function maskEnvValue(value: string, isSecret: boolean) {
   return `${value.slice(0, 3)}***${value.slice(-3)}`;
 }
 
+function getWorkflowHook(workflowId: string) {
+  return db.n8nWorkflowHooks.find((hook) => hook.workflowId === workflowId);
+}
+
+function upsertWorkflowHook(workflowId: string, webhookUrl: string) {
+  const existing = getWorkflowHook(workflowId);
+  if (existing) {
+    existing.webhookUrl = webhookUrl;
+    existing.updatedAt = new Date();
+    return existing;
+  }
+  const hook = {
+    workflowId,
+    webhookUrl,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+  db.n8nWorkflowHooks.push(hook);
+  return hook;
+}
+
 async function checkN8nConnection() {
   const config = getN8nConfig();
   if (!config.enabled || !config.baseUrl || !config.apiKey) {
@@ -619,6 +640,93 @@ router.patch('/settings', (req: Request, res: Response) => {
   res.json({ settings: next });
 });
 
+// GET /social/schedule - list scheduled social posts
+router.get('/social/schedule', (req: Request, res: Response) => {
+  const channel = (req.query.channel as string) || 'all';
+  const status = (req.query.status as string) || 'all';
+  const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+
+  let entries = [...db.socialSchedules];
+  if (channel !== 'all') {
+    entries = entries.filter((entry) => entry.channel === channel);
+  }
+  if (status !== 'all') {
+    entries = entries.filter((entry) => entry.status === status);
+  }
+
+  const results = entries
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, limit)
+    .map((entry) => ({
+      id: entry.id,
+      channel: entry.channel,
+      title: entry.title,
+      caption: entry.caption,
+      description: entry.description,
+      mediaUrl: entry.mediaUrl,
+      scheduledAt: entry.scheduledAt,
+      status: entry.status,
+      createdBy: entry.createdBy,
+      createdAt: entry.createdAt.toISOString(),
+      updatedAt: entry.updatedAt.toISOString()
+    }));
+
+  res.json({ schedules: results });
+});
+
+// POST /social/schedule - create a scheduled social post entry
+router.post('/social/schedule', (req: Request, res: Response) => {
+  const { channel, title, caption, description, mediaUrl, scheduledAt } = req.body;
+
+  if (!channel || !title) {
+    return res.status(400).json({ error: 'Channel and title are required' });
+  }
+
+  const entry = {
+    id: uuidv4(),
+    channel,
+    title,
+    caption,
+    description,
+    mediaUrl,
+    scheduledAt,
+    status: 'queued' as const,
+    createdBy: req.user!.id,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+
+  db.socialSchedules.push(entry);
+  db.auditLogs.push({
+    id: uuidv4(),
+    actorId: req.user!.id,
+    action: 'create_social_schedule',
+    targetType: 'system',
+    metadata: { channel, title },
+    createdAt: new Date()
+  });
+
+  res.json({ schedule: { ...entry, createdAt: entry.createdAt.toISOString(), updatedAt: entry.updatedAt.toISOString() } });
+});
+
+// PATCH /social/schedule/:id - update schedule status
+router.patch('/social/schedule/:id', (req: Request, res: Response) => {
+  const entry = db.socialSchedules.find((item) => item.id === req.params.id);
+  if (!entry) {
+    return res.status(404).json({ error: 'Schedule entry not found' });
+  }
+
+  const allowedFields = ['status', 'scheduledAt', 'title', 'caption', 'description', 'mediaUrl'];
+  for (const field of allowedFields) {
+    if (req.body[field] !== undefined) {
+      (entry as any)[field] = req.body[field];
+    }
+  }
+  entry.updatedAt = new Date();
+
+  res.json({ schedule: { ...entry, createdAt: entry.createdAt.toISOString(), updatedAt: entry.updatedAt.toISOString() } });
+});
+
 // GET /n8n/config - Get n8n configuration (masked)
 router.get('/n8n/config', (req: Request, res: Response) => {
   const config = getN8nConfig();
@@ -674,6 +782,89 @@ router.patch('/n8n/config', (req: Request, res: Response) => {
       apiKeyMasked: maskApiKey(next.apiKey)
     }
   });
+});
+
+// GET /n8n/workflows/hooks - List stored webhook hooks for workflows
+router.get('/n8n/workflows/hooks', (req: Request, res: Response) => {
+  const hooks = db.n8nWorkflowHooks.map((hook) => ({
+    workflowId: hook.workflowId,
+    webhookUrl: hook.webhookUrl,
+    updatedAt: hook.updatedAt.toISOString()
+  }));
+  res.json({ hooks });
+});
+
+// PATCH /n8n/workflows/:id/hook - Update webhook URL for a workflow
+router.patch('/n8n/workflows/:id/hook', (req: Request, res: Response) => {
+  const webhookUrl = req.body.webhookUrl as string;
+  if (!webhookUrl) {
+    return res.status(400).json({ error: 'Webhook URL is required' });
+  }
+  const hook = upsertWorkflowHook(req.params.id, webhookUrl);
+  db.auditLogs.push({
+    id: uuidv4(),
+    actorId: req.user!.id,
+    action: 'update_workflow_hook',
+    targetType: 'integration',
+    targetId: req.params.id,
+    metadata: { webhookUrl },
+    createdAt: new Date()
+  });
+  res.json({
+    hook: {
+      workflowId: hook.workflowId,
+      webhookUrl: hook.webhookUrl,
+      updatedAt: hook.updatedAt.toISOString()
+    }
+  });
+});
+
+// POST /n8n/workflows/:id/run - Trigger workflow webhook
+router.post('/n8n/workflows/:id/run', async (req: Request, res: Response) => {
+  const overrideUrl = req.body.webhookUrl as string | undefined;
+  const storedHook = getWorkflowHook(req.params.id);
+  const targetUrl = overrideUrl || storedHook?.webhookUrl;
+  if (!targetUrl) {
+    return res.status(400).json({ error: 'No webhook URL configured for this workflow' });
+  }
+
+  const payload = {
+    event: 'manual_run',
+    workflowId: req.params.id,
+    triggeredBy: req.user!.id,
+    payload: req.body.payload || {}
+  };
+
+  try {
+    const response = await fetch(targetUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    db.n8nWorkflowRuns.push({
+      id: uuidv4(),
+      workflowId: req.params.id,
+      webhookUrl: targetUrl,
+      status: response.ok ? 'success' : 'failed',
+      responseStatus: response.status,
+      triggeredAt: new Date(),
+      triggeredBy: req.user!.id
+    });
+
+    res.json({ ok: response.ok, status: response.status });
+  } catch (error: any) {
+    db.n8nWorkflowRuns.push({
+      id: uuidv4(),
+      workflowId: req.params.id,
+      webhookUrl: targetUrl,
+      status: 'failed',
+      error: error.message || 'Failed to run workflow',
+      triggeredAt: new Date(),
+      triggeredBy: req.user!.id
+    });
+    res.status(500).json({ error: error.message || 'Failed to run workflow' });
+  }
 });
 
 // POST /n8n/workflows/:id/activate - Toggle workflow active status
@@ -734,6 +925,30 @@ router.get('/n8n/workflows', async (req: Request, res: Response) => {
   }
 });
 
+// GET /n8n/runs - List stored workflow runs
+router.get('/n8n/runs', (req: Request, res: Response) => {
+  const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+  const workflowId = req.query.workflowId as string | undefined;
+  let runs = [...db.n8nWorkflowRuns];
+  if (workflowId) {
+    runs = runs.filter((run) => run.workflowId === workflowId);
+  }
+  const results = runs
+    .sort((a, b) => b.triggeredAt.getTime() - a.triggeredAt.getTime())
+    .slice(0, limit)
+    .map((run) => ({
+      id: run.id,
+      workflowId: run.workflowId,
+      webhookUrl: run.webhookUrl,
+      status: run.status,
+      responseStatus: run.responseStatus,
+      error: run.error,
+      triggeredAt: run.triggeredAt.toISOString(),
+      triggeredBy: run.triggeredBy
+    }));
+  res.json({ runs: results });
+});
+
 // POST /n8n/trigger - Send payload to a configured n8n webhook
 router.post('/n8n/trigger', async (req: Request, res: Response) => {
   const { webhookUrl } = getN8nConfig();
@@ -754,6 +969,13 @@ router.post('/n8n/trigger', async (req: Request, res: Response) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+    if (req.body.scheduleId) {
+      const entry = db.socialSchedules.find((item) => item.id === req.body.scheduleId);
+      if (entry) {
+        entry.status = response.ok ? 'sent' : 'failed';
+        entry.updatedAt = new Date();
+      }
+    }
     db.auditLogs.push({
       id: uuidv4(),
       actorId: req.user!.id,
