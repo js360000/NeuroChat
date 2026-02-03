@@ -16,6 +16,9 @@ const NEURODIVERGENT_TRAITS = [
   'Tourette\'s', 'OCD', 'Bipolar', 'Anxiety', 'Sensory Processing'
 ];
 
+const RESPONSE_PACE_OPTIONS: Array<'slow' | 'balanced' | 'fast'> = ['slow', 'balanced', 'fast'];
+const DIRECTNESS_OPTIONS: Array<'gentle' | 'direct'> = ['gentle', 'direct'];
+
 const CONNECTION_GOALS = [
   'Friendship',
   'Dating',
@@ -38,10 +41,12 @@ export function ProfilePage() {
     neurodivergentTraits: user?.neurodivergentTraits || [],
     specialInterests: user?.specialInterests || [],
     connectionGoals: user?.connectionGoals || [],
-    communicationPreferences: user?.communicationPreferences || {
-      preferredToneTags: true,
-      aiExplanations: true,
-      voiceMessages: true
+    communicationPreferences: {
+      preferredToneTags: user?.communicationPreferences?.preferredToneTags ?? true,
+      aiExplanations: user?.communicationPreferences?.aiExplanations ?? true,
+      voiceMessages: user?.communicationPreferences?.voiceMessages ?? true,
+      responsePace: user?.communicationPreferences?.responsePace ?? 'balanced',
+      directness: user?.communicationPreferences?.directness ?? 'gentle'
     }
   });
   
@@ -373,6 +378,70 @@ export function ProfilePage() {
                 }
                 disabled={!isEditing}
               />
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Response pace</p>
+              {isEditing ? (
+                <div className="flex flex-wrap gap-2">
+                  {RESPONSE_PACE_OPTIONS.map((pace) => (
+                    <Button
+                      key={pace}
+                      type="button"
+                      size="sm"
+                      variant={formData.communicationPreferences.responsePace === pace ? 'default' : 'outline'}
+                      onClick={() =>
+                        setFormData(prev => ({
+                          ...prev,
+                          communicationPreferences: {
+                            ...prev.communicationPreferences,
+                            responsePace: pace
+                          }
+                        }))
+                      }
+                    >
+                      {pace.charAt(0).toUpperCase() + pace.slice(1)}
+                    </Button>
+                  ))}
+                </div>
+              ) : (
+                <Badge variant="secondary">
+                  {formData.communicationPreferences.responsePace.charAt(0).toUpperCase() +
+                    formData.communicationPreferences.responsePace.slice(1)}
+                </Badge>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Directness</p>
+              {isEditing ? (
+                <div className="flex flex-wrap gap-2">
+                  {DIRECTNESS_OPTIONS.map((tone) => (
+                    <Button
+                      key={tone}
+                      type="button"
+                      size="sm"
+                      variant={formData.communicationPreferences.directness === tone ? 'default' : 'outline'}
+                      onClick={() =>
+                        setFormData(prev => ({
+                          ...prev,
+                          communicationPreferences: {
+                            ...prev.communicationPreferences,
+                            directness: tone
+                          }
+                        }))
+                      }
+                    >
+                      {tone.charAt(0).toUpperCase() + tone.slice(1)}
+                    </Button>
+                  ))}
+                </div>
+              ) : (
+                <Badge variant="secondary">
+                  {formData.communicationPreferences.directness.charAt(0).toUpperCase() +
+                    formData.communicationPreferences.directness.slice(1)}
+                </Badge>
+              )}
             </div>
           </CardContent>
         </Card>
