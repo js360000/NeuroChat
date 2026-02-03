@@ -24,6 +24,42 @@ function getOpenAI(): OpenAI {
   return openai;
 }
 
+function ensureSentence(text: string) {
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+  const last = trimmed[trimmed.length - 1];
+  if (['.', '!', '?'].includes(last)) return trimmed;
+  return `${trimmed}.`;
+}
+
+function softenText(text: string) {
+  const base = ensureSentence(text);
+  if (!base) return '';
+  const softened = base
+    .replace(/\bneed to\b/gi, 'would love to')
+    .replace(/\bcan you\b/gi, 'could you')
+    .replace(/\bdo you\b/gi, 'would you be open to')
+    .replace(/\bplease\b/gi, 'if you can')
+    .replace(/\bASAP\b/gi, 'when you have a moment');
+  if (!softened.toLowerCase().includes('if that works')) {
+    return `${softened} If that works for you.`;
+  }
+  return softened;
+}
+
+function directText(text: string) {
+  const base = ensureSentence(text);
+  if (!base) return '';
+  return base
+    .replace(/\bjust\b/gi, '')
+    .replace(/\bmaybe\b/gi, '')
+    .replace(/\bkind of\b/gi, '')
+    .replace(/\bi think\b/gi, '')
+    .replace(/\bif you can\b/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 // POST /explain - Explain a message with AI for neurodivergent users
 router.post('/explain', async (req: Request, res: Response) => {
   try {
@@ -205,6 +241,102 @@ Calculated compatibility score: ${baseScore}%`;
     console.error('AI compatibility error:', error);
     res.status(500).json({ error: error.message || 'AI processing failed' });
   }
+});
+
+// POST /summary - Summarize a conversation thread
+router.post('/summary', async (req: Request, res: Response) => {
+  try {
+    if (!aiEnabled) {
+      return res.status(503).json({ error: 'AI features are currently unavailable. Please contact support.' });
+    }
+    if (!getSettings().aiExplanationsEnabled) {
+      return res.status(403).json({ error: 'AI features are disabled by admin.' });
+    }
+
+    const client = getOpenAI();
+    const { messages } = req.body;
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: 'Messages are required' });
+    }
+
+    const formatted = messages
+      .slice(-30)
+      .map((m: { sender?: string; content?: string }) => `${m.sender || 'User'}: ${m.content || ''}`)
+      .join('\n');
+
+    const systemPrompt = `You are summarizing a conversation for a neurodivergent user.
+Provide a short, clear summary in 2-3 sentences and 3-5 bullet highlights of key topics or decisions.
+Be neutral, supportive, and avoid assumptions.
+Respond in JSON with keys: summary (string), highlights (array of strings).`;
+
+    const completion = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Conversation:\n${formatted}` }
+      ],
+      response_format: { type: 'json_object' },
+      max_tokens: 350,
+      temperature: 0.4
+    });
+
+    const responseContent = completion.choices[0]?.message?.content;
+    if (!responseContent) {
+      throw new Error('No response from OpenAI');
+    }
+
+    const summary = JSON.parse(responseContent);
+    res.json({ summary });
+  } catch (error: any) {
+    console.error('AI summary error:', error);
+    res.status(500).json({ error: error.message || 'AI processing failed' });
+  }
+});
+
+// POST /rephrase - Suggest gentle/direct alternatives
+router.post('/rephrase', async (req: Request, res: Response) => {
+  const { message } = req.body;
+
+  if (!message || typeof message !== 'string') {
+    return res.status(400).json({ error: 'Message is required' });
+  }
+
+  if (aiEnabled && getSettings().aiExplanationsEnabled) {
+    try {
+      const client = getOpenAI();
+      const systemPrompt = `You are helping a neurodivergent user rephrase a message. Provide two alternatives: one gentle and one direct. Keep the meaning, remove ambiguity, avoid sarcasm. Return JSON with keys gentle and direct.`;
+      const completion = await client.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Original message: "${message}"` }
+        ],
+        response_format: { type: 'json_object' },
+        max_tokens: 200,
+        temperature: 0.5
+      });
+      const responseContent = completion.choices[0]?.message?.content;
+      if (responseContent) {
+        const rephrase = JSON.parse(responseContent);
+        return res.json({
+          rephrase: {
+            gentle: rephrase.gentle || softenText(message),
+            direct: rephrase.direct || directText(message)
+          }
+        });
+      }
+    } catch {
+      // fall through to template-based rephrase
+    }
+  }
+
+  res.json({
+    rephrase: {
+      gentle: softenText(message),
+      direct: directText(message)
+    }
+  });
 });
 
 export default router;

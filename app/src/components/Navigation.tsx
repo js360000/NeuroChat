@@ -11,7 +11,9 @@ import {
   Sparkles,
   Users,
   BookOpen,
-  Gamepad2
+  Gamepad2,
+  Compass,
+  LifeBuoy
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -25,12 +27,14 @@ export function Navigation() {
   const { user, logout } = useAuthStore();
 
   const navItems = [
+    { path: '/compass', label: 'Compass', icon: Compass },
     { path: '/dashboard', label: 'Discover', icon: Sparkles },
     { path: '/matches', label: 'Matches', icon: Heart },
     { path: '/messages', label: 'Messages', icon: MessageCircle },
     { path: '/community', label: 'Community', icon: Users },
     { path: '/blog', label: 'Blog', icon: BookOpen },
     { path: '/games', label: 'Games', icon: Gamepad2 },
+    { path: '/help', label: 'Help', icon: LifeBuoy },
   ];
 
   const compareItem = { path: '/compare/hiki', label: 'Hiki Alternative', icon: Sparkles };
@@ -41,6 +45,14 @@ export function Navigation() {
   };
 
   const isActive = (path: string) => location.pathname.startsWith(path);
+  const prefetchRoute = (path: string) => {
+    if (path === '/games') {
+      void import('../pages/GamesPage');
+    }
+    if (path.startsWith('/admin')) {
+      void import('../pages/AdminPage');
+    }
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-xl border-b border-border">
@@ -65,6 +77,7 @@ export function Navigation() {
                     ? 'bg-primary/10 text-primary'
                     : 'text-neutral-600 hover:bg-neutral-100'
                 }`}
+                onMouseEnter={() => prefetchRoute(item.path)}
               >
                 <item.icon className="w-4 h-4" />
                 {item.label}
@@ -126,6 +139,7 @@ export function Navigation() {
                     <Link
                       to="/admin"
                       className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-primary hover:bg-primary/5"
+                      onMouseEnter={() => prefetchRoute('/admin')}
                     >
                       <Sparkles className="w-4 h-4" />
                       Admin Panel

@@ -8,6 +8,7 @@ export interface CommunityAuthor {
 
 export interface CommunityPost {
   id: string;
+  type?: 'ask' | 'share' | 'resource' | 'event';
   title?: string;
   content: string;
   tags: string[];
@@ -28,6 +29,37 @@ export interface CommunityComment {
   updatedAt: string;
 }
 
+export interface CommunityRoom {
+  id: string;
+  name: string;
+  description: string;
+  tags: string[];
+  resources: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BuddyThread {
+  id: string;
+  title: string;
+  description: string;
+  cadence: 'weekly' | 'biweekly' | 'monthly';
+  members: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SharedRoutine {
+  id: string;
+  title: string;
+  description?: string;
+  scheduledAt?: string;
+  participants: string[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export const communityApi = {
   getFeed: async (options?: { q?: string; tag?: string; limit?: number; offset?: number }) => {
     const params = new URLSearchParams();
@@ -43,11 +75,11 @@ export const communityApi = {
     return api.get<{ post: CommunityPost }>(`/community/${postId}`);
   },
 
-  createPost: async (data: { title?: string; content: string; tags?: string[]; toneTag?: string; contentWarning?: string }) => {
+  createPost: async (data: { title?: string; content: string; tags?: string[]; toneTag?: string; contentWarning?: string; type?: 'ask' | 'share' | 'resource' | 'event' }) => {
     return api.post<{ post: CommunityPost }>('/community', data);
   },
 
-  updatePost: async (postId: string, data: Partial<{ title?: string; content: string; tags: string[]; toneTag?: string; contentWarning?: string }>) => {
+  updatePost: async (postId: string, data: Partial<{ title?: string; content: string; tags: string[]; toneTag?: string; contentWarning?: string; type?: 'ask' | 'share' | 'resource' | 'event' }>) => {
     return api.patch<{ post: CommunityPost }>(`/community/${postId}`, data);
   },
 
@@ -69,5 +101,29 @@ export const communityApi = {
 
   reportPost: async (postId: string, reason: string, details?: string) => {
     return api.post<{ success: boolean; hidden?: boolean }>(`/community/${postId}/report`, { reason, details });
+  },
+
+  getRooms: async () => {
+    return api.get<{ rooms: CommunityRoom[] }>('/community/rooms');
+  },
+
+  createRoom: async (payload: { name: string; description: string; tags: string[]; resources: string[] }) => {
+    return api.post<{ room: CommunityRoom }>('/community/rooms', payload);
+  },
+
+  getBuddyThreads: async () => {
+    return api.get<{ threads: BuddyThread[] }>('/community/buddies');
+  },
+
+  createBuddyThread: async (payload: { title: string; description: string; cadence: 'weekly' | 'biweekly' | 'monthly' }) => {
+    return api.post<{ thread: BuddyThread }>('/community/buddies', payload);
+  },
+
+  getRoutines: async () => {
+    return api.get<{ routines: SharedRoutine[] }>('/community/routines');
+  },
+
+  createRoutine: async (payload: { title: string; description?: string; scheduledAt?: string }) => {
+    return api.post<{ routine: SharedRoutine }>('/community/routines', payload);
   }
 };

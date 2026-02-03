@@ -24,8 +24,34 @@ export interface User {
     density: 'cozy' | 'balanced' | 'compact';
     reduceMotion: boolean;
     reduceSaturation: boolean;
+    moodTheme?: 'calm' | 'warm' | 'crisp';
   };
   connectionGoals: string[];
+  matchPreferences: {
+    similarityWeight: number;
+    complementWeight: number;
+  };
+  quietHours: {
+    enabled: boolean;
+    start: string;
+    end: string;
+  };
+  boundaries: string[];
+  safetyChecklist: {
+    boundariesSet: boolean;
+    filtersSet: boolean;
+    resourcesViewed: boolean;
+    completed: boolean;
+  };
+  accessibilityPreset?: {
+    theme: 'light' | 'dark';
+    highContrast: boolean;
+    largeText: boolean;
+    dyslexicFont: boolean;
+    underlineLinks: boolean;
+    reduceMotion: boolean;
+    focusRing: boolean;
+  };
   subscription: {
     plan: 'free' | 'premium' | 'pro';
     status: 'active' | 'inactive' | 'cancelled' | 'past_due';
@@ -35,12 +61,17 @@ export interface User {
     email: boolean;
     photo: boolean;
     id: boolean;
+    self?: boolean;
+    peer?: boolean;
+    admin?: boolean;
   };
   isOnline: boolean;
   isSuspended: boolean;
+  isPaused?: boolean;
   onboarding: {
     completed: boolean;
     completedAt?: Date;
+    step?: number;
   };
   lastActive: Date;
   createdAt: Date;
@@ -58,6 +89,7 @@ export interface Match {
 export interface Conversation {
   id: string;
   participants: string[];
+  tags?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -98,6 +130,7 @@ export interface BlogComment {
 
 export interface CommunityPost {
   id: string;
+  type?: 'ask' | 'share' | 'resource' | 'event';
   title?: string;
   content: string;
   tags: string[];
@@ -212,6 +245,68 @@ export interface CookieConsentLog {
   createdAt: Date;
 }
 
+export interface CommunityRoom {
+  id: string;
+  name: string;
+  description: string;
+  tags: string[];
+  resources: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface BuddyThread {
+  id: string;
+  title: string;
+  description: string;
+  cadence: 'weekly' | 'biweekly' | 'monthly';
+  members: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface SharedRoutine {
+  id: string;
+  title: string;
+  description?: string;
+  scheduledAt?: string;
+  participants: string[];
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface DigestQueueEntry {
+  id: string;
+  scheduledFor: string;
+  status: 'queued' | 'sent';
+  createdAt: Date;
+}
+
+export interface ContentCalendarEntry {
+  id: string;
+  channel: 'blog' | 'community';
+  title: string;
+  notes?: string;
+  scheduledFor: string;
+  status: 'planned' | 'draft' | 'published';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Testimonial {
+  id: string;
+  quote: string;
+  author: string;
+  role?: string;
+  avatar?: string;
+  micro?: string;
+  featured: boolean;
+  status: 'draft' | 'published';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 const hashedPassword = bcrypt.hashSync('password123', 10);
 const adminPassword = bcrypt.hashSync('changethis!', 10);
 
@@ -237,12 +332,27 @@ const seedUsers: User[] = [
       density: 'balanced',
       reduceMotion: false,
       reduceSaturation: false,
+      moodTheme: 'calm',
     },
     connectionGoals: ['Leadership', 'Community'],
+    matchPreferences: { similarityWeight: 0.7, complementWeight: 0.3 },
+    quietHours: { enabled: true, start: '22:00', end: '08:00' },
+    boundaries: ['Slow pace preferred', 'No sudden calls'],
+    safetyChecklist: { boundariesSet: true, filtersSet: true, resourcesViewed: true, completed: true },
+    accessibilityPreset: {
+      theme: 'light',
+      highContrast: false,
+      largeText: false,
+      dyslexicFont: false,
+      underlineLinks: false,
+      reduceMotion: false,
+      focusRing: true
+    },
     subscription: { plan: 'pro', status: 'active' },
-    verification: { email: true, photo: true, id: true },
+    verification: { email: true, photo: true, id: true, self: true, peer: true, admin: true },
     isOnline: false,
     isSuspended: false,
+    isPaused: false,
     onboarding: { completed: true, completedAt: new Date() },
     lastActive: new Date(),
     createdAt: new Date('2024-01-01'),
@@ -269,12 +379,27 @@ const seedUsers: User[] = [
       density: 'compact',
       reduceMotion: false,
       reduceSaturation: false,
+      moodTheme: 'crisp',
     },
     connectionGoals: ['Friendship', 'Collaboration'],
+    matchPreferences: { similarityWeight: 0.8, complementWeight: 0.2 },
+    quietHours: { enabled: false, start: '22:00', end: '08:00' },
+    boundaries: ['Direct communication preferred'],
+    safetyChecklist: { boundariesSet: true, filtersSet: true, resourcesViewed: false, completed: false },
+    accessibilityPreset: {
+      theme: 'light',
+      highContrast: false,
+      largeText: false,
+      dyslexicFont: false,
+      underlineLinks: false,
+      reduceMotion: false,
+      focusRing: false
+    },
     subscription: { plan: 'premium', status: 'active' },
-    verification: { email: true, photo: true, id: false },
+    verification: { email: true, photo: true, id: false, self: true },
     isOnline: true,
     isSuspended: false,
+    isPaused: false,
     onboarding: { completed: true, completedAt: new Date() },
     lastActive: new Date(),
     createdAt: new Date('2024-01-15'),
@@ -301,12 +426,27 @@ const seedUsers: User[] = [
       density: 'cozy',
       reduceMotion: true,
       reduceSaturation: false,
+      moodTheme: 'warm',
     },
     connectionGoals: ['Friendship', 'Creative collaborators'],
+    matchPreferences: { similarityWeight: 0.6, complementWeight: 0.4 },
+    quietHours: { enabled: true, start: '21:00', end: '09:00' },
+    boundaries: ['Gentle tone appreciated'],
+    safetyChecklist: { boundariesSet: true, filtersSet: false, resourcesViewed: false, completed: false },
+    accessibilityPreset: {
+      theme: 'light',
+      highContrast: false,
+      largeText: true,
+      dyslexicFont: false,
+      underlineLinks: true,
+      reduceMotion: true,
+      focusRing: true
+    },
     subscription: { plan: 'free', status: 'active' },
-    verification: { email: true, photo: false, id: false },
+    verification: { email: true, photo: false, id: false, self: true },
     isOnline: false,
     isSuspended: false,
+    isPaused: false,
     onboarding: { completed: true, completedAt: new Date() },
     lastActive: new Date(Date.now() - 3600000),
     createdAt: new Date('2024-02-20'),
@@ -333,12 +473,27 @@ const seedUsers: User[] = [
       density: 'balanced',
       reduceMotion: false,
       reduceSaturation: false,
+      moodTheme: 'crisp',
     },
     connectionGoals: ['Dating', 'Friendship'],
+    matchPreferences: { similarityWeight: 0.5, complementWeight: 0.5 },
+    quietHours: { enabled: false, start: '22:00', end: '08:00' },
+    boundaries: ['Clear expectations'],
+    safetyChecklist: { boundariesSet: true, filtersSet: true, resourcesViewed: true, completed: true },
+    accessibilityPreset: {
+      theme: 'dark',
+      highContrast: false,
+      largeText: false,
+      dyslexicFont: false,
+      underlineLinks: false,
+      reduceMotion: false,
+      focusRing: true
+    },
     subscription: { plan: 'pro', status: 'active' },
-    verification: { email: true, photo: true, id: true },
+    verification: { email: true, photo: true, id: true, self: true, peer: true },
     isOnline: true,
     isSuspended: false,
+    isPaused: false,
     onboarding: { completed: true, completedAt: new Date() },
     lastActive: new Date(),
     createdAt: new Date('2024-01-05'),
@@ -365,12 +520,27 @@ const seedUsers: User[] = [
       density: 'cozy',
       reduceMotion: false,
       reduceSaturation: true,
+      moodTheme: 'warm',
     },
     connectionGoals: ['Friendship', 'Study buddies'],
+    matchPreferences: { similarityWeight: 0.7, complementWeight: 0.3 },
+    quietHours: { enabled: true, start: '23:00', end: '08:30' },
+    boundaries: ['Quiet mornings'],
+    safetyChecklist: { boundariesSet: true, filtersSet: false, resourcesViewed: false, completed: false },
+    accessibilityPreset: {
+      theme: 'light',
+      highContrast: false,
+      largeText: false,
+      dyslexicFont: true,
+      underlineLinks: true,
+      reduceMotion: false,
+      focusRing: true
+    },
     subscription: { plan: 'premium', status: 'active' },
-    verification: { email: true, photo: true, id: false },
+    verification: { email: true, photo: true, id: false, self: true },
     isOnline: false,
     isSuspended: false,
+    isPaused: false,
     onboarding: { completed: true, completedAt: new Date() },
     lastActive: new Date(Date.now() - 7200000),
     createdAt: new Date('2024-03-10'),
@@ -397,12 +567,27 @@ const seedUsers: User[] = [
       density: 'cozy',
       reduceMotion: true,
       reduceSaturation: true,
+      moodTheme: 'calm',
     },
     connectionGoals: ['Friendship', 'Community events'],
+    matchPreferences: { similarityWeight: 0.65, complementWeight: 0.35 },
+    quietHours: { enabled: true, start: '22:30', end: '09:00' },
+    boundaries: ['No surprise calls'],
+    safetyChecklist: { boundariesSet: true, filtersSet: true, resourcesViewed: true, completed: true },
+    accessibilityPreset: {
+      theme: 'light',
+      highContrast: false,
+      largeText: true,
+      dyslexicFont: true,
+      underlineLinks: true,
+      reduceMotion: true,
+      focusRing: true
+    },
     subscription: { plan: 'free', status: 'active' },
-    verification: { email: true, photo: false, id: false },
+    verification: { email: true, photo: false, id: false, self: true },
     isOnline: true,
     isSuspended: false,
+    isPaused: false,
     onboarding: { completed: true, completedAt: new Date() },
     lastActive: new Date(),
     createdAt: new Date('2024-04-01'),
@@ -443,6 +628,7 @@ const seedBlogPosts: BlogPost[] = [
 const seedCommunityPosts: CommunityPost[] = [
   {
     id: uuidv4(),
+    type: 'share',
     title: 'Favorite ways to decompress after social time?',
     content: 'After a long day of socializing, I like quiet music and a short walk. What helps you reset?',
     tags: ['Self-care', 'Routines'],
@@ -452,10 +638,128 @@ const seedCommunityPosts: CommunityPost[] = [
   },
   {
     id: uuidv4(),
+    type: 'ask',
     title: 'Looking for book recommendations',
     content: 'Anyone have cozy sci-fi or fantasy recs?',
     tags: ['Books', 'SpecialInterests'],
     authorId: seedUsers[4].id,
+    createdAt: now,
+    updatedAt: now
+  }
+];
+
+const seedTestimonials: Testimonial[] = [
+  {
+    id: uuidv4(),
+    quote: 'The AI Explain feature is a game-changer! I no longer worry about misreading messages.',
+    author: 'Alex M.',
+    role: 'Autistic & ADHD',
+    avatar: '/user_headshot_1_alex_1770055210671.png',
+    micro: 'Less guessing, more clarity.',
+    featured: true,
+    status: 'published',
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: uuidv4(),
+    quote: 'Tone tags have made communication so much easier. No more awkward misunderstandings!',
+    author: 'Jordan K.',
+    role: 'Autistic',
+    avatar: '/user_headshot_2_jordan_1770055223957.png',
+    micro: 'Tone tags = calm chats.',
+    featured: true,
+    status: 'published',
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: uuidv4(),
+    quote: 'I’ve made more genuine friends on NeuroNest in 3 months than in my entire life.',
+    author: 'Sam T.',
+    role: 'ADHD',
+    avatar: '/user_headshot_3_sam_1770055235874.png',
+    micro: 'Real bonds, real fast.',
+    featured: true,
+    status: 'published',
+    createdAt: now,
+    updatedAt: now
+  }
+];
+
+const seedCommunityRooms: CommunityRoom[] = [
+  {
+    id: uuidv4(),
+    name: 'Cozy Creatives',
+    description: 'A low-pressure space for artists, writers, and makers.',
+    tags: ['Art', 'Writing', 'Crafts'],
+    resources: ['https://www.autisticadvocacy.org/', 'https://neurodivergentinsights.com/'],
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: uuidv4(),
+    name: 'Study & Focus',
+    description: 'Body doubling and study buddies for gentle accountability.',
+    tags: ['Study', 'Co-working', 'Productivity'],
+    resources: ['https://www.adhdawarenessmonth.org/'],
+    createdAt: now,
+    updatedAt: now
+  }
+];
+
+const seedBuddyThreads: BuddyThread[] = [
+  {
+    id: uuidv4(),
+    title: 'Weekly decompression circle',
+    description: 'A weekly check-in to share what worked and what was hard.',
+    cadence: 'weekly',
+    members: [],
+    createdAt: now,
+    updatedAt: now
+  }
+];
+
+const seedSharedRoutines: SharedRoutine[] = [
+  {
+    id: uuidv4(),
+    title: 'Sunday low-spoons co-working',
+    description: 'Bring a warm drink and do 45 minutes of low-pressure tasks together.',
+    scheduledAt: new Date(Date.now() + 86400000).toISOString(),
+    participants: [],
+    createdBy: seedUsers[0].id,
+    createdAt: now,
+    updatedAt: now
+  }
+];
+
+const seedDigestQueue: DigestQueueEntry[] = [
+  {
+    id: uuidv4(),
+    scheduledFor: new Date(Date.now() + 604800000).toISOString(),
+    status: 'queued',
+    createdAt: now
+  }
+];
+
+const seedContentCalendar: ContentCalendarEntry[] = [
+  {
+    id: uuidv4(),
+    channel: 'blog',
+    title: 'Tone tag primer',
+    notes: 'Short guide with examples',
+    scheduledFor: new Date(Date.now() + 259200000).toISOString(),
+    status: 'planned',
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: uuidv4(),
+    channel: 'community',
+    title: 'Weekly prompt: Your comfort rituals',
+    notes: 'Prompt with CW guidance',
+    scheduledFor: new Date(Date.now() + 172800000).toISOString(),
+    status: 'planned',
     createdAt: now,
     updatedAt: now
   }
@@ -519,6 +823,12 @@ export const db = {
   n8nWorkflowRuns: [] as N8nWorkflowRun[],
   sitePages: [...seedSitePages],
   cookieConsents: [] as CookieConsentLog[],
+  testimonials: [...seedTestimonials],
+  communityRooms: [...seedCommunityRooms],
+  buddyThreads: [...seedBuddyThreads],
+  sharedRoutines: [...seedSharedRoutines],
+  digestQueue: [...seedDigestQueue],
+  contentCalendar: [...seedContentCalendar],
 } as PersistenceDb & {
   users: User[];
   matches: Match[];
@@ -533,6 +843,12 @@ export const db = {
   blocks: Block[];
   reports: Report[];
   auditLogs: AuditLog[];
+  testimonials: Testimonial[];
+  communityRooms: CommunityRoom[];
+  buddyThreads: BuddyThread[];
+  sharedRoutines: SharedRoutine[];
+  digestQueue: DigestQueueEntry[];
+  contentCalendar: ContentCalendarEntry[];
 };
 
 export function findUserByEmail(email: string): User | undefined {
@@ -572,9 +888,35 @@ export function createUser(data: CreateUserInput): User {
       calmMode: 20,
       density: 'balanced',
       reduceMotion: false,
-      reduceSaturation: false
+      reduceSaturation: false,
+      moodTheme: 'calm'
     },
     connectionGoals: [],
+    matchPreferences: {
+      similarityWeight: 0.7,
+      complementWeight: 0.3
+    },
+    quietHours: {
+      enabled: false,
+      start: '22:00',
+      end: '08:00'
+    },
+    boundaries: [],
+    safetyChecklist: {
+      boundariesSet: false,
+      filtersSet: false,
+      resourcesViewed: false,
+      completed: false
+    },
+    accessibilityPreset: {
+      theme: 'light',
+      highContrast: false,
+      largeText: false,
+      dyslexicFont: false,
+      underlineLinks: false,
+      reduceMotion: false,
+      focusRing: false
+    },
     subscription: {
       plan: 'free',
       status: 'active'
@@ -582,12 +924,15 @@ export function createUser(data: CreateUserInput): User {
     verification: {
       email: false,
       photo: false,
-      id: false
+      id: false,
+      self: true
     },
     isOnline: true,
     isSuspended: false,
+    isPaused: false,
     onboarding: {
-      completed: false
+      completed: false,
+      step: 1
     },
     lastActive: now,
     createdAt: now,

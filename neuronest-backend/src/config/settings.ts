@@ -6,6 +6,13 @@ export interface AdminSettings {
   aiExplanationsEnabled: boolean;
 }
 
+export interface ExperimentSettings {
+  landingHeroVariant: 'default' | 'calm' | 'bold';
+  onboardingToneVariant: 'gentle' | 'direct';
+  discoveryIntentVariant: 'cards' | 'list';
+  compassCtaVariant: 'standard' | 'mentor';
+}
+
 export interface N8nConfig {
   baseUrl: string;
   apiKey: string;
@@ -20,6 +27,13 @@ let settings: AdminSettings = {
   registrationEnabled: true,
   maxMatchesPerDay: 20,
   aiExplanationsEnabled: true
+};
+
+let experiments: ExperimentSettings = {
+  landingHeroVariant: 'calm',
+  onboardingToneVariant: 'gentle',
+  discoveryIntentVariant: 'cards',
+  compassCtaVariant: 'standard'
 };
 
 let n8nConfig: N8nConfig = {
@@ -37,6 +51,15 @@ export function getSettings(): AdminSettings {
 export function updateSettings(updates: Partial<AdminSettings>): AdminSettings {
   settings = { ...settings, ...updates };
   return settings;
+}
+
+export function getExperiments(): ExperimentSettings {
+  return experiments;
+}
+
+export function updateExperiments(updates: Partial<ExperimentSettings>): ExperimentSettings {
+  experiments = { ...experiments, ...updates };
+  return experiments;
 }
 
 export function getN8nConfig(): N8nConfig {

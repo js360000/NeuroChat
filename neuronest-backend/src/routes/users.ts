@@ -37,7 +37,8 @@ router.get('/', authenticateToken, (req: Request, res: Response): void => {
         user.id !== currentUserId &&
         user.role !== 'admin' &&
         !blockedUserIds.has(user.id) &&
-        !matchedUserIds.has(user.id)
+        !matchedUserIds.has(user.id) &&
+        !user.isPaused
     )
     .map((user) => ({
       ...toUserProfile(user),
@@ -225,6 +226,7 @@ router.post('/:id/like', authenticateToken, (req: Request, res: Response): void 
     db.conversations.push({
       id: conversationId,
       participants: [currentUserId, targetUserId],
+      tags: [],
       createdAt: new Date(),
       updatedAt: new Date(),
     });

@@ -22,6 +22,7 @@ import {
   DEFAULT_EXPERIENCE_PREFERENCES,
   type ExperiencePreferences
 } from '@/lib/experience';
+import { applyA11ySettings, loadA11ySettings, saveA11ySettings, type A11ySettings } from '@/lib/a11y';
 import { toast } from 'sonner';
 
 export function SettingsPage() {
@@ -32,6 +33,8 @@ export function SettingsPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [experienceSaving, setExperienceSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [visibilitySaving, setVisibilitySaving] = useState(false);
+  const [a11ySaving, setA11ySaving] = useState(false);
   const [settings, setSettings] = useState({
     notifications: {
       newMatches: true,
@@ -55,8 +58,16 @@ export function SettingsPage() {
     reduceMotion:
       user?.experiencePreferences?.reduceMotion ?? DEFAULT_EXPERIENCE_PREFERENCES.reduceMotion,
     reduceSaturation:
-      user?.experiencePreferences?.reduceSaturation ?? DEFAULT_EXPERIENCE_PREFERENCES.reduceSaturation
+      user?.experiencePreferences?.reduceSaturation ?? DEFAULT_EXPERIENCE_PREFERENCES.reduceSaturation,
+    moodTheme: user?.experiencePreferences?.moodTheme ?? 'calm'
   });
+  const [quietHours, setQuietHours] = useState({
+    enabled: user?.quietHours?.enabled ?? false,
+    start: user?.quietHours?.start ?? '22:00',
+    end: user?.quietHours?.end ?? '08:00'
+  });
+  const [isPaused, setIsPaused] = useState(user?.isPaused ?? false);
+  const [a11ySettings, setA11ySettings] = useState<A11ySettings>(loadA11ySettings());
 
   useEffect(() => {
     if (!user?.experiencePreferences) return;
@@ -64,13 +75,29 @@ export function SettingsPage() {
       calmMode: user.experiencePreferences.calmMode,
       density: user.experiencePreferences.density,
       reduceMotion: user.experiencePreferences.reduceMotion,
-      reduceSaturation: user.experiencePreferences.reduceSaturation
+      reduceSaturation: user.experiencePreferences.reduceSaturation,
+      moodTheme: user.experiencePreferences.moodTheme ?? 'calm'
     });
   }, [user?.experiencePreferences]);
 
   useEffect(() => {
     applyExperiencePreferences(experience);
   }, [experience]);
+
+  useEffect(() => {
+    if (!user?.quietHours) return;
+    setQuietHours({
+      enabled: user.quietHours.enabled,
+      start: user.quietHours.start,
+      end: user.quietHours.end
+    });
+    setIsPaused(Boolean(user.isPaused));
+  }, [user?.quietHours, user?.isPaused]);
+
+  useEffect(() => {
+    applyA11ySettings(a11ySettings);
+    saveA11ySettings(a11ySettings);
+  }, [a11ySettings]);
 
   const updateSetting = (category: string, key: string, value: boolean) => {
     setSettings(prev => ({
@@ -147,6 +174,39 @@ export function SettingsPage() {
     } finally {
       setDeleteLoading(false);
     }
+  };
+
+  const handleSaveVisibility = async () => {
+    setVisibilitySaving(true);
+    try {
+      await updateProfile({ quietHours, isPaused });
+      toast.success('Visibility settings saved');
+    } catch {
+      toast.error('Failed to save visibility settings');
+    } finally {
+      setVisibilitySaving(false);
+    }
+  };
+
+  const handleSaveA11yPreset = async () => {
+    setA11ySaving(true);
+    try {
+      await updateProfile({ accessibilityPreset: a11ySettings });
+      toast.success('Accessibility preset saved');
+    } catch {
+      toast.error('Failed to save accessibility preset');
+    } finally {
+      setA11ySaving(false);
+    }
+  };
+
+  const handleLoadA11yPreset = () => {
+    if (!user?.accessibilityPreset) {
+      toast.error('No accessibility preset saved yet');
+      return;
+    }
+    setA11ySettings(user.accessibilityPreset);
+    toast.success('Loaded accessibility preset');
   };
 
   const handleSaveExperience = async () => {
@@ -387,6 +447,24 @@ export function SettingsPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label>Mood theme</Label>
+                <Select
+                  value={experience.moodTheme || 'calm'}
+                  onValueChange={(value: 'calm' | 'warm' | 'crisp') =>
+                    setExperience((prev) => ({ ...prev, moodTheme: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose theme" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="calm">Calm</SelectItem>
+                    <SelectItem value="warm">Warm</SelectItem>
+                    <SelectItem value="crisp">Crisp</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3">
                 <div>
                   <p className="text-sm font-medium">Reduce motion</p>
@@ -399,18 +477,18 @@ export function SettingsPage() {
                   }
                 />
               </div>
-              <div className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3">
-                <div>
-                  <p className="text-sm font-medium">Lower saturation</p>
-                  <p className="text-xs text-neutral-500">Soften bold colors.</p>
-                </div>
-                <Switch
-                  checked={experience.reduceSaturation}
-                  onCheckedChange={(value) =>
-                    setExperience((prev) => ({ ...prev, reduceSaturation: value }))
-                  }
-                />
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3">
+              <div>
+                <p className="text-sm font-medium">Lower saturation</p>
+                <p className="text-xs text-neutral-500">Soften bold colors.</p>
               </div>
+              <Switch
+                checked={experience.reduceSaturation}
+                onCheckedChange={(value) =>
+                  setExperience((prev) => ({ ...prev, reduceSaturation: value }))
+                }
+              />
             </div>
 
             <div className="flex items-center justify-between flex-wrap gap-3">
@@ -420,6 +498,143 @@ export function SettingsPage() {
               <Button onClick={handleSaveExperience} disabled={experienceSaving}>
                 {experienceSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Save experience
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Visibility & Quiet Hours */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5" />
+              Visibility & Quiet Hours
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">Pause my profile</p>
+                <p className="text-sm text-neutral-500">Hide your profile without deleting your account.</p>
+              </div>
+              <Switch
+                checked={isPaused}
+                onCheckedChange={(value) => setIsPaused(value)}
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium">Quiet hours</p>
+                  <p className="text-xs text-neutral-500">Let people know when you are offline.</p>
+                </div>
+                <Switch
+                  checked={quietHours.enabled}
+                  onCheckedChange={(value) =>
+                    setQuietHours((prev) => ({ ...prev, enabled: value }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Start</Label>
+                <Input
+                  type="time"
+                  value={quietHours.start}
+                  onChange={(event) =>
+                    setQuietHours((prev) => ({ ...prev, start: event.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>End</Label>
+                <Input
+                  type="time"
+                  value={quietHours.end}
+                  onChange={(event) =>
+                    setQuietHours((prev) => ({ ...prev, end: event.target.value }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <p className="text-sm text-neutral-500">These settings are visible to matches.</p>
+              <Button onClick={handleSaveVisibility} disabled={visibilitySaving}>
+                {visibilitySaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Save visibility
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Accessibility Presets */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Moon className="w-5 h-5" />
+              Accessibility Preset
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="preset-high-contrast">High contrast</Label>
+                <Switch
+                  id="preset-high-contrast"
+                  checked={a11ySettings.highContrast}
+                  onCheckedChange={(value) => setA11ySettings((prev) => ({ ...prev, highContrast: value }))}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="preset-large-text">Large text</Label>
+                <Switch
+                  id="preset-large-text"
+                  checked={a11ySettings.largeText}
+                  onCheckedChange={(value) => setA11ySettings((prev) => ({ ...prev, largeText: value }))}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="preset-dyslexic">Dyslexic font</Label>
+                <Switch
+                  id="preset-dyslexic"
+                  checked={a11ySettings.dyslexicFont}
+                  onCheckedChange={(value) => setA11ySettings((prev) => ({ ...prev, dyslexicFont: value }))}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="preset-underline">Underline links</Label>
+                <Switch
+                  id="preset-underline"
+                  checked={a11ySettings.underlineLinks}
+                  onCheckedChange={(value) => setA11ySettings((prev) => ({ ...prev, underlineLinks: value }))}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="preset-motion">Reduce motion</Label>
+                <Switch
+                  id="preset-motion"
+                  checked={a11ySettings.reduceMotion}
+                  onCheckedChange={(value) => setA11ySettings((prev) => ({ ...prev, reduceMotion: value }))}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="preset-focus">Strong focus ring</Label>
+                <Switch
+                  id="preset-focus"
+                  checked={a11ySettings.focusRing}
+                  onCheckedChange={(value) => setA11ySettings((prev) => ({ ...prev, focusRing: value }))}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button onClick={handleSaveA11yPreset} disabled={a11ySaving}>
+                {a11ySaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Save preset to profile
+              </Button>
+              <Button variant="outline" onClick={handleLoadA11yPreset}>
+                Load from profile
               </Button>
             </div>
           </CardContent>

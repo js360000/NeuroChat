@@ -55,6 +55,53 @@ export interface DashboardStats {
   };
 }
 
+export interface ExperienceStats {
+  stats: {
+    totalUsers: number;
+    calmAdoptionRate: number;
+    reduceMotionRate: number;
+    reduceSaturationRate: number;
+    densityBreakdown: {
+      cozy: number;
+      balanced: number;
+      compact: number;
+    };
+    onboardingCompleted: number;
+    onboardingIncomplete: number;
+    onboardingSteps: Record<string, number>;
+    consent: {
+      total: number;
+      analytics: number;
+      marketing: number;
+    };
+  };
+}
+
+export interface DigestEntry {
+  id: string;
+  scheduledFor: string;
+  status: 'queued' | 'sent';
+  createdAt: string;
+}
+
+export interface ContentCalendarEntry {
+  id: string;
+  channel: 'blog' | 'community';
+  title: string;
+  notes?: string;
+  scheduledFor: string;
+  status: 'planned' | 'draft' | 'published';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExperimentSettings {
+  landingHeroVariant: 'default' | 'calm' | 'bold';
+  onboardingToneVariant: 'gentle' | 'direct';
+  discoveryIntentVariant: 'cards' | 'list';
+  compassCtaVariant: 'standard' | 'mentor';
+}
+
 export const adminApi = {
   getOverview: async () => {
     return api.get<DashboardStats>('/admin/overview');
@@ -93,12 +140,24 @@ export const adminApi = {
     }>(`/admin/analytics${params}`);
   },
 
+  getExperienceStats: async () => {
+    return api.get<ExperienceStats>('/admin/experience');
+  },
+
   getSettings: async () => {
     return api.get<{ settings: any }>('/admin/settings');
   },
 
   updateSettings: async (settings: any) => {
     return api.patch('/admin/settings', settings);
+  },
+
+  getExperiments: async () => {
+    return api.get<{ experiments: ExperimentSettings }>('/admin/experiments');
+  },
+
+  updateExperiments: async (experiments: Partial<ExperimentSettings>) => {
+    return api.patch<{ experiments: ExperimentSettings }>('/admin/experiments', experiments);
   },
 
   getIntegrations: async () => {
@@ -239,5 +298,51 @@ export const adminApi = {
 
   getPaymentsRecent: async () => {
     return api.get<{ payments: any[] }>('/admin/payments/recent');
+  },
+
+  getDigestQueue: async (params?: { status?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.append('status', params.status);
+    const suffix = query.toString() ? `?${query}` : '';
+    return api.get<{ digests: DigestEntry[] }>(`/admin/digest${suffix}`);
+  },
+
+  createDigestEntry: async (scheduledFor: string) => {
+    return api.post<{ digest: DigestEntry }>('/admin/digest', { scheduledFor });
+  },
+
+  updateDigestEntry: async (id: string, payload: Partial<DigestEntry>) => {
+    return api.patch<{ digest: DigestEntry }>(`/admin/digest/${id}`, payload);
+  },
+
+  getContentCalendar: async (params?: { channel?: string; status?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.channel) query.append('channel', params.channel);
+    if (params?.status) query.append('status', params.status);
+    const suffix = query.toString() ? `?${query}` : '';
+    return api.get<{ entries: ContentCalendarEntry[] }>(`/admin/content-calendar${suffix}`);
+  },
+
+  createContentCalendarEntry: async (payload: Partial<ContentCalendarEntry>) => {
+    return api.post<{ entry: ContentCalendarEntry }>('/admin/content-calendar', payload);
+  },
+
+  updateContentCalendarEntry: async (id: string, payload: Partial<ContentCalendarEntry>) => {
+    return api.patch<{ entry: ContentCalendarEntry }>(`/admin/content-calendar/${id}`, payload);
+  },
+
+  deleteContentCalendarEntry: async (id: string) => {
+    return api.delete(`/admin/content-calendar/${id}`);
+  },
+
+  getAnomalies: async () => {
+    return api.get<{
+      totals: { totalReports: number; pending: number; last24h: number };
+      topReporters: { id: string; name: string; count: number }[];
+      topTargets: { id: string; count: number }[];
+      reasons: { reason: string; count: number }[];
+      suspiciousReporters: { id: string; name: string; count: number }[];
+      suspiciousTargets: { id: string; count: number }[];
+    }>('/admin/anomalies');
   }
 };

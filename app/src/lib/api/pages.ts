@@ -9,6 +9,13 @@ export interface SitePage {
   updatedAt: string;
 }
 
+export interface ExperimentSettings {
+  landingHeroVariant: 'default' | 'calm' | 'bold';
+  onboardingToneVariant: 'gentle' | 'direct';
+  discoveryIntentVariant: 'cards' | 'list';
+  compassCtaVariant: 'standard' | 'mentor';
+}
+
 export const pagesApi = {
   getPage: async (slug: string) => {
     return api.get<{ page: SitePage }>(`/pages/${slug}`);
@@ -16,5 +23,9 @@ export const pagesApi = {
 
   getPages: async () => {
     return api.get<{ pages: SitePage[] }>('/pages');
+  },
+
+  getExperiments: async () => {
+    return api.get<{ experiments: ExperimentSettings }>('/pages/experiments');
   }
 };

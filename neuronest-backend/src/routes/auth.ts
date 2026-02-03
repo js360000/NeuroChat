@@ -124,6 +124,12 @@ router.patch('/profile', authenticateToken, async (req: Request, res: Response) 
       'experiencePreferences',
       'connectionGoals',
       'onboarding',
+      'matchPreferences',
+      'quietHours',
+      'boundaries',
+      'safetyChecklist',
+      'accessibilityPreset',
+      'isPaused',
     ];
 
     const updates: Record<string, unknown> = {};

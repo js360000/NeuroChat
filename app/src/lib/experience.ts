@@ -5,13 +5,15 @@ export interface ExperiencePreferences {
   density: CalmDensity;
   reduceMotion: boolean;
   reduceSaturation: boolean;
+  moodTheme?: 'calm' | 'warm' | 'crisp';
 }
 
 export const DEFAULT_EXPERIENCE_PREFERENCES: ExperiencePreferences = {
   calmMode: 20,
   density: 'balanced',
   reduceMotion: false,
-  reduceSaturation: false
+  reduceSaturation: false,
+  moodTheme: 'calm'
 };
 
 export function normalizeExperiencePreferences(
@@ -22,7 +24,8 @@ export function normalizeExperiencePreferences(
     calmMode: calmValue,
     density: preferences?.density ?? DEFAULT_EXPERIENCE_PREFERENCES.density,
     reduceMotion: Boolean(preferences?.reduceMotion),
-    reduceSaturation: Boolean(preferences?.reduceSaturation)
+    reduceSaturation: Boolean(preferences?.reduceSaturation),
+    moodTheme: preferences?.moodTheme ?? DEFAULT_EXPERIENCE_PREFERENCES.moodTheme
   };
 }
 
@@ -41,4 +44,7 @@ export function applyExperiencePreferences(preferences?: Partial<ExperiencePrefe
   root.classList.toggle('calm-density-balanced', resolved.density === 'balanced');
   root.classList.toggle('calm-reduce-motion', resolved.reduceMotion);
   root.classList.toggle('calm-low-sat', resolved.reduceSaturation);
+  root.classList.toggle('mood-calm', resolved.moodTheme === 'calm');
+  root.classList.toggle('mood-warm', resolved.moodTheme === 'warm');
+  root.classList.toggle('mood-crisp', resolved.moodTheme === 'crisp');
 }

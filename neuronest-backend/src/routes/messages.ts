@@ -31,11 +31,20 @@ router.get('/conversations', (req, res) => {
     
     return {
       id: conv.id,
+      tags: conv.tags || [],
       user: otherUser ? {
         id: otherUser.id,
         name: otherUser.name,
         avatar: otherUser.avatar,
-        isOnline: otherUser.isOnline
+        isOnline: otherUser.isOnline,
+        communicationPreferences: {
+          responsePace: otherUser.communicationPreferences.responsePace || 'balanced',
+          directness: otherUser.communicationPreferences.directness || 'gentle'
+        },
+        quietHours: otherUser.quietHours,
+        boundaries: otherUser.boundaries || [],
+        connectionGoals: otherUser.connectionGoals || [],
+        verification: otherUser.verification
       } : null,
       lastMessage: lastMessage ? {
         id: lastMessage.id,
@@ -214,6 +223,7 @@ router.post('/conversations', (req, res) => {
   const conversation = {
     id: uuidv4(),
     participants: [userId, otherUserId],
+    tags: [] as string[],
     createdAt: new Date(),
     updatedAt: new Date()
   };
@@ -221,6 +231,31 @@ router.post('/conversations', (req, res) => {
   db.conversations.push(conversation);
   
   res.json({ conversationId: conversation.id });
+});
+
+// PATCH /conversations/:conversationId/tags - update conversation tags
+router.patch('/conversations/:conversationId/tags', (req, res) => {
+  const userId = (req as any).user.id;
+  const { conversationId } = req.params;
+  const tags = req.body.tags as string[] | undefined;
+
+  if (!Array.isArray(tags)) {
+    return res.status(400).json({ error: 'tags must be an array of strings' });
+  }
+
+  const conversation = db.conversations.find(c => c.id === conversationId);
+  if (!conversation) {
+    return res.status(404).json({ error: 'Conversation not found' });
+  }
+
+  if (!conversation.participants.includes(userId)) {
+    return res.status(403).json({ error: 'Not authorized' });
+  }
+
+  conversation.tags = tags.map((tag) => tag.trim()).filter(Boolean);
+  conversation.updatedAt = new Date();
+
+  res.json({ tags: conversation.tags });
 });
 
 export default router;

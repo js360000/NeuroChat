@@ -21,6 +21,7 @@ import {
   DEFAULT_EXPERIENCE_PREFERENCES,
   type ExperiencePreferences
 } from '@/lib/experience';
+import { pagesApi } from '@/lib/api/pages';
 import { toast } from 'sonner';
 
 const TRAIT_OPTIONS = [
@@ -60,7 +61,7 @@ const GOAL_OPTIONS = [
   'Local meetups'
 ];
 
-const STEP_TITLES = ['Calm your space', 'Communication style', 'Identity & goals'];
+const STEP_TITLES = ['Calm your space', 'Communication style', 'Identity & goals', 'Safety checklist'];
 const PACE_OPTIONS: Array<'slow' | 'balanced' | 'fast'> = ['slow', 'balanced', 'fast'];
 const DIRECTNESS_OPTIONS: Array<'gentle' | 'direct'> = ['gentle', 'direct'];
 
@@ -69,6 +70,7 @@ export function OnboardingPage() {
   const { user, updateProfile } = useAuthStore();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [toneVariant, setToneVariant] = useState<'gentle' | 'direct'>('gentle');
 
   const [experience, setExperience] = useState<ExperiencePreferences>(() => ({
     calmMode: user?.experiencePreferences?.calmMode ?? DEFAULT_EXPERIENCE_PREFERENCES.calmMode,
@@ -98,6 +100,12 @@ export function OnboardingPage() {
   const [customTrait, setCustomTrait] = useState('');
   const [customInterest, setCustomInterest] = useState('');
   const [customGoal, setCustomGoal] = useState('');
+  const [safetyChecklist, setSafetyChecklist] = useState({
+    boundariesSet: user?.safetyChecklist?.boundariesSet ?? false,
+    filtersSet: user?.safetyChecklist?.filtersSet ?? false,
+    resourcesViewed: user?.safetyChecklist?.resourcesViewed ?? false,
+    completed: user?.safetyChecklist?.completed ?? false
+  });
 
   useEffect(() => {
     if (!user) return;
@@ -119,11 +127,61 @@ export function OnboardingPage() {
     setTraits(user.neurodivergentTraits ?? []);
     setInterests(user.specialInterests ?? []);
     setGoals(user.connectionGoals ?? []);
+    setSafetyChecklist({
+      boundariesSet: user.safetyChecklist?.boundariesSet ?? false,
+      filtersSet: user.safetyChecklist?.filtersSet ?? false,
+      resourcesViewed: user.safetyChecklist?.resourcesViewed ?? false,
+      completed: user.safetyChecklist?.completed ?? false
+    });
   }, [user]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      updateProfile({
+        onboarding: {
+          completed: user?.onboarding?.completed ?? false,
+          completedAt: user?.onboarding?.completedAt,
+          step: step + 1
+        }
+      });
+    }, 400);
+    return () => window.clearTimeout(timeout);
+  }, [step, updateProfile, user]);
 
   useEffect(() => {
     applyExperiencePreferences(experience);
   }, [experience]);
+
+  useEffect(() => {
+    const loadExperiments = async () => {
+      try {
+        const response = await pagesApi.getExperiments();
+        if (response.experiments?.onboardingToneVariant) {
+          setToneVariant(response.experiments.onboardingToneVariant);
+        }
+      } catch {
+        setToneVariant('gentle');
+      }
+    };
+    loadExperiments();
+  }, []);
+
+  const toneCopy =
+    toneVariant === 'direct'
+      ? {
+          intro: 'Set your preferences so we can match you better.',
+          step1: 'Dial in calm mode and layout.',
+          step2: 'Set your communication defaults.',
+          step3: 'Choose traits, interests, and goals.',
+          step4: 'Complete quick safety setup.'
+        }
+      : {
+          intro: 'Tell us how you want the experience to feel first.',
+          step1: 'Adjust the sensory tone and layout density. You can change this anytime.',
+          step2: 'Shape how others communicate with you.',
+          step3: 'Share what matters so we can match you better.',
+          step4: 'Small steps that make connection safer and calmer.'
+        };
 
   const progressValue = useMemo(() => Math.round(((step + 1) / STEP_TITLES.length) * 100), [step]);
 
@@ -152,7 +210,11 @@ export function OnboardingPage() {
         neurodivergentTraits: traits,
         specialInterests: interests,
         connectionGoals: goals,
-        onboarding: { completed: true, completedAt: new Date().toISOString() }
+        safetyChecklist: {
+          ...safetyChecklist,
+          completed: safetyChecklist.boundariesSet && safetyChecklist.filtersSet && safetyChecklist.resourcesViewed
+        },
+        onboarding: { completed: true, completedAt: new Date().toISOString(), step: STEP_TITLES.length }
       });
       toast.success('Onboarding complete. Welcome to NeuroNest!');
       navigate('/dashboard');
@@ -169,7 +231,7 @@ export function OnboardingPage() {
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-3xl sm:text-4xl font-bold text-dark">Personalize your NeuroNest</h1>
-            <p className="text-neutral-600 mt-2">Tell us how you want the experience to feel first.</p>
+            <p className="text-neutral-600 mt-2">{toneCopy.intro}</p>
           </div>
           <Badge className="bg-primary/10 text-primary">Step {step + 1} of {STEP_TITLES.length}</Badge>
         </div>
@@ -185,7 +247,7 @@ export function OnboardingPage() {
                   Calm your space
                 </CardTitle>
                 <CardDescription>
-                  Adjust the sensory tone and layout density. You can change this anytime.
+                  {toneCopy.step1}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -257,7 +319,7 @@ export function OnboardingPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Communication style</CardTitle>
-                <CardDescription>Shape how others communicate with you.</CardDescription>
+                <CardDescription>{toneCopy.step2}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -340,7 +402,7 @@ export function OnboardingPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Identity & goals</CardTitle>
-                <CardDescription>Share what matters so we can match you better.</CardDescription>
+                <CardDescription>{toneCopy.step3}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-3">
@@ -455,6 +517,53 @@ export function OnboardingPage() {
                       Add goal
                     </Button>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {step === 3 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Safety checklist</CardTitle>
+                <CardDescription>{toneCopy.step4}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium">Set your boundaries</p>
+                    <p className="text-xs text-neutral-500">Let others know your limits.</p>
+                  </div>
+                  <Switch
+                    checked={safetyChecklist.boundariesSet}
+                    onCheckedChange={(value) =>
+                      setSafetyChecklist((prev) => ({ ...prev, boundariesSet: value }))
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium">Enable content filters</p>
+                    <p className="text-xs text-neutral-500">Hide sensitive topics you want to avoid.</p>
+                  </div>
+                  <Switch
+                    checked={safetyChecklist.filtersSet}
+                    onCheckedChange={(value) =>
+                      setSafetyChecklist((prev) => ({ ...prev, filtersSet: value }))
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium">View support resources</p>
+                    <p className="text-xs text-neutral-500">Know where to go if you need help.</p>
+                  </div>
+                  <Switch
+                    checked={safetyChecklist.resourcesViewed}
+                    onCheckedChange={(value) =>
+                      setSafetyChecklist((prev) => ({ ...prev, resourcesViewed: value }))
+                    }
+                  />
                 </div>
               </CardContent>
             </Card>

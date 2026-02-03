@@ -20,6 +20,7 @@ export function BlogPostPage() {
   const [warningOpen, setWarningOpen] = useState(false);
   const [warningMessages, setWarningMessages] = useState<string[]>([]);
   const [pendingComment, setPendingComment] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false);
 
   const loadPost = async () => {
     if (!slug) return;
@@ -49,8 +50,24 @@ export function BlogPostPage() {
     });
   }, [post]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   const handleAddComment = async () => {
     if (!post || !newComment.trim()) return;
+    if (isOffline) {
+      toast.error('You are offline. Comments are read-only for now.');
+      return;
+    }
     const warnings = scanTextForWarnings(newComment);
     if (warnings.length > 0) {
       setWarningMessages(warnings.map((warning) => warning.message));
@@ -81,6 +98,14 @@ export function BlogPostPage() {
         <ArrowLeft className="w-4 h-4" />
         Back to blog
       </Link>
+
+      {isOffline && (
+        <Card className="border-amber-200 bg-amber-50/60">
+          <CardContent className="p-4 text-sm text-amber-800">
+            You are offline. Comments are read-only, but cached content is available.
+          </CardContent>
+        </Card>
+      )}
 
       <div className="relative overflow-hidden rounded-2xl border border-neutral-200">
         <img
@@ -137,9 +162,10 @@ export function BlogPostPage() {
               onChange={(e) => setNewComment(e.target.value)}
               placeholder="Add a comment"
               rows={3}
+              disabled={isOffline}
             />
             <div className="flex justify-end">
-              <Button onClick={handleAddComment} disabled={!newComment.trim()}>
+              <Button onClick={handleAddComment} disabled={!newComment.trim() || isOffline}>
                 Post Comment
               </Button>
             </div>

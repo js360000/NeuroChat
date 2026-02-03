@@ -1,9 +1,23 @@
 import { Router, Request, Response } from 'express';
 import Stripe from 'stripe';
 import { authenticateToken, requireAdmin } from '../middleware/auth.js';
-import { db, findUserById, findSitePageBySlug, persistDb } from '../db/index.js';
+import {
+  db,
+  findUserById,
+  findSitePageBySlug,
+  persistDb,
+  type ContentCalendarEntry,
+  type Testimonial
+} from '../db/index.js';
 import { v4 as uuidv4 } from 'uuid';
-import { getSettings, updateSettings, getN8nConfig, updateN8nConfig } from '../config/settings.js';
+import {
+  getSettings,
+  updateSettings,
+  getN8nConfig,
+  updateN8nConfig,
+  getExperiments,
+  updateExperiments
+} from '../config/settings.js';
 
 const router = Router();
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -19,6 +33,45 @@ function maskApiKey(key: string) {
   if (!key) return '';
   if (key.length <= 6) return `${'*'.repeat(key.length)}`;
   return `${key.slice(0, 3)}***${key.slice(-3)}`;
+}
+
+const SENSITIVE_KEYWORDS = [
+  'self-harm',
+  'suicide',
+  'kill myself',
+  'end it',
+  'overdose',
+  'abuse',
+  'assault',
+  'violence',
+  'stalk',
+  'harass',
+  'panic attack',
+  'hospital',
+  'trigger'
+];
+
+const SENTIMENT_WORDS = {
+  positive: ['thanks', 'appreciate', 'grateful', 'happy', 'excited', 'love', 'support'],
+  negative: ['hate', 'angry', 'upset', 'sad', 'hurt', 'anxious', 'frustrated', 'panic']
+};
+
+function detectSentiment(text: string) {
+  const lower = text.toLowerCase();
+  let score = 0;
+  for (const word of SENTIMENT_WORDS.positive) {
+    if (lower.includes(word)) score += 1;
+  }
+  for (const word of SENTIMENT_WORDS.negative) {
+    if (lower.includes(word)) score -= 1;
+  }
+  const label = score > 0 ? 'positive' : score < 0 ? 'negative' : 'neutral';
+  return { score, label };
+}
+
+function findSensitiveKeywords(text: string) {
+  const lower = text.toLowerCase();
+  return SENSITIVE_KEYWORDS.filter((keyword) => lower.includes(keyword));
 }
 
 const ENV_ALLOWLIST = [
@@ -212,6 +265,58 @@ router.get('/overview', (req: Request, res: Response) => {
   });
 });
 
+// GET /experience - Experience health metrics
+router.get('/experience', (req: Request, res: Response) => {
+  const activeUsers = db.users.filter((user) => !user.isSuspended);
+  const totalUsers = activeUsers.length || 1;
+  const calmAdopters = activeUsers.filter(
+    (user) => (user.experiencePreferences?.calmMode ?? 0) > 0
+  ).length;
+  const reduceMotion = activeUsers.filter(
+    (user) => user.experiencePreferences?.reduceMotion
+  ).length;
+  const reduceSaturation = activeUsers.filter(
+    (user) => user.experiencePreferences?.reduceSaturation
+  ).length;
+  const densityBreakdown = activeUsers.reduce(
+    (acc, user) => {
+      const density = user.experiencePreferences?.density || 'balanced';
+      acc[density] = (acc[density] || 0) + 1;
+      return acc;
+    },
+    { cozy: 0, balanced: 0, compact: 0 } as Record<'cozy' | 'balanced' | 'compact', number>
+  );
+  const onboardingCompleted = activeUsers.filter((user) => user.onboarding?.completed).length;
+  const onboardingIncomplete = totalUsers - onboardingCompleted;
+  const stepCounts = activeUsers.reduce<Record<string, number>>((acc, user) => {
+    const step = user.onboarding?.step ? String(user.onboarding.step) : '1';
+    acc[step] = (acc[step] || 0) + 1;
+    return acc;
+  }, {});
+
+  const consentTotal = db.cookieConsents.length;
+  const consentAnalytics = db.cookieConsents.filter((log) => log.analytics).length;
+  const consentMarketing = db.cookieConsents.filter((log) => log.marketing).length;
+
+  res.json({
+    stats: {
+      totalUsers,
+      calmAdoptionRate: Math.round((calmAdopters / totalUsers) * 1000) / 10,
+      reduceMotionRate: Math.round((reduceMotion / totalUsers) * 1000) / 10,
+      reduceSaturationRate: Math.round((reduceSaturation / totalUsers) * 1000) / 10,
+      densityBreakdown,
+      onboardingCompleted,
+      onboardingIncomplete,
+      onboardingSteps: stepCounts,
+      consent: {
+        total: consentTotal,
+        analytics: consentAnalytics,
+        marketing: consentMarketing
+      }
+    }
+  });
+});
+
 // GET /users - Get all users with filters
 router.get('/users', (req: Request, res: Response) => {
   const limit = parseInt(req.query.limit as string) || 20;
@@ -319,6 +424,65 @@ router.get('/reports', (req: Request, res: Response) => {
   res.json({ reports: results });
 });
 
+// GET /anomalies - abuse anomaly signals
+router.get('/anomalies', (req: Request, res: Response) => {
+  const now = Date.now();
+  const last24h = now - 24 * 60 * 60 * 1000;
+  const last7d = now - 7 * 24 * 60 * 60 * 1000;
+
+  const recentReports = db.reports.filter((report) => report.createdAt.getTime() >= last24h);
+  const recent7dReports = db.reports.filter((report) => report.createdAt.getTime() >= last7d);
+
+  const countBy = <T,>(items: T[], keyFn: (item: T) => string) => {
+    return items.reduce<Record<string, number>>((acc, item) => {
+      const key = keyFn(item);
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+  };
+
+  const topReporters = Object.entries(countBy(db.reports, (r) => r.reporterId))
+    .map(([id, count]) => {
+      const user = findUserById(id);
+      return { id, name: user?.name || 'Unknown', count };
+    })
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  const topTargets = Object.entries(countBy(db.reports, (r) => r.targetId))
+    .map(([id, count]) => ({ id, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  const reasons = Object.entries(countBy(db.reports, (r) => r.reason || 'unknown'))
+    .map(([reason, count]) => ({ reason, count }))
+    .sort((a, b) => b.count - a.count);
+
+  const suspiciousReporters = Object.entries(countBy(recent7dReports, (r) => r.reporterId))
+    .filter(([, count]) => count >= 3)
+    .map(([id, count]) => {
+      const user = findUserById(id);
+      return { id, name: user?.name || 'Unknown', count };
+    });
+
+  const suspiciousTargets = Object.entries(countBy(recent7dReports, (r) => r.targetId))
+    .filter(([, count]) => count >= 3)
+    .map(([id, count]) => ({ id, count }));
+
+  res.json({
+    totals: {
+      totalReports: db.reports.length,
+      pending: db.reports.filter((report) => report.status === 'pending').length,
+      last24h: recentReports.length
+    },
+    topReporters,
+    topTargets,
+    reasons,
+    suspiciousReporters,
+    suspiciousTargets
+  });
+});
+
 // POST /reports/:id/resolve
 router.post('/reports/:id/resolve', (req: Request, res: Response) => {
   const report = db.reports.find((r) => r.id === req.params.id);
@@ -408,6 +572,8 @@ router.get('/community/posts', (req: Request, res: Response) => {
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     .map((post) => {
       const author = findUserById(post.authorId);
+      const sentiment = detectSentiment(post.content);
+      const flaggedKeywords = findSensitiveKeywords(`${post.title || ''} ${post.content}`);
       return {
         id: post.id,
         title: post.title,
@@ -416,6 +582,8 @@ router.get('/community/posts', (req: Request, res: Response) => {
         toneTag: post.toneTag,
         contentWarning: post.contentWarning,
         hidden: post.hidden === true,
+        sentiment,
+        flaggedKeywords,
         author: author
           ? { id: author.id, name: author.name, email: author.email }
           : { id: post.authorId, name: 'Unknown' },
@@ -640,6 +808,40 @@ router.patch('/settings', (req: Request, res: Response) => {
   res.json({ settings: next });
 });
 
+// GET /experiments - Get experiment toggles
+router.get('/experiments', (req: Request, res: Response) => {
+  res.json({ experiments: getExperiments() });
+});
+
+// PATCH /experiments - Update experiment toggles
+router.patch('/experiments', (req: Request, res: Response) => {
+  const allowedKeys: (keyof ReturnType<typeof getExperiments>)[] = [
+    'landingHeroVariant',
+    'onboardingToneVariant',
+    'discoveryIntentVariant',
+    'compassCtaVariant'
+  ];
+
+  const updates: Partial<ReturnType<typeof getExperiments>> = {};
+  for (const key of allowedKeys) {
+    if (req.body[key] !== undefined) {
+      (updates as any)[key] = req.body[key];
+    }
+  }
+
+  const next = updateExperiments(updates);
+  db.auditLogs.push({
+    id: uuidv4(),
+    actorId: req.user!.id,
+    action: 'update_experiments',
+    targetType: 'system',
+    metadata: updates,
+    createdAt: new Date()
+  });
+
+  res.json({ experiments: next });
+});
+
 // GET /pages - list site pages
 router.get('/pages', (req: Request, res: Response) => {
   const pages = db.sitePages.map((page) => ({
@@ -650,6 +852,172 @@ router.get('/pages', (req: Request, res: Response) => {
     updatedAt: page.updatedAt.toISOString()
   }));
   res.json({ pages });
+});
+
+// GET /digest - list digest queue entries
+router.get('/digest', (req: Request, res: Response) => {
+  const status = (req.query.status as string) || 'all';
+  let entries = [...db.digestQueue];
+  if (status !== 'all') {
+    entries = entries.filter((entry) => entry.status === status);
+  }
+  const results = entries
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .map((entry) => ({
+      id: entry.id,
+      scheduledFor: entry.scheduledFor,
+      status: entry.status,
+      createdAt: entry.createdAt.toISOString()
+    }));
+  res.json({ digests: results });
+});
+
+// POST /digest - create digest queue entry
+router.post('/digest', (req: Request, res: Response) => {
+  const scheduledFor = req.body.scheduledFor as string | undefined;
+  if (!scheduledFor) {
+    return res.status(400).json({ error: 'scheduledFor is required' });
+  }
+  const entry = {
+    id: uuidv4(),
+    scheduledFor,
+    status: 'queued' as const,
+    createdAt: new Date()
+  };
+  db.digestQueue.push(entry);
+  db.auditLogs.push({
+    id: uuidv4(),
+    actorId: req.user!.id,
+    action: 'create_digest_queue',
+    targetType: 'system',
+    metadata: { scheduledFor },
+    createdAt: new Date()
+  });
+  res.json({ digest: { ...entry, createdAt: entry.createdAt.toISOString() } });
+  persistDb();
+});
+
+// PATCH /digest/:id - update digest entry
+router.patch('/digest/:id', (req: Request, res: Response) => {
+  const entry = db.digestQueue.find((item) => item.id === req.params.id);
+  if (!entry) {
+    return res.status(404).json({ error: 'Digest entry not found' });
+  }
+  if (req.body.status) entry.status = req.body.status;
+  if (req.body.scheduledFor) entry.scheduledFor = req.body.scheduledFor;
+  res.json({ digest: { ...entry, createdAt: entry.createdAt.toISOString() } });
+  persistDb();
+});
+
+// GET /content-calendar - list content calendar entries
+router.get('/content-calendar', (req: Request, res: Response) => {
+  const channel = (req.query.channel as string) || 'all';
+  const status = (req.query.status as string) || 'all';
+  let entries = [...db.contentCalendar];
+  if (channel !== 'all') {
+    entries = entries.filter((entry) => entry.channel === channel);
+  }
+  if (status !== 'all') {
+    entries = entries.filter((entry) => entry.status === status);
+  }
+  const results = entries
+    .sort((a, b) => b.scheduledFor.localeCompare(a.scheduledFor))
+    .map((entry) => ({
+      id: entry.id,
+      channel: entry.channel,
+      title: entry.title,
+      notes: entry.notes,
+      scheduledFor: entry.scheduledFor,
+      status: entry.status,
+      createdAt: entry.createdAt.toISOString(),
+      updatedAt: entry.updatedAt.toISOString()
+    }));
+  res.json({ entries: results });
+});
+
+// POST /content-calendar - create content calendar entry
+router.post('/content-calendar', (req: Request, res: Response) => {
+  const { channel, title, notes, scheduledFor, status } = req.body;
+  if (!channel || !title || !scheduledFor) {
+    return res.status(400).json({ error: 'channel, title, scheduledFor are required' });
+  }
+  if (channel !== 'blog' && channel !== 'community') {
+    return res.status(400).json({ error: 'channel must be blog or community' });
+  }
+  const statusValue: ContentCalendarEntry['status'] =
+    status === 'draft' || status === 'published' ? status : 'planned';
+  const entry: ContentCalendarEntry = {
+    id: uuidv4(),
+    channel,
+    title,
+    notes,
+    scheduledFor,
+    status: statusValue,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+  db.contentCalendar.push(entry);
+  db.auditLogs.push({
+    id: uuidv4(),
+    actorId: req.user!.id,
+    action: 'create_content_calendar',
+    targetType: 'system',
+    metadata: { channel, title },
+    createdAt: new Date()
+  });
+  res.json({
+    entry: {
+      ...entry,
+      createdAt: entry.createdAt.toISOString(),
+      updatedAt: entry.updatedAt.toISOString()
+    }
+  });
+  persistDb();
+});
+
+// PATCH /content-calendar/:id - update calendar entry
+router.patch('/content-calendar/:id', (req: Request, res: Response) => {
+  const entry = db.contentCalendar.find((item) => item.id === req.params.id);
+  if (!entry) {
+    return res.status(404).json({ error: 'Calendar entry not found' });
+  }
+  if (req.body.channel === 'blog' || req.body.channel === 'community') {
+    entry.channel = req.body.channel;
+  }
+  if (typeof req.body.title === 'string') entry.title = req.body.title;
+  if (req.body.notes !== undefined) entry.notes = req.body.notes;
+  if (typeof req.body.scheduledFor === 'string') entry.scheduledFor = req.body.scheduledFor;
+  if (req.body.status === 'planned' || req.body.status === 'draft' || req.body.status === 'published') {
+    entry.status = req.body.status;
+  }
+  entry.updatedAt = new Date();
+  res.json({
+    entry: {
+      ...entry,
+      createdAt: entry.createdAt.toISOString(),
+      updatedAt: entry.updatedAt.toISOString()
+    }
+  });
+  persistDb();
+});
+
+// DELETE /content-calendar/:id - remove calendar entry
+router.delete('/content-calendar/:id', (req: Request, res: Response) => {
+  const entry = db.contentCalendar.find((item) => item.id === req.params.id);
+  if (!entry) {
+    return res.status(404).json({ error: 'Calendar entry not found' });
+  }
+  db.contentCalendar = db.contentCalendar.filter((item) => item.id !== entry.id) as typeof db.contentCalendar;
+  db.auditLogs.push({
+    id: uuidv4(),
+    actorId: req.user!.id,
+    action: 'delete_content_calendar',
+    targetType: 'system',
+    metadata: { id: entry.id },
+    createdAt: new Date()
+  });
+  res.json({ success: true });
+  persistDb();
 });
 
 // GET /consent - list cookie consent logs
@@ -720,6 +1088,129 @@ router.get('/pages/:slug', (req: Request, res: Response) => {
       updatedAt: page.updatedAt.toISOString()
     }
   });
+});
+
+// GET /testimonials - list testimonials
+router.get('/testimonials', (req: Request, res: Response) => {
+  const status = (req.query.status as string) || 'all';
+  let testimonials = [...db.testimonials];
+  if (status !== 'all') {
+    testimonials = testimonials.filter((item) => item.status === status);
+  }
+  const results = testimonials
+    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+    .map((item) => ({
+      id: item.id,
+      quote: item.quote,
+      author: item.author,
+      role: item.role,
+      avatar: item.avatar,
+      micro: item.micro,
+      featured: item.featured,
+      status: item.status,
+      createdAt: item.createdAt.toISOString(),
+      updatedAt: item.updatedAt.toISOString()
+    }));
+  res.json({ testimonials: results });
+});
+
+// POST /testimonials - create testimonial
+router.post('/testimonials', (req: Request, res: Response) => {
+  const { quote, author, role, avatar, micro, featured, status } = req.body;
+  if (!quote || !author) {
+    return res.status(400).json({ error: 'Quote and author are required' });
+  }
+
+  const statusValue: Testimonial['status'] = status === 'draft' ? 'draft' : 'published';
+  const testimonial: Testimonial = {
+    id: uuidv4(),
+    quote,
+    author,
+    role,
+    avatar,
+    micro,
+    featured: featured === true,
+    status: statusValue,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+
+  db.testimonials.push(testimonial);
+  db.auditLogs.push({
+    id: uuidv4(),
+    actorId: req.user!.id,
+    action: 'create_testimonial',
+    targetType: 'system',
+    metadata: { id: testimonial.id },
+    createdAt: new Date()
+  });
+  persistDb();
+
+  res.json({
+    testimonial: {
+      ...testimonial,
+      createdAt: testimonial.createdAt.toISOString(),
+      updatedAt: testimonial.updatedAt.toISOString()
+    }
+  });
+});
+
+// PATCH /testimonials/:id - update testimonial
+router.patch('/testimonials/:id', (req: Request, res: Response) => {
+  const testimonial = db.testimonials.find((item) => item.id === req.params.id);
+  if (!testimonial) {
+    return res.status(404).json({ error: 'Testimonial not found' });
+  }
+
+  if (typeof req.body.quote === 'string') testimonial.quote = req.body.quote;
+  if (typeof req.body.author === 'string') testimonial.author = req.body.author;
+  if (typeof req.body.role === 'string' || req.body.role === null) testimonial.role = req.body.role;
+  if (typeof req.body.avatar === 'string' || req.body.avatar === null) testimonial.avatar = req.body.avatar;
+  if (typeof req.body.micro === 'string' || req.body.micro === null) testimonial.micro = req.body.micro;
+  if (typeof req.body.featured === 'boolean') testimonial.featured = req.body.featured;
+  if (req.body.status === 'draft' || req.body.status === 'published') {
+    testimonial.status = req.body.status;
+  }
+  testimonial.updatedAt = new Date();
+
+  db.auditLogs.push({
+    id: uuidv4(),
+    actorId: req.user!.id,
+    action: 'update_testimonial',
+    targetType: 'system',
+    metadata: { id: testimonial.id },
+    createdAt: new Date()
+  });
+  persistDb();
+
+  res.json({
+    testimonial: {
+      ...testimonial,
+      createdAt: testimonial.createdAt.toISOString(),
+      updatedAt: testimonial.updatedAt.toISOString()
+    }
+  });
+});
+
+// DELETE /testimonials/:id - remove testimonial
+router.delete('/testimonials/:id', (req: Request, res: Response) => {
+  const testimonial = db.testimonials.find((item) => item.id === req.params.id);
+  if (!testimonial) {
+    return res.status(404).json({ error: 'Testimonial not found' });
+  }
+
+  db.testimonials = db.testimonials.filter((item) => item.id !== req.params.id) as typeof db.testimonials;
+  db.auditLogs.push({
+    id: uuidv4(),
+    actorId: req.user!.id,
+    action: 'delete_testimonial',
+    targetType: 'system',
+    metadata: { id: testimonial.id },
+    createdAt: new Date()
+  });
+  persistDb();
+
+  res.json({ success: true });
 });
 
 // PATCH /pages/:slug - update site page content

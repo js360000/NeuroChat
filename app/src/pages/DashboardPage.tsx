@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { List, Orbit, Wand2, Send, Sparkles, SlidersHorizontal } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { List, Orbit, Wand2, Send, Sparkles, SlidersHorizontal, ShieldCheck, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,7 @@ import {
 import { useAuthStore } from '@/lib/stores/auth';
 import { usersApi } from '@/lib/api/users';
 import { aiApi } from '@/lib/api/ai';
+import { pagesApi } from '@/lib/api/pages';
 import { toast } from 'sonner';
 
 interface PotentialMatch {
@@ -23,21 +24,65 @@ interface PotentialMatch {
   bio?: string;
   neurodivergentTraits: string[];
   specialInterests: string[];
+  connectionGoals?: string[];
   isOnline: boolean;
+  verification?: {
+    email: boolean;
+    photo: boolean;
+    id: boolean;
+    self?: boolean;
+    peer?: boolean;
+    admin?: boolean;
+  };
+  quietHours?: {
+    enabled: boolean;
+    start: string;
+    end: string;
+  };
   compatibilityScore?: number;
   sharedTraits?: string[];
   sharedInterests?: string[];
 }
 
+const INTENT_OPTIONS = [
+  'Friendship',
+  'Dating',
+  'Creative collaborators',
+  'Study buddies',
+  'Accountability partners',
+  'Community events',
+  'Co-working',
+  'Local meetups'
+];
+
+const INTENT_CARDS = [
+  {
+    id: 'Friendship',
+    title: 'Friendship',
+    description: 'Low-pressure connections and steady check-ins.'
+  },
+  {
+    id: 'Dating',
+    title: 'Dating',
+    description: 'Intentional dating with clarity on tone and pace.'
+  },
+  {
+    id: 'Community events',
+    title: 'Community',
+    description: 'Groups, events, and shared routines.'
+  }
+];
+
 export function DashboardPage() {
-  const { user } = useAuthStore();
+  const { user, updateProfile } = useAuthStore();
   const [potentialMatches, setPotentialMatches] = useState<PotentialMatch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'constellation' | 'list'>('constellation');
   const [filters, setFilters] = useState({
     onlineOnly: false,
     highMatch: false,
-    sharedInterests: false
+    sharedInterests: false,
+    intent: 'all'
   });
   const [sortBy, setSortBy] = useState<'match' | 'name' | 'recent'>('match');
   const [selectedMatch, setSelectedMatch] = useState<PotentialMatch | null>(null);
@@ -46,10 +91,77 @@ export function DashboardPage() {
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [hoveredMatch, setHoveredMatch] = useState<PotentialMatch | null>(null);
   const [hoveredRect, setHoveredRect] = useState<DOMRect | null>(null);
+  const hoverTimeoutRef = useRef<number | null>(null);
+  const hoverLockRef = useRef(false);
+  const [similarityWeight, setSimilarityWeight] = useState(user?.matchPreferences?.similarityWeight ?? 0.7);
+  const complementWeight = 1 - similarityWeight;
+  const [intentVariant, setIntentVariant] = useState<'cards' | 'list'>('cards');
+
+  const getSimilarityScore = (match: PotentialMatch) => {
+    const traitOverlap = (match.sharedTraits?.length || 0) / Math.max(1, match.neurodivergentTraits.length);
+    const interestOverlap = (match.sharedInterests?.length || 0) / Math.max(1, match.specialInterests.length);
+    return Math.round(((traitOverlap * 0.5 + interestOverlap * 0.5) * 100));
+  };
+
+  const getWeightedScore = (match: PotentialMatch) => {
+    const base = match.compatibilityScore || 0;
+    const similarity = getSimilarityScore(match);
+    const complement = Math.max(0, 100 - similarity);
+    return Math.round(base * 0.6 + similarity * similarityWeight * 0.4 + complement * complementWeight * 0.2);
+  };
+
+  const isQuietHoursActive = (quietHours?: { enabled: boolean; start: string; end: string }) => {
+    if (!quietHours?.enabled) return false;
+    const now = new Date();
+    const [startH, startM] = quietHours.start.split(':').map(Number);
+    const [endH, endM] = quietHours.end.split(':').map(Number);
+    if (Number.isNaN(startH) || Number.isNaN(endH)) return false;
+    const start = new Date();
+    start.setHours(startH, startM || 0, 0, 0);
+    const end = new Date();
+    end.setHours(endH, endM || 0, 0, 0);
+    if (start <= end) {
+      return now >= start && now <= end;
+    }
+    return now >= start || now <= end;
+  };
 
   useEffect(() => {
     loadPotentialMatches();
   }, []);
+
+  useEffect(() => {
+    if (user?.matchPreferences?.similarityWeight !== undefined) {
+      setSimilarityWeight(user.matchPreferences.similarityWeight);
+    }
+  }, [user?.matchPreferences?.similarityWeight]);
+
+  useEffect(() => {
+    const loadExperiments = async () => {
+      try {
+        const response = await pagesApi.getExperiments();
+        if (response.experiments?.discoveryIntentVariant) {
+          setIntentVariant(response.experiments.discoveryIntentVariant);
+        }
+      } catch {
+        setIntentVariant('cards');
+      }
+    };
+    loadExperiments();
+  }, []);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const timer = window.setTimeout(() => {
+      updateProfile({
+        matchPreferences: {
+          similarityWeight,
+          complementWeight
+        }
+      });
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [similarityWeight, complementWeight, updateProfile, user?.id]);
 
   const loadPotentialMatches = async () => {
     try {
@@ -110,8 +222,15 @@ export function DashboardPage() {
     if (filters.sharedInterests) {
       matches = matches.filter((match) => (match.sharedInterests?.length || 0) > 0);
     }
+    if (filters.intent !== 'all') {
+      matches = matches.filter((match) => match.connectionGoals?.includes(filters.intent));
+    }
     if (sortBy === 'match') {
-      matches.sort((a, b) => (b.compatibilityScore || 0) - (a.compatibilityScore || 0));
+      matches.sort((a, b) => {
+        const scoreA = getWeightedScore(a);
+        const scoreB = getWeightedScore(b);
+        return scoreB - scoreA;
+      });
     }
     if (sortBy === 'name') {
       matches.sort((a, b) => a.name.localeCompare(b.name));
@@ -119,7 +238,10 @@ export function DashboardPage() {
     return matches;
   }, [potentialMatches, filters, sortBy]);
 
+
   const currentMatch = filteredMatches[0];
+  const selectedSimilarity = selectedMatch ? getSimilarityScore(selectedMatch) : null;
+  const selectedComplement = selectedSimilarity !== null ? 100 - selectedSimilarity : null;
 
   const clusters = useMemo(() => {
     const buckets: Record<string, PotentialMatch[]> = {};
@@ -158,13 +280,24 @@ export function DashboardPage() {
   }, [hoveredRect]);
 
   const handleHover = (event: React.MouseEvent<HTMLElement>, match: PotentialMatch) => {
+    if (hoverTimeoutRef.current) {
+      window.clearTimeout(hoverTimeoutRef.current);
+    }
+    hoverLockRef.current = false;
     setHoveredMatch(match);
     setHoveredRect(event.currentTarget.getBoundingClientRect());
   };
 
   const clearHover = () => {
-    setHoveredMatch(null);
-    setHoveredRect(null);
+    if (hoverTimeoutRef.current) {
+      window.clearTimeout(hoverTimeoutRef.current);
+    }
+    hoverTimeoutRef.current = window.setTimeout(() => {
+      if (!hoverLockRef.current) {
+        setHoveredMatch(null);
+        setHoveredRect(null);
+      }
+    }, 140);
   };
 
   const toggleQueue = (match: PotentialMatch) => {
@@ -227,7 +360,7 @@ export function DashboardPage() {
   }
 
   if (!currentMatch) {
-    const hasFilters = filters.onlineOnly || filters.highMatch || filters.sharedInterests;
+    const hasFilters = filters.onlineOnly || filters.highMatch || filters.sharedInterests || filters.intent !== 'all';
     return (
       <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center p-8">
@@ -244,7 +377,9 @@ export function DashboardPage() {
             {hasFilters && (
               <Button
                 variant="outline"
-                onClick={() => setFilters({ onlineOnly: false, highMatch: false, sharedInterests: false })}
+                onClick={() =>
+                  setFilters({ onlineOnly: false, highMatch: false, sharedInterests: false, intent: 'all' })
+                }
               >
                 Clear filters
               </Button>
@@ -289,6 +424,35 @@ export function DashboardPage() {
           </div>
         </div>
 
+        {intentVariant === 'cards' ? (
+          <div className="grid gap-3 md:grid-cols-3">
+            {INTENT_CARDS.map((card) => (
+              <button
+                key={card.id}
+                onClick={() => setFilters((prev) => ({ ...prev, intent: card.id }))}
+                className={`rounded-2xl border p-4 text-left transition ${
+                  filters.intent === card.id ? 'border-primary bg-primary/5' : 'border-neutral-200 bg-white'
+                }`}
+              >
+                <h3 className="font-semibold">{card.title}</h3>
+                <p className="text-sm text-neutral-500">{card.description}</p>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {INTENT_CARDS.map((card) => (
+              <Button
+                key={card.id}
+                variant={filters.intent === card.id ? 'default' : 'outline'}
+                onClick={() => setFilters((prev) => ({ ...prev, intent: card.id }))}
+              >
+                {card.title}
+              </Button>
+            ))}
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-neutral-200 bg-white px-4 py-3">
           <div className="flex items-center gap-2 text-sm text-neutral-600">
             <SlidersHorizontal className="w-4 h-4" />
@@ -315,7 +479,25 @@ export function DashboardPage() {
           >
             Shared interests
           </Button>
-          <div className="ml-auto min-w-[180px]">
+          <div className="ml-auto flex items-center gap-2">
+            <div className="min-w-[180px]">
+              <Select
+                value={filters.intent}
+                onValueChange={(value) => setFilters((prev) => ({ ...prev, intent: value }))}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Connection intent" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All intents</SelectItem>
+                  {INTENT_OPTIONS.map((intent) => (
+                    <SelectItem key={intent} value={intent}>
+                      {intent}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Select value={sortBy} onValueChange={(value: 'match' | 'name' | 'recent') => setSortBy(value)}>
               <SelectTrigger className="h-9">
                 <SelectValue placeholder="Sort by" />
@@ -397,11 +579,37 @@ export function DashboardPage() {
                             <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-400 border-2 border-white" />
                           )}
                         </div>
-                        <div>
-                          <p className="font-semibold">{match.name}</p>
-                          <p className="text-xs text-neutral-500">{match.compatibilityScore}% match</p>
+                      <div>
+                        <p className="font-semibold">{match.name}</p>
+                        <p className="text-xs text-neutral-500">{match.compatibilityScore}% match</p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {isQuietHoursActive(match.quietHours) && (
+                            <Badge variant="outline" className="text-[10px]">
+                              <Clock className="w-3 h-3 mr-1" />
+                              Quiet hours
+                            </Badge>
+                          )}
+                          {match.verification?.self && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              <ShieldCheck className="w-3 h-3 mr-1" />
+                              Self
+                            </Badge>
+                          )}
+                          {match.verification?.peer && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              <ShieldCheck className="w-3 h-3 mr-1" />
+                              Peer
+                            </Badge>
+                          )}
+                          {match.verification?.admin && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              <ShieldCheck className="w-3 h-3 mr-1" />
+                              Admin
+                            </Badge>
+                          )}
                         </div>
                       </div>
+                    </div>
                       {match.bio && <p className="text-sm text-neutral-600">{match.bio}</p>}
                       <div className="flex flex-wrap items-center gap-2">
                         <Button variant="outline" size="sm" onClick={() => setSelectedMatch(match)}>
@@ -419,6 +627,41 @@ export function DashboardPage() {
           </div>
 
           <div className="space-y-6">
+            <Card>
+              <CardContent className="p-5 space-y-4">
+                <h3 className="font-semibold">Match balance</h3>
+                <p className="text-sm text-neutral-500">
+                  Decide whether you want more similarity or complementary traits.
+                </p>
+                <div className="space-y-2">
+                  <label className="text-xs text-neutral-500">Similarity preference</label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={Math.round(similarityWeight * 100)}
+                    onChange={(event) => setSimilarityWeight(Number(event.target.value) / 100)}
+                    className="w-full accent-primary"
+                  />
+                  <div className="flex items-center justify-between text-xs text-neutral-500">
+                    <span>Similarity {Math.round(similarityWeight * 100)}%</span>
+                    <span>Complement {Math.round(complementWeight * 100)}%</span>
+                  </div>
+                </div>
+                {selectedMatch && (
+                  <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-600">
+                    <div className="flex items-center justify-between">
+                      <span>Similarity breakdown</span>
+                      <span>{selectedSimilarity}%</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Complement breakdown</span>
+                      <span>{selectedComplement}%</span>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
             <Card>
               <CardContent className="p-5 space-y-4">
                 <h3 className="font-semibold">Connection Queue</h3>
@@ -464,6 +707,32 @@ export function DashboardPage() {
                     <div>
                       <p className="text-lg font-semibold">{selectedMatch.name}</p>
                       <p className="text-sm text-neutral-500">{selectedMatch.compatibilityScore}% match</p>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {isQuietHoursActive(selectedMatch.quietHours) && (
+                          <Badge variant="outline" className="text-[10px]">
+                            <Clock className="w-3 h-3 mr-1" />
+                            Quiet hours
+                          </Badge>
+                        )}
+                        {selectedMatch.verification?.self && (
+                          <Badge variant="secondary" className="text-[10px]">
+                            <ShieldCheck className="w-3 h-3 mr-1" />
+                            Self
+                          </Badge>
+                        )}
+                        {selectedMatch.verification?.peer && (
+                          <Badge variant="secondary" className="text-[10px]">
+                            <ShieldCheck className="w-3 h-3 mr-1" />
+                            Peer
+                          </Badge>
+                        )}
+                        {selectedMatch.verification?.admin && (
+                          <Badge variant="secondary" className="text-[10px]">
+                            <ShieldCheck className="w-3 h-3 mr-1" />
+                            Admin
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
                   {selectedMatch.bio && <p className="text-sm text-neutral-600">{selectedMatch.bio}</p>}
@@ -471,6 +740,11 @@ export function DashboardPage() {
                     {selectedMatch.sharedInterests?.map((interest) => (
                       <Badge key={interest} variant="secondary">
                         {interest}
+                      </Badge>
+                    ))}
+                    {selectedMatch.connectionGoals?.slice(0, 2).map((goal) => (
+                      <Badge key={goal} variant="outline">
+                        {goal}
                       </Badge>
                     ))}
                   </div>
@@ -510,8 +784,16 @@ export function DashboardPage() {
           <div
             className="fixed z-50"
             style={{ top: previewPosition.top, left: previewPosition.left, width: previewPosition.width }}
+            onMouseEnter={() => {
+              hoverLockRef.current = true;
+              if (hoverTimeoutRef.current) window.clearTimeout(hoverTimeoutRef.current);
+            }}
+            onMouseLeave={() => {
+              hoverLockRef.current = false;
+              clearHover();
+            }}
           >
-            <Card className="border border-neutral-200 shadow-card pointer-events-none">
+            <Card className="border border-neutral-200 shadow-card">
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center gap-3">
                   <Avatar className="w-12 h-12">
@@ -539,8 +821,54 @@ export function DashboardPage() {
                       {trait}
                     </Badge>
                   ))}
+                  {hoveredMatch.connectionGoals?.slice(0, 2).map((goal) => (
+                    <Badge key={goal} variant="outline">
+                      {goal}
+                    </Badge>
+                  ))}
+                  {isQuietHoursActive(hoveredMatch.quietHours) && (
+                    <Badge variant="outline">
+                      <Clock className="w-3 h-3 mr-1" />
+                      Quiet hours
+                    </Badge>
+                  )}
+                  {hoveredMatch.verification?.self && (
+                    <Badge variant="secondary">
+                      <ShieldCheck className="w-3 h-3 mr-1" />
+                      Self
+                    </Badge>
+                  )}
+                  {hoveredMatch.verification?.peer && (
+                    <Badge variant="secondary">
+                      <ShieldCheck className="w-3 h-3 mr-1" />
+                      Peer
+                    </Badge>
+                  )}
+                  {hoveredMatch.verification?.admin && (
+                    <Badge variant="secondary">
+                      <ShieldCheck className="w-3 h-3 mr-1" />
+                      Admin
+                    </Badge>
+                  )}
                 </div>
-                <p className="text-xs text-neutral-500">Click to open full profile</p>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => toggleQueue(hoveredMatch)}
+                  >
+                    {queue.find((item) => item.id === hoveredMatch.id) ? 'Queued' : 'Queue'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="flex-1 bg-primary hover:bg-primary-600"
+                    onClick={() => handlePin(hoveredMatch)}
+                  >
+                    Like
+                  </Button>
+                </div>
+                <p className="text-xs text-neutral-500">Quick actions from hover preview.</p>
               </CardContent>
             </Card>
           </div>

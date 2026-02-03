@@ -8,6 +8,16 @@ export interface AIExplanation {
   socialCues: string[];
 }
 
+export interface AISummary {
+  summary: string;
+  highlights: string[];
+}
+
+export interface AIRephrase {
+  gentle: string;
+  direct: string;
+}
+
 export const aiApi = {
   explainMessage: async (message: string, toneTag?: string, context?: string) => {
     return api.post<{ explanation: AIExplanation }>('/ai/explain', {
@@ -44,5 +54,13 @@ export const aiApi = {
       user2Traits,
       user2Interests
     });
+  },
+
+  summarizeConversation: async (messages: { sender: string; content: string }[]) => {
+    return api.post<{ summary: AISummary }>('/ai/summary', { messages });
+  },
+
+  rephraseMessage: async (message: string) => {
+    return api.post<{ rephrase: AIRephrase }>('/ai/rephrase', { message });
   }
 };

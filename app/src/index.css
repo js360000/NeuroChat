@@ -40,6 +40,9 @@
     --calm-saturation: 1;
     --calm-contrast: 1;
     --calm-brightness: 1;
+    --font-display: "Libre Caslon Text";
+    --font-body: "Lexend";
+    --section-gap: 5rem;
   }
 
   .dark {
@@ -112,11 +115,17 @@
   
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    font-family: var(--font-body), "Switzer", system-ui, sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
     padding-bottom: env(safe-area-inset-bottom);
   }
   
-  h1, h2, h3, h4, h5, h6 {
+  h1, h2, h3 {
+    font-family: var(--font-display), "Libre Caslon Text", serif;
+    letter-spacing: -0.02em;
+  }
+
+  h4, h5, h6 {
     @apply font-sans tracking-tight;
   }
 }
@@ -174,6 +183,10 @@ a {
     padding-top: 1rem;
     padding-bottom: 1rem;
   }
+  
+  .calm-density-compact {
+    --section-gap: 3.5rem;
+  }
 
   .calm-density-compact [data-slot="card-header"],
   .calm-density-compact [data-slot="card-content"],
@@ -186,6 +199,10 @@ a {
     gap: 1.75rem;
     padding-top: 2rem;
     padding-bottom: 2rem;
+  }
+
+  .calm-density-cozy {
+    --section-gap: 6rem;
   }
 
   .calm-density-cozy [data-slot="card-header"],
@@ -202,6 +219,21 @@ a {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  .mood-calm {
+    --primary: 263 91% 59%;
+    --accent: 248 94% 60%;
+  }
+
+  .mood-warm {
+    --primary: 24 95% 55%;
+    --accent: 12 90% 58%;
+  }
+
+  .mood-crisp {
+    --primary: 200 85% 48%;
+    --accent: 170 75% 42%;
   }
 
 @layer components {
@@ -278,6 +310,8 @@ a {
   
   .section-padding {
     @apply px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-20;
+    padding-top: var(--section-gap);
+    padding-bottom: var(--section-gap);
   }
   
   .container-wide {

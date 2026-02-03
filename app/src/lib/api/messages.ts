@@ -16,11 +16,31 @@ export interface Message {
 
 export interface Conversation {
   id: string;
+  tags?: string[];
   user: {
     id: string;
     name: string;
     avatar?: string;
     isOnline: boolean;
+    communicationPreferences?: {
+      responsePace?: 'slow' | 'balanced' | 'fast';
+      directness?: 'gentle' | 'direct';
+    };
+    quietHours?: {
+      enabled: boolean;
+      start: string;
+      end: string;
+    };
+    boundaries?: string[];
+    connectionGoals?: string[];
+    verification?: {
+      email: boolean;
+      photo: boolean;
+      id: boolean;
+      self?: boolean;
+      peer?: boolean;
+      admin?: boolean;
+    };
   };
   lastMessage?: {
     id: string;
@@ -59,5 +79,9 @@ export const messagesApi = {
 
   createConversation: async (userId: string) => {
     return api.post<{ conversationId: string }>('/messages/conversations', { userId });
+  },
+
+  updateConversationTags: async (conversationId: string, tags: string[]) => {
+    return api.patch<{ tags: string[] }>(`/messages/conversations/${conversationId}/tags`, { tags });
   }
 };

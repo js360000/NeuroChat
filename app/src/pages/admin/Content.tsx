@@ -15,6 +15,11 @@ type CommunityPost = {
   toneTag?: string;
   contentWarning?: string;
   hidden: boolean;
+  sentiment?: {
+    score: number;
+    label: 'positive' | 'negative' | 'neutral';
+  };
+  flaggedKeywords?: string[];
   author: { id: string; name: string; email?: string };
   createdAt: string;
 };
@@ -109,11 +114,21 @@ export function AdminContent() {
                   <span>Author: {post.author.name}</span>
                   {post.toneTag && <Badge variant="outline">Tone: {post.toneTag}</Badge>}
                   {post.contentWarning && <Badge variant="secondary">CW: {post.contentWarning}</Badge>}
+                  {post.sentiment && (
+                    <Badge variant={post.sentiment.label === 'negative' ? 'destructive' : 'outline'}>
+                      Sentiment: {post.sentiment.label}
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {post.tags.map((tag) => (
                     <Badge key={tag} variant="secondary">
                       {tag}
+                    </Badge>
+                  ))}
+                  {post.flaggedKeywords?.map((flag) => (
+                    <Badge key={flag} variant="destructive">
+                      {flag}
                     </Badge>
                   ))}
                 </div>

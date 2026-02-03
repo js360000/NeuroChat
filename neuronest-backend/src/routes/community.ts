@@ -35,6 +35,7 @@ function serializePost(post: CommunityPost, includeHidden = false) {
 
   return {
     id: post.id,
+    type: post.type,
     title: post.title,
     content: post.content,
     tags: post.tags,
@@ -48,8 +49,125 @@ function serializePost(post: CommunityPost, includeHidden = false) {
     updatedAt: post.updatedAt.toISOString(),
     reactionCounts,
     commentCount
-  };
+};
 }
+
+// Rooms
+router.get('/rooms', authenticateToken, (_req: Request, res: Response) => {
+  const rooms = db.communityRooms
+    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+    .map((room) => ({
+      id: room.id,
+      name: room.name,
+      description: room.description,
+      tags: room.tags,
+      resources: room.resources,
+      createdAt: room.createdAt.toISOString(),
+      updatedAt: room.updatedAt.toISOString()
+    }));
+  res.json({ rooms });
+});
+
+router.post('/rooms', authenticateToken, (req: Request, res: Response) => {
+  const user = findUserById(req.user!.id);
+  if (user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin only' });
+  }
+  const { name, description, tags, resources } = req.body;
+  if (!name || !description) {
+    return res.status(400).json({ error: 'Name and description are required' });
+  }
+  const now = new Date();
+  const room = {
+    id: uuidv4(),
+    name,
+    description,
+    tags: Array.isArray(tags) ? tags : [],
+    resources: Array.isArray(resources) ? resources : [],
+    createdAt: now,
+    updatedAt: now
+  };
+  db.communityRooms.push(room);
+  res.status(201).json({
+    room: { ...room, createdAt: room.createdAt.toISOString(), updatedAt: room.updatedAt.toISOString() }
+  });
+});
+
+// Buddy threads
+router.get('/buddies', authenticateToken, (_req: Request, res: Response) => {
+  const threads = db.buddyThreads
+    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+    .map((thread) => ({
+      id: thread.id,
+      title: thread.title,
+      description: thread.description,
+      cadence: thread.cadence,
+      members: thread.members,
+      createdAt: thread.createdAt.toISOString(),
+      updatedAt: thread.updatedAt.toISOString()
+    }));
+  res.json({ threads });
+});
+
+router.post('/buddies', authenticateToken, (req: Request, res: Response) => {
+  const { title, description, cadence } = req.body;
+  if (!title || !description) {
+    return res.status(400).json({ error: 'Title and description are required' });
+  }
+  const now = new Date();
+  const thread = {
+    id: uuidv4(),
+    title,
+    description,
+    cadence: cadence || 'weekly',
+    members: [req.user!.id],
+    createdAt: now,
+    updatedAt: now
+  };
+  db.buddyThreads.push(thread);
+  res.status(201).json({
+    thread: { ...thread, createdAt: thread.createdAt.toISOString(), updatedAt: thread.updatedAt.toISOString() }
+  });
+});
+
+// Shared routines
+router.get('/routines', authenticateToken, (_req: Request, res: Response) => {
+  const routines = db.sharedRoutines
+    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+    .map((routine) => ({
+      id: routine.id,
+      title: routine.title,
+      description: routine.description,
+      scheduledAt: routine.scheduledAt,
+      participants: routine.participants,
+      createdBy: routine.createdBy,
+      createdAt: routine.createdAt.toISOString(),
+      updatedAt: routine.updatedAt.toISOString()
+    }));
+  res.json({ routines });
+});
+
+router.post('/routines', authenticateToken, (req: Request, res: Response) => {
+  const { title, description, scheduledAt } = req.body;
+  if (!title) {
+    return res.status(400).json({ error: 'Title is required' });
+  }
+  const now = new Date();
+  const routine = {
+    id: uuidv4(),
+    title,
+    description,
+    scheduledAt,
+    participants: [req.user!.id],
+    createdBy: req.user!.id,
+    createdAt: now,
+    updatedAt: now
+  };
+  db.sharedRoutines.push(routine);
+  res.status(201).json({
+    routine: { ...routine, createdAt: routine.createdAt.toISOString(), updatedAt: routine.updatedAt.toISOString() }
+  });
+});
 
 router.get('/', authenticateToken, (req: Request, res: Response) => {
   const q = (req.query.q as string)?.toLowerCase();
@@ -94,7 +212,7 @@ router.get('/:id', authenticateToken, (req: Request, res: Response) => {
 });
 
 router.post('/', authenticateToken, (req: Request, res: Response) => {
-  const { title, content, tags, toneTag, contentWarning } = req.body;
+  const { title, content, tags, toneTag, contentWarning, type } = req.body;
   if (!content) {
     return res.status(400).json({ error: 'Content is required' });
   }
@@ -102,6 +220,7 @@ router.post('/', authenticateToken, (req: Request, res: Response) => {
   const now = new Date();
   const post: CommunityPost = {
     id: uuidv4(),
+    type,
     title,
     content,
     tags: Array.isArray(tags) ? tags : [],
@@ -127,12 +246,13 @@ router.patch('/:id', authenticateToken, (req: Request, res: Response) => {
     return res.status(403).json({ error: 'Not authorized' });
   }
 
-  const { title, content, tags, toneTag, contentWarning } = req.body;
+  const { title, content, tags, toneTag, contentWarning, type } = req.body;
   if (title !== undefined) post.title = title;
   if (content !== undefined) post.content = content;
   if (Array.isArray(tags)) post.tags = tags;
   if (toneTag !== undefined) post.toneTag = toneTag;
   if (contentWarning !== undefined) post.contentWarning = contentWarning;
+  if (type !== undefined) post.type = type;
 
   post.updatedAt = new Date();
   res.json({ post: serializePost(post, true) });

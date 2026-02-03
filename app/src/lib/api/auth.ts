@@ -21,8 +21,35 @@ export interface User {
     density: 'cozy' | 'balanced' | 'compact';
     reduceMotion: boolean;
     reduceSaturation: boolean;
+    moodTheme?: 'calm' | 'warm' | 'crisp';
   };
   connectionGoals?: string[];
+  matchPreferences?: {
+    similarityWeight: number;
+    complementWeight: number;
+  };
+  quietHours?: {
+    enabled: boolean;
+    start: string;
+    end: string;
+  };
+  boundaries?: string[];
+  safetyChecklist?: {
+    boundariesSet: boolean;
+    filtersSet: boolean;
+    resourcesViewed: boolean;
+    completed: boolean;
+  };
+  accessibilityPreset?: {
+    theme: 'light' | 'dark';
+    highContrast: boolean;
+    largeText: boolean;
+    dyslexicFont: boolean;
+    underlineLinks: boolean;
+    reduceMotion: boolean;
+    focusRing: boolean;
+  };
+  isPaused?: boolean;
   subscription: {
     plan: 'free' | 'premium' | 'pro';
     status: 'active' | 'inactive' | 'cancelled' | 'past_due';
@@ -32,10 +59,14 @@ export interface User {
     email: boolean;
     photo: boolean;
     id: boolean;
+    self?: boolean;
+    peer?: boolean;
+    admin?: boolean;
   };
   onboarding?: {
     completed: boolean;
     completedAt?: string;
+    step?: number;
   };
 }
 

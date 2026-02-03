@@ -12,7 +12,13 @@ import {
   Workflow,
   Server,
   ScrollText,
-  ShieldCheck
+  ShieldCheck,
+  MessageSquareQuote,
+  Activity,
+  Calendar,
+  FlaskConical,
+  AlertTriangle,
+  Inbox
 } from 'lucide-react';
 import { adminApi, type DashboardStats } from '@/lib/api/admin';
 import { useAuthStore } from '@/lib/stores/auth';
@@ -29,6 +35,12 @@ import { AdminAutomation } from './admin/Automation';
 import { AdminEnvironment } from './admin/Environment';
 import { AdminPages } from './admin/Pages';
 import { AdminCompliance } from './admin/Compliance';
+import { AdminTestimonials } from './admin/Testimonials';
+import { AdminExperience } from './admin/Experience';
+import { AdminDigest } from './admin/Digest';
+import { AdminContentCalendar } from './admin/ContentCalendar';
+import { AdminExperiments } from './admin/Experiments';
+import { AdminAnomalies } from './admin/Anomalies';
 
 export function AdminPage() {
   const location = useLocation();
@@ -57,8 +69,14 @@ export function AdminPage() {
     { path: '/admin/payments', label: 'Payments', icon: CreditCard },
     { path: '/admin/moderation', label: 'Moderation', icon: Shield },
     { path: '/admin/content', label: 'Content', icon: FileText },
+    { path: '/admin/testimonials', label: 'Testimonials', icon: MessageSquareQuote },
     { path: '/admin/pages', label: 'Pages', icon: ScrollText },
     { path: '/admin/compliance', label: 'Compliance', icon: ShieldCheck },
+    { path: '/admin/experience', label: 'Experience', icon: Activity },
+    { path: '/admin/digest', label: 'Digest Queue', icon: Inbox },
+    { path: '/admin/calendar', label: 'Content Calendar', icon: Calendar },
+    { path: '/admin/experiments', label: 'Experiments', icon: FlaskConical },
+    { path: '/admin/anomalies', label: 'Anomalies', icon: AlertTriangle },
     { path: '/admin/automation', label: 'Automation', icon: Workflow },
     { path: '/admin/environment', label: 'Environment', icon: Server },
     { path: '/admin/settings', label: 'Settings', icon: Settings },
@@ -131,6 +149,12 @@ export function AdminPage() {
           <Route path="/moderation" element={<AdminModeration />} />
           <Route path="/content" element={<AdminContent />} />
           <Route path="/pages" element={<AdminPages />} />
+          <Route path="/testimonials" element={<AdminTestimonials />} />
+          <Route path="/experience" element={<AdminExperience />} />
+          <Route path="/digest" element={<AdminDigest />} />
+          <Route path="/calendar" element={<AdminContentCalendar />} />
+          <Route path="/experiments" element={<AdminExperiments />} />
+          <Route path="/anomalies" element={<AdminAnomalies />} />
           <Route path="/compliance" element={<AdminCompliance />} />
           <Route path="/automation" element={<AdminAutomation />} />
           <Route path="/environment" element={<AdminEnvironment />} />

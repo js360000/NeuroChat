@@ -33,6 +33,7 @@ export function BlogPage() {
   const [draftStatus, setDraftStatus] = useState<'published' | 'draft'>('published');
   const [warningOpen, setWarningOpen] = useState(false);
   const [warningMessages, setWarningMessages] = useState<string[]>([]);
+  const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false);
   const [pendingPost, setPendingPost] = useState<{
     title: string;
     content: string;
@@ -70,6 +71,18 @@ export function BlogPage() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
     if (isAdmin) {
       loadPosts();
     }
@@ -81,6 +94,10 @@ export function BlogPage() {
   };
 
   const handleCreate = async () => {
+    if (isOffline) {
+      toast.error('You are offline. Blog posts are read-only right now.');
+      return;
+    }
     if (!draftTitle.trim() || !draftContent.trim()) {
       toast.error('Title and content are required');
       return;
@@ -152,12 +169,24 @@ export function BlogPage() {
           <h2 className="text-2xl font-bold">Latest Articles</h2>
         </div>
         {isAdmin && (
-          <Button onClick={() => setShowComposer((prev) => !prev)} className="bg-primary hover:bg-primary-600">
+          <Button
+            onClick={() => setShowComposer((prev) => !prev)}
+            className="bg-primary hover:bg-primary-600"
+            disabled={isOffline}
+          >
             <Plus className="w-4 h-4 mr-2" />
             {showComposer ? 'Close Editor' : 'Write Post'}
           </Button>
         )}
       </div>
+
+      {isOffline && (
+        <Card className="border-amber-200 bg-amber-50/60">
+          <CardContent className="p-4 text-sm text-amber-800">
+            You are offline. Blog posts are read-only, but cached posts are available.
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="p-4 flex flex-col gap-3 sm:flex-row">

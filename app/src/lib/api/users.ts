@@ -7,6 +7,21 @@ export interface UserProfile {
   bio?: string;
   neurodivergentTraits: string[];
   specialInterests: string[];
+  connectionGoals?: string[];
+  verification?: {
+    email: boolean;
+    photo: boolean;
+    id: boolean;
+    self?: boolean;
+    peer?: boolean;
+    admin?: boolean;
+  };
+  quietHours?: {
+    enabled: boolean;
+    start: string;
+    end: string;
+  };
+  isPaused?: boolean;
   isOnline: boolean;
   lastActive: string;
 }

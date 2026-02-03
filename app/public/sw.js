@@ -1,5 +1,7 @@
 const CACHE_NAME = 'neuronest-static-v1';
 const RUNTIME_CACHE = 'neuronest-runtime-v1';
+const AVATAR_CACHE = 'neuronest-avatars-v1';
+const IMAGE_FALLBACK = '/icon.svg';
 
 const PRECACHE_URLS = [
   '/',
@@ -20,7 +22,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys.map((key) => {
-          if (![CACHE_NAME, RUNTIME_CACHE].includes(key)) {
+          if (![CACHE_NAME, RUNTIME_CACHE, AVATAR_CACHE].includes(key)) {
             return caches.delete(key);
           }
           return null;
@@ -38,6 +40,23 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   const isSameOrigin = url.origin === self.location.origin;
   if (isSameOrigin && (url.pathname.startsWith('/api') || url.pathname.startsWith('/socket.io'))) {
+    return;
+  }
+
+  if (request.destination === 'image') {
+    event.respondWith(
+      caches.open(AVATAR_CACHE).then((cache) =>
+        cache.match(request).then((cached) => {
+          const fetchPromise = fetch(request)
+            .then((response) => {
+              cache.put(request, response.clone());
+              return response;
+            })
+            .catch(() => cached || caches.match(IMAGE_FALLBACK));
+          return cached || fetchPromise;
+        })
+      )
+    );
     return;
   }
 

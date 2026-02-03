@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { Loader2 } from 'lucide-react';
@@ -17,7 +17,6 @@ import { CommunityPage } from './pages/CommunityPage';
 import { BlogPage } from './pages/BlogPage';
 import { BlogPostPage } from './pages/BlogPostPage';
 import { CompareHikiPage } from './pages/CompareHikiPage';
-import { GamesPage } from './pages/GamesPage';
 import { AboutPage } from './pages/AboutPage';
 import { ContactPage } from './pages/ContactPage';
 import { TermsPage } from './pages/TermsPage';
@@ -26,14 +25,18 @@ import { ProfilePage } from './pages/ProfilePage';
 import { MatchesPage } from './pages/MatchesPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { PricingPage } from './pages/PricingPage';
-import { AdminPage } from './pages/AdminPage';
+import { HelpPage } from './pages/HelpPage';
+const GamesPage = lazy(() => import('./pages/GamesPage').then((mod) => ({ default: mod.GamesPage })));
+const AdminPage = lazy(() => import('./pages/AdminPage').then((mod) => ({ default: mod.AdminPage })));
 import { PaymentSuccessPage } from './pages/PaymentSuccessPage';
 import { PaymentCancelPage } from './pages/PaymentCancelPage';
 import { OnboardingPage } from './pages/OnboardingPage';
+import { SandboxPage } from './pages/SandboxPage';
+import { CompassPage } from './pages/CompassPage';
 
 // Stores
 import { useAuthStore } from './lib/stores/auth';
-import { applyA11ySettings, loadA11ySettings } from './lib/a11y';
+import { applyA11ySettings, loadA11ySettings, saveA11ySettings } from './lib/a11y';
 import { applyExperiencePreferences, DEFAULT_EXPERIENCE_PREFERENCES } from './lib/experience';
 import { CookieConsent } from './components/CookieConsent';
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
@@ -99,6 +102,13 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     applyExperiencePreferences(user?.experiencePreferences ?? DEFAULT_EXPERIENCE_PREFERENCES);
   }, [user?.experiencePreferences]);
+
+  useEffect(() => {
+    if (user?.accessibilityPreset) {
+      applyA11ySettings(user.accessibilityPreset);
+      saveA11ySettings(user.accessibilityPreset);
+    }
+  }, [user?.accessibilityPreset]);
   
   return <>{children}</>;
 }
@@ -111,109 +121,128 @@ function App() {
         <CookieConsent />
         <OfflineNotice />
         <PwaInstallPrompt />
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/compare/hiki" element={<CompareHikiPage />} />
-          <Route path="/games" element={<GamesPage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/contact" element={<ContactPage />} />
-          <Route path="/terms" element={<TermsPage />} />
-          <Route path="/privacy" element={<PrivacyPage />} />
-          
-          {/* Auth Routes */}
-          <Route element={<AuthLayout />}>
-            <Route path="/login" element={
-              <PublicRoute>
-                <LoginPage />
-              </PublicRoute>
-            } />
-            <Route path="/register" element={
-              <PublicRoute>
-                <RegisterPage />
-              </PublicRoute>
-            } />
-          </Route>
-          
-          {/* Protected Routes */}
-          <Route element={<MainLayout />}>
-            <Route path="/onboarding" element={
+        <Suspense
+          fallback={(
+            <div className="min-h-screen flex items-center justify-center">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          )}
+        >
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/compare/hiki" element={<CompareHikiPage />} />
+            <Route path="/games" element={<GamesPage />} />
+            <Route path="/sandbox" element={<SandboxPage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/contact" element={<ContactPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            
+            {/* Auth Routes */}
+            <Route element={<AuthLayout />}>
+              <Route path="/login" element={
+                <PublicRoute>
+                  <LoginPage />
+                </PublicRoute>
+              } />
+              <Route path="/register" element={
+                <PublicRoute>
+                  <RegisterPage />
+                </PublicRoute>
+              } />
+            </Route>
+            
+            {/* Protected Routes */}
+            <Route element={<MainLayout />}>
+              <Route path="/onboarding" element={
+                <ProtectedRoute>
+                  <OnboardingPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/compass" element={
+                <ProtectedRoute>
+                  <CompassPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/messages" element={
+                <ProtectedRoute>
+                  <MessagesPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/messages/:conversationId" element={
+                <ProtectedRoute>
+                  <MessagesPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/community" element={
+                <ProtectedRoute>
+                  <CommunityPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/blog" element={
+                <ProtectedRoute>
+                  <BlogPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/blog/:slug" element={
+                <ProtectedRoute>
+                  <BlogPostPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/matches" element={
+                <ProtectedRoute>
+                  <MatchesPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              } />
+              <Route path="/settings" element={
+                <ProtectedRoute>
+                  <SettingsPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/pricing" element={
+                <ProtectedRoute>
+                  <PricingPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/help" element={
+                <ProtectedRoute>
+                  <HelpPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/payment/success" element={
+                <ProtectedRoute>
+                  <PaymentSuccessPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/payment/cancel" element={
+                <ProtectedRoute>
+                  <PaymentCancelPage />
+                </ProtectedRoute>
+              } />
+            </Route>
+            
+            {/* Admin Routes */}
+            <Route path="/admin/*" element={
               <ProtectedRoute>
-                <OnboardingPage />
+                <AdminPage />
               </ProtectedRoute>
             } />
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <DashboardPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/messages" element={
-              <ProtectedRoute>
-                <MessagesPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/messages/:conversationId" element={
-              <ProtectedRoute>
-                <MessagesPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/community" element={
-              <ProtectedRoute>
-                <CommunityPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/blog" element={
-              <ProtectedRoute>
-                <BlogPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/blog/:slug" element={
-              <ProtectedRoute>
-                <BlogPostPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/matches" element={
-              <ProtectedRoute>
-                <MatchesPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/profile" element={
-              <ProtectedRoute>
-                <ProfilePage />
-              </ProtectedRoute>
-            } />
-            <Route path="/settings" element={
-              <ProtectedRoute>
-                <SettingsPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/pricing" element={
-              <ProtectedRoute>
-                <PricingPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/payment/success" element={
-              <ProtectedRoute>
-                <PaymentSuccessPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/payment/cancel" element={
-              <ProtectedRoute>
-                <PaymentCancelPage />
-              </ProtectedRoute>
-            } />
-          </Route>
-          
-          {/* Admin Routes */}
-          <Route path="/admin/*" element={
-            <ProtectedRoute>
-              <AdminPage />
-            </ProtectedRoute>
-          } />
-          
-          {/* Catch all */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            
+            {/* Catch all */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </AppInitializer>
     </BrowserRouter>
   );
