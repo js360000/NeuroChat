@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useAuthStore } from '@/lib/stores/auth';
 import { useAppConfig } from '@/lib/stores/config';
+import { useCurrency } from '@/lib/hooks/useCurrency';
 import { paymentsApi } from '@/lib/api/payments';
 import { toast } from 'sonner';
 
@@ -14,6 +15,7 @@ export function PricingPage() {
   const { user } = useAuthStore();
   const [isYearly, setIsYearly] = useState(false);
   const [isLoading, setIsLoading] = useState<string | null>(null);
+  const { currency, setCurrency, formatPrice } = useCurrency();
 
   const handleSubscribe = async (plan: string) => {
     if (plan === 'Basic') return;
@@ -47,16 +49,32 @@ export function PricingPage() {
           Upgrade to unlock AI-powered features and connect with more people
         </p>
 
-        {/* Billing Toggle */}
-        <div className="flex items-center justify-center gap-4 mt-6">
-          <span className={`text-sm ${!isYearly ? 'font-medium' : 'text-neutral-500'}`}>
-            Monthly
-          </span>
-          <Switch checked={isYearly} onCheckedChange={setIsYearly} />
-          <span className={`text-sm ${isYearly ? 'font-medium' : 'text-neutral-500'}`}>
-            Yearly
-            <Badge className="ml-2 bg-green-100 text-green-700">Save 33%</Badge>
-          </span>
+        {/* Billing & Currency Toggles */}
+        <div className="flex flex-col items-center gap-3 mt-6">
+          <div className="flex items-center gap-4">
+            <span className={`text-sm ${!isYearly ? 'font-medium' : 'text-neutral-500'}`}>
+              Monthly
+            </span>
+            <Switch checked={isYearly} onCheckedChange={setIsYearly} />
+            <span className={`text-sm ${isYearly ? 'font-medium' : 'text-neutral-500'}`}>
+              Yearly
+              <Badge className="ml-2 bg-green-100 text-green-700">Save 33%</Badge>
+            </span>
+          </div>
+          <div className="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 p-0.5 text-sm">
+            <button
+              onClick={() => setCurrency('USD')}
+              className={`px-3 py-1 rounded-full transition-colors ${currency === 'USD' ? 'bg-primary text-white shadow-sm' : 'text-neutral-600 hover:text-neutral-900'}`}
+            >
+              $ USD
+            </button>
+            <button
+              onClick={() => setCurrency('GBP')}
+              className={`px-3 py-1 rounded-full transition-colors ${currency === 'GBP' ? 'bg-primary text-white shadow-sm' : 'text-neutral-600 hover:text-neutral-900'}`}
+            >
+              £ GBP
+            </button>
+          </div>
         </div>
       </div>
 
@@ -87,11 +105,11 @@ export function PricingPage() {
                 <CardTitle className="text-xl">{plan.name}</CardTitle>
                 <p className="text-sm text-muted-foreground">{plan.description}</p>
                 <div className="mt-4">
-                  <span className={`text-4xl font-bold ${plan.featured ? 'text-primary' : ''}`}>${price}</span>
+                  <span className={`text-4xl font-bold ${plan.featured ? 'text-primary' : ''}`}>{formatPrice(price)}</span>
                   <span className="text-muted-foreground">/month</span>
                   {isYearly && price > 0 && (
                     <p className="text-sm text-green-600 mt-1 font-medium">
-                      ${price * 12} billed annually
+                      {formatPrice(price * 12)} billed annually
                     </p>
                   )}
                 </div>

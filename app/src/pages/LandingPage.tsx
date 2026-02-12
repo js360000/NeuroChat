@@ -35,6 +35,7 @@ import { PublicFooter } from '@/components/PublicFooter';
 import { testimonialsApi, type Testimonial } from '@/lib/api';
 import { pagesApi, type ExperimentSettings } from '@/lib/api/pages';
 import { useAppConfig } from '@/lib/stores/config';
+import { useCurrency } from '@/lib/hooks/useCurrency';
 
 const FEATURES = [
   {
@@ -145,6 +146,7 @@ const TRUST_PILLARS = [
 
 export function LandingPage() {
   const appConfig = useAppConfig();
+  const { currency, setCurrency, formatPrice } = useCurrency();
   const PLANS = appConfig.pricingPlans.map((p) => ({
     name: p.name,
     price: p.monthlyPrice,
@@ -574,6 +576,20 @@ export function LandingPage() {
             <p className="text-neutral-500">
               Up to 70% lower than competitors. Everyone deserves love.
             </p>
+            <div className="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 p-0.5 text-sm mt-4">
+              <button
+                onClick={() => setCurrency('USD')}
+                className={`px-3 py-1 rounded-full transition-colors ${currency === 'USD' ? 'bg-primary text-white shadow-sm' : 'text-neutral-600 hover:text-neutral-900'}`}
+              >
+                $ USD
+              </button>
+              <button
+                onClick={() => setCurrency('GBP')}
+                className={`px-3 py-1 rounded-full transition-colors ${currency === 'GBP' ? 'bg-primary text-white shadow-sm' : 'text-neutral-600 hover:text-neutral-900'}`}
+              >
+                £ GBP
+              </button>
+            </div>
           </AnimateIn>
 
           <div className="grid md:grid-cols-3 gap-8">
@@ -588,7 +604,7 @@ export function LandingPage() {
                   )}
                   <h3 className="text-xl font-bold">{plan.name}</h3>
                   <div className="my-4">
-                    <span className="text-4xl font-bold">${plan.price}</span>
+                    <span className="text-4xl font-bold">{formatPrice(plan.price)}</span>
                     <span className="text-neutral-500">/month</span>
                   </div>
                   <ul className="space-y-2 mb-6">
