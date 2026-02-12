@@ -56,6 +56,21 @@ export interface DashboardStats {
   };
 }
 
+export type AgeVerificationMethod = 'credit_card' | 'mobile' | 'facial_age_estimation' | 'photo_id' | 'open_banking';
+
+export interface AgeVerificationConfig {
+  enabled: boolean;
+  provider: 'yoti' | 'agechecked' | 'manual';
+  minimumAge: number;
+  yotiClientSdkId: string;
+  yotiScenarioId: string;
+  yotiApiKey: string;
+  enabledMethods: AgeVerificationMethod[];
+  enforceOnRegistration: boolean;
+  gracePeriodHours: number;
+  bypassForExistingUsers: boolean;
+}
+
 export interface ExperienceStats {
   stats: {
     totalUsers: number;
@@ -575,6 +590,14 @@ export const adminApi = {
 
   resetVerification: async (userId: string) => {
     return api.patch<{ success: boolean }>(`/admin/verifications/${userId}/reset`, {});
+  },
+
+  getAgeVerificationConfig: async () => {
+    return api.get<AgeVerificationConfig>('/admin/age-verification');
+  },
+
+  updateAgeVerificationConfig: async (config: Partial<AgeVerificationConfig>) => {
+    return api.put<AgeVerificationConfig>('/admin/age-verification', config);
   },
 
   getAdConfig: async () => {

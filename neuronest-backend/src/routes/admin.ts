@@ -21,7 +21,9 @@ import {
   getAppConfig,
   updateAppConfig,
   getAdConfig,
-  updateAdConfig
+  updateAdConfig,
+  getAgeVerificationConfig,
+  updateAgeVerificationConfig
 } from '../config/settings.js';
 
 const router = Router();
@@ -2062,6 +2064,29 @@ router.delete('/changelog/:id', (req: Request, res: Response) => {
   if (idx === -1) return res.status(404).json({ error: 'Entry not found' });
   db.changelog.splice(idx, 1);
   res.json({ success: true });
+});
+
+// GET /age-verification - Get age verification config
+router.get('/age-verification', (_req: Request, res: Response) => {
+  const config = getAgeVerificationConfig();
+  res.json({
+    ...config,
+    yotiApiKey: config.yotiApiKey ? '***configured***' : ''
+  });
+});
+
+// PUT /age-verification - Update age verification config
+router.put('/age-verification', (req: Request, res: Response) => {
+  const updates = req.body;
+  // Don't overwrite API key with the masked value
+  if (updates.yotiApiKey === '***configured***') {
+    delete updates.yotiApiKey;
+  }
+  const config = updateAgeVerificationConfig(updates);
+  res.json({
+    ...config,
+    yotiApiKey: config.yotiApiKey ? '***configured***' : ''
+  });
 });
 
 export default router;

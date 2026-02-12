@@ -79,6 +79,21 @@ export interface AdConfig {
   slots: AdSlot[];
 }
 
+export type AgeVerificationMethod = 'credit_card' | 'mobile' | 'facial_age_estimation' | 'photo_id' | 'open_banking';
+
+export interface AgeVerificationConfig {
+  enabled: boolean;
+  provider: 'yoti' | 'agechecked' | 'manual';
+  minimumAge: number;
+  yotiClientSdkId: string;
+  yotiScenarioId: string;
+  yotiApiKey: string;
+  enabledMethods: AgeVerificationMethod[];
+  enforceOnRegistration: boolean;
+  gracePeriodHours: number; // hours after signup before verification is required
+  bypassForExistingUsers: boolean;
+}
+
 export interface AppConfig {
   traitOptions: string[];
   interestOptions: string[];
@@ -326,6 +341,28 @@ export function updateExperiments(updates: Partial<ExperimentSettings>): Experim
 
 export function getN8nConfig(): N8nConfig {
   return n8nConfig;
+}
+
+let ageVerificationConfig: AgeVerificationConfig = {
+  enabled: false,
+  provider: 'yoti',
+  minimumAge: 18,
+  yotiClientSdkId: process.env.YOTI_CLIENT_SDK_ID || '',
+  yotiScenarioId: process.env.YOTI_SCENARIO_ID || '',
+  yotiApiKey: process.env.YOTI_API_KEY || '',
+  enabledMethods: ['credit_card', 'mobile', 'photo_id'],
+  enforceOnRegistration: true,
+  gracePeriodHours: 0,
+  bypassForExistingUsers: true
+};
+
+export function getAgeVerificationConfig(): AgeVerificationConfig {
+  return ageVerificationConfig;
+}
+
+export function updateAgeVerificationConfig(updates: Partial<AgeVerificationConfig>): AgeVerificationConfig {
+  ageVerificationConfig = { ...ageVerificationConfig, ...updates };
+  return ageVerificationConfig;
 }
 
 export function updateN8nConfig(updates: Partial<N8nConfig>): N8nConfig {

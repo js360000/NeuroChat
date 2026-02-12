@@ -52,6 +52,7 @@ import { SessionTimeout } from './components/SessionTimeout';
 import { SosButton } from './components/SosButton';
 import { FeedbackWidget } from './components/FeedbackWidget';
 import { useConfigStore } from './lib/stores/config';
+import { AgeVerificationGate } from './components/AgeVerificationGate';
 
 // Components
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -77,8 +78,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (location.pathname === '/onboarding' && user?.onboarding?.completed) {
     return <Navigate to="/dashboard" replace />;
   }
+
+  // Skip age gate for onboarding and admin routes
+  const skipAgeGate = location.pathname === '/onboarding' || location.pathname.startsWith('/admin') || user?.role === 'admin';
+  if (skipAgeGate) {
+    return <>{children}</>;
+  }
   
-  return <>{children}</>;
+  return <AgeVerificationGate>{children}</AgeVerificationGate>;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {

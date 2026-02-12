@@ -21,7 +21,8 @@ import {
   Inbox,
   Camera,
   DollarSign,
-  MessageSquare
+  MessageSquare,
+  ScanLine
 } from 'lucide-react';
 import { adminApi, type DashboardStats } from '@/lib/api/admin';
 import { useAuthStore } from '@/lib/stores/auth';
@@ -48,6 +49,7 @@ import { AdminVerifications } from './admin/Verifications';
 import { AdminAdvertising } from './admin/Advertising';
 import { AdminFeedback } from './admin/Feedback';
 import { AdminChangelog } from './admin/Changelog';
+import { AdminAgeVerification } from './admin/AgeVerification';
 
 export function AdminPage() {
   const location = useLocation();
@@ -87,6 +89,7 @@ export function AdminPage() {
     { path: '/admin/verifications', label: 'Verifications', icon: Camera },
     { path: '/admin/feedback', label: 'Feedback', icon: MessageSquare },
     { path: '/admin/changelog', label: 'Changelog', icon: ScrollText },
+    { path: '/admin/age-verification', label: 'Age Verification', icon: ScanLine },
     { path: '/admin/advertising', label: 'Advertising', icon: DollarSign },
     { path: '/admin/automation', label: 'Automation', icon: Workflow },
     { path: '/admin/environment', label: 'Environment', icon: Server },
@@ -170,6 +173,7 @@ export function AdminPage() {
           <Route path="/compliance" element={<AdminCompliance />} />
           <Route path="/feedback" element={<AdminFeedback />} />
           <Route path="/changelog" element={<AdminChangelog />} />
+          <Route path="/age-verification" element={<AdminAgeVerification />} />
           <Route path="/advertising" element={<AdminAdvertising />} />
           <Route path="/automation" element={<AdminAutomation />} />
           <Route path="/environment" element={<AdminEnvironment />} />

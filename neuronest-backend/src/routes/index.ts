@@ -12,6 +12,7 @@ import consentRouter from './consent.js';
 import safetyRouter from './safety.js';
 import feedbackRouter from './feedback.js';
 import compassRouter from './compass.js';
+import ageVerificationRouter from './age-verification.js';
 
 const router = Router();
 
@@ -28,6 +29,7 @@ router.use('/consent', consentRouter);
 router.use('/safety', safetyRouter);
 router.use('/feedback', feedbackRouter);
 router.use('/compass', compassRouter);
+router.use('/age-verification', ageVerificationRouter);
 
 // Health check
 router.get('/health', (req, res) => {
