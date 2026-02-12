@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CheckCircle, XCircle, Loader2, Brain, Key, Clock } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import { adminApi, type N8nWorkflow, type AdminSettings as AdminSettingsType } from '@/lib/api/admin';
 import { toast } from 'sonner';
 
@@ -140,6 +143,95 @@ export function AdminSettings() {
                 checked={settings?.maintenanceMode ?? false}
                 onCheckedChange={(value) => updateSetting({ maintenanceMode: value })}
               />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Gemini AI Configuration */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="w-5 h-5 text-primary" />
+              Gemini AI Configuration
+            </CardTitle>
+            <CardDescription>Configure the Gemini 3 Flash API for the Explain feature and other AI-powered tools.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <Key className="w-3.5 h-3.5" />
+                Gemini API Key
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  type="password"
+                  value={settings?.geminiApiKey ?? ''}
+                  onChange={(e) => setSettings((prev) => prev ? { ...prev, geminiApiKey: e.target.value } : prev)}
+                  placeholder="Enter your Gemini API key..."
+                  className="font-mono text-sm"
+                />
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (settings?.geminiApiKey) {
+                      updateSetting({ geminiApiKey: settings.geminiApiKey });
+                      toast.success('API key saved');
+                    }
+                  }}
+                >
+                  Save
+                </Button>
+              </div>
+              <p className="text-xs text-neutral-400">Get your key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Google AI Studio</a>. Uses model: <code className="text-[11px] bg-neutral-100 px-1 py-0.5 rounded">gemini-3-flash-preview</code></p>
+            </div>
+
+            <div className="border-t border-neutral-100 pt-4 space-y-4">
+              <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" />
+                Explain Feature Usage Limits
+              </h4>
+              <p className="text-xs text-neutral-500">Control how often each user can use the AI Explain feature on received messages.</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Max uses per user</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={1000}
+                    value={settings?.explainLimits?.maxPerUser ?? 20}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value) || 1;
+                      setSettings((prev) => prev ? { ...prev, explainLimits: { ...prev.explainLimits, maxPerUser: val } } : prev);
+                    }}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Time window (minutes)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={1440}
+                    value={settings?.explainLimits?.windowMinutes ?? 60}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value) || 1;
+                      setSettings((prev) => prev ? { ...prev, explainLimits: { ...prev.explainLimits, windowMinutes: val } } : prev);
+                    }}
+                  />
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  if (settings?.explainLimits) {
+                    updateSetting({ explainLimits: settings.explainLimits });
+                    toast.success('Explain limits saved');
+                  }
+                }}
+              >
+                Save Limits
+              </Button>
+              <p className="text-xs text-neutral-400">Current: {settings?.explainLimits?.maxPerUser ?? 20} uses per {settings?.explainLimits?.windowMinutes ?? 60} minute(s)</p>
             </div>
           </CardContent>
         </Card>

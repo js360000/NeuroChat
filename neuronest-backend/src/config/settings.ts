@@ -4,6 +4,11 @@ export interface AdminSettings {
   registrationEnabled: boolean;
   maxMatchesPerDay: number;
   aiExplanationsEnabled: boolean;
+  geminiApiKey: string;
+  explainLimits: {
+    maxPerUser: number;
+    windowMinutes: number;
+  };
 }
 
 export interface ExperimentSettings {
@@ -303,7 +308,12 @@ let settings: AdminSettings = {
   maintenanceMode: false,
   registrationEnabled: true,
   maxMatchesPerDay: 20,
-  aiExplanationsEnabled: true
+  aiExplanationsEnabled: true,
+  geminiApiKey: process.env.GEMINI_API_KEY || '',
+  explainLimits: {
+    maxPerUser: 20,
+    windowMinutes: 60
+  }
 };
 
 let experiments: ExperimentSettings = {

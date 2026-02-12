@@ -22,7 +22,8 @@ import {
   Crown,
   ChevronDown,
   Flag,
-  Ban
+  Ban,
+  Lightbulb
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -52,7 +53,7 @@ import { ContentWarningDialog } from '@/components/ContentWarningDialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { AdBanner } from '@/components/AdBanner';
 import { cn, isQuietHoursActive, formatTime } from '@/lib/utils';
-import { aiApi, type AIRephrase, type AISummary } from '@/lib/api/ai';
+import { aiApi, type AIExplanation, type AIRephrase, type AISummary } from '@/lib/api/ai';
 import { messagesApi, type Conversation, type Message } from '@/lib/api/messages';
 import { api } from '@/lib/api/client';
 import { useAuthStore } from '@/lib/stores/auth';
@@ -111,6 +112,9 @@ export function MessagesPage() {
   const [markNsfw, setMarkNsfw] = useState(false);
   const [revealedNsfw, setRevealedNsfw] = useState<Set<string>>(new Set());
   const [safetyGuideOpen, setSafetyGuideOpen] = useState(false);
+  const [explainLoading, setExplainLoading] = useState<string | null>(null);
+  const [explanations, setExplanations] = useState<Record<string, AIExplanation>>({});
+  const [explainOpen, setExplainOpen] = useState<Set<string>>(new Set());
   const [reportTarget, setReportTarget] = useState<{ id: string; name: string; mode: 'report' | 'block' | 'report-and-block' } | null>(null);
   const [safetyOnboardingShown, setSafetyOnboardingShown] = useState(() => {
     return localStorage.getItem('neuronest_msg_safety_seen') === '1';
@@ -844,6 +848,85 @@ export function MessagesPage() {
                                   )}
                                 </div>
                               </div>
+                              {/* Explain button for received messages */}
+                              {!message.isMe && message.content && (
+                                <div className="mt-1">
+                                  {!explanations[message.id] ? (
+                                    <button
+                                      onClick={async () => {
+                                        setExplainLoading(message.id);
+                                        try {
+                                          const prevMessages = messages
+                                            .filter(m => m.createdAt <= message.createdAt)
+                                            .slice(-5)
+                                            .map(m => `${m.sender.name}: ${m.content}`)
+                                            .join('\n');
+                                          const res = await aiApi.explainMessage(message.content, message.toneTag, prevMessages);
+                                          setExplanations(prev => ({ ...prev, [message.id]: res.explanation }));
+                                          setExplainOpen(prev => new Set([...prev, message.id]));
+                                        } catch (err: any) {
+                                          toast.error(err?.message || 'Failed to explain message');
+                                        } finally {
+                                          setExplainLoading(null);
+                                        }
+                                      }}
+                                      disabled={explainLoading === message.id}
+                                      className="flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
+                                    >
+                                      <Lightbulb className="w-3 h-3" />
+                                      {explainLoading === message.id ? 'Analyzing...' : 'Explain'}
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => setExplainOpen(prev => {
+                                        const next = new Set(prev);
+                                        next.has(message.id) ? next.delete(message.id) : next.add(message.id);
+                                        return next;
+                                      })}
+                                      className="flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 transition-colors"
+                                    >
+                                      <Lightbulb className="w-3 h-3" />
+                                      {explainOpen.has(message.id) ? 'Hide explanation' : 'Show explanation'}
+                                    </button>
+                                  )}
+                                  {explanations[message.id] && explainOpen.has(message.id) && (
+                                    <div className="mt-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs space-y-2">
+                                      <div className="flex items-center gap-2">
+                                        <Badge variant="secondary" className="text-[10px]">
+                                          Tone: {explanations[message.id].tone}
+                                        </Badge>
+                                        <span className="text-neutral-400">
+                                          {Math.round(explanations[message.id].confidence * 100)}% confident
+                                        </span>
+                                      </div>
+                                      {explanations[message.id].hiddenMeanings.length > 0 && (
+                                        <div>
+                                          <p className="font-medium text-neutral-700 mb-0.5">Hidden meanings:</p>
+                                          <ul className="list-disc list-inside text-neutral-600 space-y-0.5">
+                                            {explanations[message.id].hiddenMeanings.map((m, i) => <li key={i}>{m}</li>)}
+                                          </ul>
+                                        </div>
+                                      )}
+                                      {explanations[message.id].socialCues.length > 0 && (
+                                        <div>
+                                          <p className="font-medium text-neutral-700 mb-0.5">Social cues:</p>
+                                          <ul className="list-disc list-inside text-neutral-600 space-y-0.5">
+                                            {explanations[message.id].socialCues.map((c, i) => <li key={i}>{c}</li>)}
+                                          </ul>
+                                        </div>
+                                      )}
+                                      {explanations[message.id].suggestions.length > 0 && (
+                                        <div>
+                                          <p className="font-medium text-neutral-700 mb-0.5">How to respond:</p>
+                                          <ul className="list-disc list-inside text-neutral-600 space-y-0.5">
+                                            {explanations[message.id].suggestions.map((s, i) => <li key={i}>{s}</li>)}
+                                          </ul>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                               {/* Emoji reaction picker — visible on hover */}
                               <div className={cn(
                                 'absolute -bottom-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 bg-white border rounded-full shadow-sm px-1 py-0.5 z-10',

@@ -7,22 +7,57 @@ const router = Router();
 
 const GEMINI_MODEL = 'gemini-3-flash-preview';
 
-// Initialize Gemini client only if API key is provided
-let gemini: GoogleGenAI | null = null;
-if (process.env.GEMINI_API_KEY) {
-  gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-}
-
-const aiEnabled = !!gemini;
-
-router.use(authenticateToken);
+// Dynamic Gemini client — reads API key from admin settings (falls back to env var)
+let cachedGemini: GoogleGenAI | null = null;
+let cachedApiKey: string = '';
 
 function getGemini(): GoogleGenAI {
-  if (!gemini) {
-    throw new Error('AI client not configured — set GEMINI_API_KEY');
+  const settings = getSettings();
+  const apiKey = settings.geminiApiKey || process.env.GEMINI_API_KEY || '';
+  if (!apiKey) {
+    throw new Error('AI client not configured — set the Gemini API key in Admin Settings.');
   }
-  return gemini;
+  // Re-create client if key changed
+  if (apiKey !== cachedApiKey) {
+    cachedGemini = new GoogleGenAI({ apiKey });
+    cachedApiKey = apiKey;
+  }
+  return cachedGemini!;
 }
+
+function isAiEnabled(): boolean {
+  const settings = getSettings();
+  const apiKey = settings.geminiApiKey || process.env.GEMINI_API_KEY || '';
+  return !!apiKey;
+}
+
+// Per-user rate limiting for Explain feature
+const explainUsage: Map<string, number[]> = new Map();
+
+function checkExplainLimit(userId: string): { allowed: boolean; remaining: number; resetIn: number } {
+  const settings = getSettings();
+  const { maxPerUser, windowMinutes } = settings.explainLimits;
+  const windowMs = windowMinutes * 60 * 1000;
+  const now = Date.now();
+
+  const timestamps = (explainUsage.get(userId) || []).filter(t => now - t < windowMs);
+  explainUsage.set(userId, timestamps);
+
+  if (timestamps.length >= maxPerUser) {
+    const oldest = timestamps[0];
+    const resetIn = Math.ceil((oldest + windowMs - now) / 1000);
+    return { allowed: false, remaining: 0, resetIn };
+  }
+  return { allowed: true, remaining: maxPerUser - timestamps.length, resetIn: 0 };
+}
+
+function recordExplainUsage(userId: string) {
+  const arr = explainUsage.get(userId) || [];
+  arr.push(Date.now());
+  explainUsage.set(userId, arr);
+}
+
+router.use(authenticateToken);
 
 // Helper: call Gemini with a system instruction + user prompt, returning parsed JSON
 async function geminiJSON(systemInstruction: string, userPrompt: string, opts?: { temperature?: number; maxOutputTokens?: number }) {
@@ -81,11 +116,22 @@ function directText(text: string) {
 // POST /explain - Explain a message with AI for neurodivergent users
 router.post('/explain', async (req: Request, res: Response) => {
   try {
-    if (!aiEnabled) {
+    if (!isAiEnabled()) {
       return res.status(503).json({ error: 'AI features are currently unavailable. Please contact support.' });
     }
     if (!getSettings().aiExplanationsEnabled) {
       return res.status(403).json({ error: 'AI features are disabled by admin.' });
+    }
+
+    // Per-user rate limiting
+    const userId = req.user!.id;
+    const limitCheck = checkExplainLimit(userId);
+    if (!limitCheck.allowed) {
+      return res.status(429).json({
+        error: `Explain limit reached. Try again in ${Math.ceil(limitCheck.resetIn / 60)} minute(s).`,
+        remaining: 0,
+        resetInSeconds: limitCheck.resetIn
+      });
     }
 
     const { message, toneTag, context } = req.body;
@@ -109,7 +155,11 @@ Respond in JSON format with keys: tone, confidence, hiddenMeanings (array), sugg
 
     const explanation = await geminiJSON(systemPrompt, userPrompt, { temperature: 0.7, maxOutputTokens: 1024 });
 
-    res.json({ explanation });
+    // Record usage after successful call
+    recordExplainUsage(userId);
+    const afterCheck = checkExplainLimit(userId);
+
+    res.json({ explanation, remaining: afterCheck.remaining });
   } catch (error: any) {
     console.error('AI explain error:', error);
     res.status(500).json({ error: error.message || 'AI processing failed' });
@@ -119,7 +169,7 @@ Respond in JSON format with keys: tone, confidence, hiddenMeanings (array), sugg
 // POST /suggestions - Get conversation suggestions
 router.post('/suggestions', async (req: Request, res: Response) => {
   try {
-    if (!aiEnabled) {
+    if (!isAiEnabled()) {
       return res.status(503).json({ error: 'AI features are currently unavailable. Please contact support.' });
     }
     if (!getSettings().aiExplanationsEnabled) {
@@ -179,7 +229,7 @@ router.post('/compatibility', async (req: Request, res: Response) => {
     let analysis = 'Compatibility analysis is available when AI features are enabled.';
 
     // Attempt AI-powered analysis if available
-    if (aiEnabled && getSettings().aiExplanationsEnabled) {
+    if (isAiEnabled() && getSettings().aiExplanationsEnabled) {
       try {
         const systemPrompt = `You are analyzing compatibility between two neurodivergent individuals for a dating app.
 Consider how their traits and interests might complement each other.
@@ -216,7 +266,7 @@ Calculated compatibility score: ${baseScore}%`;
 // POST /summary - Summarize a conversation thread
 router.post('/summary', async (req: Request, res: Response) => {
   try {
-    if (!aiEnabled) {
+    if (!isAiEnabled()) {
       return res.status(503).json({ error: 'AI features are currently unavailable. Please contact support.' });
     }
     if (!getSettings().aiExplanationsEnabled) {
@@ -255,7 +305,7 @@ router.post('/rephrase', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Message is required' });
   }
 
-  if (aiEnabled && getSettings().aiExplanationsEnabled) {
+  if (isAiEnabled() && getSettings().aiExplanationsEnabled) {
     try {
       const systemPrompt = `You are helping a neurodivergent user rephrase a message. Provide two alternatives: one gentle and one direct. Keep the meaning, remove ambiguity, avoid sarcasm. Return JSON with keys gentle and direct.`;
       const result = await geminiJSON(systemPrompt, `Original message: "${message}"`, { temperature: 0.5, maxOutputTokens: 512 });

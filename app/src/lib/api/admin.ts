@@ -124,6 +124,11 @@ export interface AdminSettings {
   registrationEnabled: boolean;
   maxMatchesPerDay: number;
   aiExplanationsEnabled: boolean;
+  geminiApiKey: string;
+  explainLimits: {
+    maxPerUser: number;
+    windowMinutes: number;
+  };
 }
 
 export interface AdSlot {

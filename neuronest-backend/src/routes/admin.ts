@@ -845,7 +845,7 @@ router.get('/settings', (req: Request, res: Response) => {
 router.patch('/settings', (req: Request, res: Response) => {
   const allowedKeys: (keyof ReturnType<typeof getSettings>)[] = [
     'siteName', 'maintenanceMode', 'registrationEnabled',
-    'maxMatchesPerDay', 'aiExplanationsEnabled'
+    'maxMatchesPerDay', 'aiExplanationsEnabled', 'geminiApiKey', 'explainLimits'
   ];
 
   const updates: Partial<ReturnType<typeof getSettings>> = {};
