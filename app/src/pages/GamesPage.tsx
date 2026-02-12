@@ -737,14 +737,14 @@ function NeuralSequence() {
           {combo > 1 && <span className="text-primary font-semibold">{combo}x combo</span>}
         </div>
 
-        <div className="grid grid-cols-3 gap-2 max-w-[280px] mx-auto">
+        <div className="grid grid-cols-3 gap-3 w-full max-w-[280px] mx-auto">
           {SEQ_TILES.map((tile, idx) => (
             <button
               key={idx}
               onClick={() => handleTap(idx)}
               disabled={phase !== 'input'}
               className={cn(
-                'aspect-square rounded-xl transition-all duration-150',
+                'w-full aspect-square min-h-[72px] rounded-xl transition-all duration-150',
                 lit === idx ? tile.lit : tile.idle,
                 phase === 'input' ? 'cursor-pointer active:scale-95' : 'cursor-default'
               )}
@@ -865,8 +865,8 @@ function BreathSync() {
             ];
             const pc = running ? phaseColors[phase] || phaseColors[0] : { ring: '220, 15%, 60%', bg: 'rgba(140,140,160,0.08)', text: 'text-neutral-500' };
             return (
-              <div className="relative w-56 h-56 flex items-center justify-center">
-                <div className="absolute w-44 h-44 rounded-full flex items-center justify-center transition-all duration-700 ease-in-out"
+              <div className="relative w-72 h-72 sm:w-80 sm:h-80 flex items-center justify-center">
+                <div className="absolute w-60 h-60 sm:w-64 sm:h-64 rounded-full flex items-center justify-center transition-all duration-700 ease-in-out"
                   style={{
                     backgroundColor: pc.bg,
                     transform: `scale(${running ? ringScale : 0.75})`,
