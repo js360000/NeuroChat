@@ -3,6 +3,8 @@ interface SeoConfig {
   description: string;
   canonical?: string;
   ogImage?: string;
+  keywords?: string[];
+  structuredData?: Record<string, unknown>;
 }
 
 function setMeta(name: string, content: string) {
@@ -35,7 +37,24 @@ function setCanonical(href: string) {
   link.setAttribute('href', href);
 }
 
-export function applySeo({ title, description, canonical, ogImage }: SeoConfig) {
+function setJsonLd(data?: Record<string, unknown>) {
+  let script = document.querySelector('script[data-seo=\"jsonld\"]');
+  if (!data) {
+    if (script) {
+      script.remove();
+    }
+    return;
+  }
+  if (!script) {
+    script = document.createElement('script');
+    script.setAttribute('type', 'application/ld+json');
+    script.setAttribute('data-seo', 'jsonld');
+    document.head.appendChild(script);
+  }
+  script.textContent = JSON.stringify(data);
+}
+
+export function applySeo({ title, description, canonical, ogImage, keywords, structuredData }: SeoConfig) {
   document.title = title;
   setMeta('description', description);
   setProperty('og:title', title);
@@ -49,4 +68,8 @@ export function applySeo({ title, description, canonical, ogImage }: SeoConfig) 
   if (canonical) {
     setCanonical(canonical);
   }
+  if (keywords && keywords.length > 0) {
+    setMeta('keywords', keywords.join(', '));
+  }
+  setJsonLd(structuredData);
 }

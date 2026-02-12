@@ -105,6 +105,28 @@ export interface PersistenceDb {
     createdAt: Date;
     updatedAt: Date;
   }>;
+  conversations: Array<{
+    id: string;
+    participants: string[];
+    tags?: string[];
+    trustLevel: number;
+    trustOverride?: number | null;
+    messageCount: number;
+    createdAt: Date;
+    updatedAt: Date;
+  }>;
+  messages: Array<{
+    id: string;
+    conversationId: string;
+    senderId: string;
+    content: string;
+    toneTag?: string;
+    imageUrl?: string;
+    isNsfw?: boolean;
+    nsfwBlocked?: boolean;
+    createdAt: Date;
+    readAt?: Date;
+  }>;
 }
 
 type PersistentStore = {
@@ -209,6 +231,28 @@ type PersistentStore = {
     status: string;
     createdAt: string;
     updatedAt: string;
+  }>;
+  conversations?: Array<{
+    id: string;
+    participants: string[];
+    tags?: string[];
+    trustLevel: number;
+    trustOverride?: number | null;
+    messageCount: number;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+  messages?: Array<{
+    id: string;
+    conversationId: string;
+    senderId: string;
+    content: string;
+    toneTag?: string;
+    imageUrl?: string;
+    isNsfw?: boolean;
+    nsfwBlocked?: boolean;
+    createdAt: string;
+    readAt?: string;
   }>;
 };
 
@@ -433,6 +477,20 @@ function hydrateFromFile(db: PersistenceDb) {
         ...entry,
         createdAt: new Date(entry.createdAt),
         updatedAt: new Date(entry.updatedAt)
+      }));
+    }
+    if (store.conversations && store.conversations.length > 0) {
+      (db as any).conversations = store.conversations.map((conv) => ({
+        ...conv,
+        createdAt: new Date(conv.createdAt),
+        updatedAt: new Date(conv.updatedAt)
+      }));
+    }
+    if (store.messages && store.messages.length > 0) {
+      (db as any).messages = store.messages.map((msg) => ({
+        ...msg,
+        createdAt: new Date(msg.createdAt),
+        readAt: msg.readAt ? new Date(msg.readAt) : undefined
       }));
     }
   } catch {
@@ -661,6 +719,16 @@ async function persistToFile(db: PersistenceDb) {
         ...entry,
         createdAt: entry.createdAt.toISOString(),
         updatedAt: entry.updatedAt.toISOString()
+      })),
+      conversations: ((db as any).conversations || []).map((conv: any) => ({
+        ...conv,
+        createdAt: conv.createdAt instanceof Date ? conv.createdAt.toISOString() : conv.createdAt,
+        updatedAt: conv.updatedAt instanceof Date ? conv.updatedAt.toISOString() : conv.updatedAt
+      })),
+      messages: ((db as any).messages || []).map((msg: any) => ({
+        ...msg,
+        createdAt: msg.createdAt instanceof Date ? msg.createdAt.toISOString() : msg.createdAt,
+        readAt: msg.readAt ? (msg.readAt instanceof Date ? msg.readAt.toISOString() : msg.readAt) : undefined
       }))
     };
     writeFileSync(STORE_PATH, JSON.stringify(payload, null, 2));

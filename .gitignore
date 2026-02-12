@@ -2,5 +2,8 @@ node_modules/
 dist/
 app/dist/
 neuronest-backend/dist/
+neuronest-backend/data/
 *.log
+.env
+.env.*
 

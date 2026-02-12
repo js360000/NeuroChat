@@ -130,12 +130,37 @@ router.patch('/profile', authenticateToken, async (req: Request, res: Response) 
       'safetyChecklist',
       'accessibilityPreset',
       'isPaused',
+      'blockNsfwImages',
     ];
 
     const updates: Record<string, unknown> = {};
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
         updates[field] = req.body[field];
+      }
+    }
+
+    // Enforce name change limit: max 2 per rolling 30-day window
+    if (updates.name && typeof updates.name === 'string') {
+      const currentUser = findUserById(req.user!.id);
+      if (currentUser && updates.name !== currentUser.name) {
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const recentChanges = (currentUser.nameChanges || []).filter(
+          (d) => new Date(d).getTime() > thirtyDaysAgo.getTime()
+        );
+        if (recentChanges.length >= 2) {
+          return res.status(429).json({
+            error: 'You can only change your name twice per month. Please try again later.',
+            nameChangesRemaining: 0,
+            nextChangeAvailable: new Date(
+              Math.min(...recentChanges.map((d) => new Date(d).getTime())) + 30 * 24 * 60 * 60 * 1000
+            ).toISOString()
+          });
+        }
+        updates.nameChanges = [...recentChanges, new Date()];
+      } else {
+        // Same name — no change counted
+        delete updates.name;
       }
     }
 

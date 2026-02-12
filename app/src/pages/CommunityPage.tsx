@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { ContentWarningDialog } from '@/components/ContentWarningDialog';
+import { AdBanner } from '@/components/AdBanner';
 import { communityApi, type CommunityPost, type CommunityComment, type CommunityRoom, type BuddyThread, type SharedRoutine } from '@/lib/api/community';
 import { scanTextForWarnings } from '@/lib/safety';
 import { applySeo } from '@/lib/seo';
@@ -671,6 +672,8 @@ export function CommunityPage() {
           </div>
         </CardContent>
       </Card>
+
+      <AdBanner area="community" />
 
       {isLoading ? (
         <div className="text-center text-neutral-500">Loading feed...</div>

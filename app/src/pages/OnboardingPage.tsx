@@ -22,52 +22,20 @@ import {
   type ExperiencePreferences
 } from '@/lib/experience';
 import { pagesApi } from '@/lib/api/pages';
+import { useAppConfig } from '@/lib/stores/config';
 import { toast } from 'sonner';
 
-const TRAIT_OPTIONS = [
-  'Autism',
-  'ADHD',
-  'Dyslexia',
-  'Dyspraxia',
-  'OCD',
-  'Anxiety',
-  'CPTSD',
-  'Tourette',
-  'Executive dysfunction',
-  'Sensory sensitivity'
-];
-
-const INTEREST_OPTIONS = [
-  'Gaming',
-  'Art',
-  'Music',
-  'Science',
-  'Books',
-  'Nature',
-  'Technology',
-  'Anime',
-  'Design',
-  'Cooking'
-];
-
-const GOAL_OPTIONS = [
-  'Friendship',
-  'Dating',
-  'Creative collaborators',
-  'Study buddies',
-  'Accountability partners',
-  'Community events',
-  'Co-working',
-  'Local meetups'
-];
-
 const STEP_TITLES = ['Calm your space', 'Communication style', 'Identity & goals', 'Safety checklist'];
-const PACE_OPTIONS: Array<'slow' | 'balanced' | 'fast'> = ['slow', 'balanced', 'fast'];
-const DIRECTNESS_OPTIONS: Array<'gentle' | 'direct'> = ['gentle', 'direct'];
 
 export function OnboardingPage() {
   const navigate = useNavigate();
   const { user, updateProfile } = useAuthStore();
+  const appConfig = useAppConfig();
+  const TRAIT_OPTIONS = appConfig.traitOptions;
+  const INTEREST_OPTIONS = appConfig.interestOptions;
+  const GOAL_OPTIONS = appConfig.goalOptions;
+  const PACE_OPTIONS = appConfig.paceOptions as Array<'slow' | 'balanced' | 'fast'>;
+  const DIRECTNESS_OPTIONS = appConfig.directnessOptions as Array<'gentle' | 'direct'>;
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [toneVariant, setToneVariant] = useState<'gentle' | 'direct'>('gentle');

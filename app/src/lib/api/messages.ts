@@ -1,9 +1,19 @@
 import { api } from './client';
 
+export interface MessageReaction {
+  userId: string;
+  emoji: string;
+  createdAt: string;
+}
+
 export interface Message {
   id: string;
   content: string;
   toneTag?: string;
+  imageUrl?: string;
+  isNsfw?: boolean;
+  nsfwBlocked?: boolean;
+  reactions?: MessageReaction[];
   sender: {
     id: string;
     name: string;
@@ -17,6 +27,7 @@ export interface Message {
 export interface Conversation {
   id: string;
   tags?: string[];
+  prioritySender?: boolean;
   user: {
     id: string;
     name: string;
@@ -33,6 +44,7 @@ export interface Conversation {
     };
     boundaries?: string[];
     connectionGoals?: string[];
+    blockNsfwImages?: boolean;
     verification?: {
       email: boolean;
       photo: boolean;
@@ -66,10 +78,12 @@ export const messagesApi = {
     return api.get<{ messages: Message[] }>(`/messages/conversations/${conversationId}?${params}`);
   },
 
-  sendMessage: async (conversationId: string, content: string, toneTag?: string) => {
+  sendMessage: async (conversationId: string, content: string, toneTag?: string, imageUrl?: string, isNsfw?: boolean) => {
     return api.post<{ message: Message }>(`/messages/conversations/${conversationId}`, {
       content,
-      toneTag
+      toneTag,
+      imageUrl,
+      isNsfw
     });
   },
 
@@ -83,5 +97,9 @@ export const messagesApi = {
 
   updateConversationTags: async (conversationId: string, tags: string[]) => {
     return api.patch<{ tags: string[] }>(`/messages/conversations/${conversationId}/tags`, { tags });
+  },
+
+  reactToMessage: async (conversationId: string, messageId: string, emoji: string) => {
+    return api.post<{ reactions: MessageReaction[] }>(`/messages/conversations/${conversationId}/messages/${messageId}/react`, { emoji });
   }
 };

@@ -93,7 +93,7 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ['Switzer', 'system-ui', 'sans-serif'],
+        sans: ['Lexend', 'system-ui', 'sans-serif'],
         accent: ['Libre Caslon Text', 'serif'],
       },
       borderRadius: {

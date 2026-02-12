@@ -1,27 +1,45 @@
 import { Router, Request, Response } from 'express';
-import OpenAI from 'openai';
+import { GoogleGenAI } from '@google/genai';
 import { authenticateToken } from '../middleware/auth.js';
 import { getSettings } from '../config/settings.js';
 
 const router = Router();
 
-// Initialize OpenAI only if API key is provided
-let openai: OpenAI | null = null;
-if (process.env.OPENAI_API_KEY) {
-  openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
-  });
+const GEMINI_MODEL = 'gemini-3-flash-preview';
+
+// Initialize Gemini client only if API key is provided
+let gemini: GoogleGenAI | null = null;
+if (process.env.GEMINI_API_KEY) {
+  gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 }
 
-const aiEnabled = !!openai;
+const aiEnabled = !!gemini;
 
 router.use(authenticateToken);
 
-function getOpenAI(): OpenAI {
-  if (!openai) {
-    throw new Error('AI client not configured');
+function getGemini(): GoogleGenAI {
+  if (!gemini) {
+    throw new Error('AI client not configured — set GEMINI_API_KEY');
   }
-  return openai;
+  return gemini;
+}
+
+// Helper: call Gemini with a system instruction + user prompt, returning parsed JSON
+async function geminiJSON(systemInstruction: string, userPrompt: string, opts?: { temperature?: number; maxOutputTokens?: number }) {
+  const client = getGemini();
+  const response = await client.models.generateContent({
+    model: GEMINI_MODEL,
+    contents: userPrompt,
+    config: {
+      systemInstruction,
+      responseMimeType: 'application/json',
+      temperature: opts?.temperature ?? 0.7,
+      maxOutputTokens: opts?.maxOutputTokens ?? 1024,
+    },
+  });
+  const text = response.text;
+  if (!text) throw new Error('No response from Gemini');
+  return JSON.parse(text);
 }
 
 function ensureSentence(text: string) {
@@ -70,7 +88,6 @@ router.post('/explain', async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'AI features are disabled by admin.' });
     }
 
-    const client = getOpenAI();
     const { message, toneTag, context } = req.body;
 
     if (!message) {
@@ -90,23 +107,7 @@ Respond in JSON format with keys: tone, confidence, hiddenMeanings (array), sugg
 
     const userPrompt = `Message to analyze: "${message}"${toneTag ? `\nSender indicated tone: ${toneTag}` : ''}${context ? `\nConversation context: ${context}` : ''}`;
 
-    const completion = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      response_format: { type: 'json_object' },
-      max_tokens: 500,
-      temperature: 0.7
-    });
-
-    const responseContent = completion.choices[0]?.message?.content;
-    if (!responseContent) {
-      throw new Error('No response from OpenAI');
-    }
-
-    const explanation = JSON.parse(responseContent);
+    const explanation = await geminiJSON(systemPrompt, userPrompt, { temperature: 0.7, maxOutputTokens: 1024 });
 
     res.json({ explanation });
   } catch (error: any) {
@@ -125,7 +126,6 @@ router.post('/suggestions', async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'AI features are disabled by admin.' });
     }
 
-    const client = getOpenAI();
     const { userInterests, myInterests, previousMessages } = req.body;
 
     const commonInterests = userInterests?.filter((i: string) =>
@@ -145,23 +145,7 @@ My interests: ${myInterests?.join(', ') || 'unknown'}
 Common interests: ${commonInterests.join(', ') || 'none identified'}
 ${previousMessages?.length ? `Recent messages:\n${previousMessages.slice(-3).map((m: any) => `${m.sender}: ${m.content}`).join('\n')}` : 'Starting a new conversation'}`;
 
-    const completion = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      response_format: { type: 'json_object' },
-      max_tokens: 300,
-      temperature: 0.8
-    });
-
-    const responseContent = completion.choices[0]?.message?.content;
-    if (!responseContent) {
-      throw new Error('No response from OpenAI');
-    }
-
-    const result = JSON.parse(responseContent);
+    const result = await geminiJSON(systemPrompt, userPrompt, { temperature: 0.8, maxOutputTokens: 512 });
 
     res.json({ suggestions: result.suggestions || [] });
   } catch (error: any) {
@@ -173,14 +157,6 @@ ${previousMessages?.length ? `Recent messages:\n${previousMessages.slice(-3).map
 // POST /compatibility - Calculate compatibility score with AI analysis
 router.post('/compatibility', async (req: Request, res: Response) => {
   try {
-    if (!aiEnabled) {
-      return res.status(503).json({ error: 'AI features are currently unavailable. Please contact support.' });
-    }
-    if (!getSettings().aiExplanationsEnabled) {
-      return res.status(403).json({ error: 'AI features are disabled by admin.' });
-    }
-
-    const client = getOpenAI();
     const { user1Traits, user1Interests, user2Traits, user2Interests } = req.body;
 
     const commonInterests = user1Interests?.filter((i: string) =>
@@ -200,46 +176,40 @@ router.post('/compatibility', async (req: Request, res: Response) => {
       : 0;
     const baseScore = Math.round((interestOverlap * 0.6 + traitOverlap * 0.4) * 100);
 
-    const systemPrompt = `You are analyzing compatibility between two neurodivergent individuals for a dating app.
+    let analysis = 'Compatibility analysis is available when AI features are enabled.';
+
+    // Attempt AI-powered analysis if available
+    if (aiEnabled && getSettings().aiExplanationsEnabled) {
+      try {
+        const systemPrompt = `You are analyzing compatibility between two neurodivergent individuals for a dating app.
 Consider how their traits and interests might complement each other.
 Be encouraging but honest. Focus on potential connection points.
 Respond as JSON with key "analysis" containing a 2-3 sentence compatibility analysis.`;
 
-    const userPrompt = `Person 1 - Traits: ${user1Traits?.join(', ') || 'none'}, Interests: ${user1Interests?.join(', ') || 'none'}
+        const userPrompt = `Person 1 - Traits: ${user1Traits?.join(', ') || 'none'}, Interests: ${user1Interests?.join(', ') || 'none'}
 Person 2 - Traits: ${user2Traits?.join(', ') || 'none'}, Interests: ${user2Interests?.join(', ') || 'none'}
 Common interests: ${commonInterests.join(', ') || 'none'}
 Common traits: ${commonTraits.join(', ') || 'none'}
 Calculated compatibility score: ${baseScore}%`;
 
-    const completion = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      response_format: { type: 'json_object' },
-      max_tokens: 200,
-      temperature: 0.7
-    });
-
-    const responseContent = completion.choices[0]?.message?.content;
-    if (!responseContent) {
-      throw new Error('No response from OpenAI');
+        const result = await geminiJSON(systemPrompt, userPrompt, { temperature: 0.7, maxOutputTokens: 512 });
+        analysis = result.analysis || analysis;
+      } catch (aiError) {
+        console.error('AI compatibility analysis failed, using fallback:', aiError);
+      }
     }
-
-    const result = JSON.parse(responseContent);
 
     res.json({
       compatibility: {
         score: baseScore,
         commonInterests,
         commonTraits,
-        analysis: result.analysis || 'Compatibility analysis unavailable.'
+        analysis
       }
     });
   } catch (error: any) {
-    console.error('AI compatibility error:', error);
-    res.status(500).json({ error: error.message || 'AI processing failed' });
+    console.error('Compatibility error:', error);
+    res.status(500).json({ error: error.message || 'Compatibility calculation failed' });
   }
 });
 
@@ -253,7 +223,6 @@ router.post('/summary', async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'AI features are disabled by admin.' });
     }
 
-    const client = getOpenAI();
     const { messages } = req.body;
 
     if (!Array.isArray(messages) || messages.length === 0) {
@@ -270,23 +239,7 @@ Provide a short, clear summary in 2-3 sentences and 3-5 bullet highlights of key
 Be neutral, supportive, and avoid assumptions.
 Respond in JSON with keys: summary (string), highlights (array of strings).`;
 
-    const completion = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Conversation:\n${formatted}` }
-      ],
-      response_format: { type: 'json_object' },
-      max_tokens: 350,
-      temperature: 0.4
-    });
-
-    const responseContent = completion.choices[0]?.message?.content;
-    if (!responseContent) {
-      throw new Error('No response from OpenAI');
-    }
-
-    const summary = JSON.parse(responseContent);
+    const summary = await geminiJSON(systemPrompt, `Conversation:\n${formatted}`, { temperature: 0.4, maxOutputTokens: 1024 });
     res.json({ summary });
   } catch (error: any) {
     console.error('AI summary error:', error);
@@ -304,28 +257,14 @@ router.post('/rephrase', async (req: Request, res: Response) => {
 
   if (aiEnabled && getSettings().aiExplanationsEnabled) {
     try {
-      const client = getOpenAI();
       const systemPrompt = `You are helping a neurodivergent user rephrase a message. Provide two alternatives: one gentle and one direct. Keep the meaning, remove ambiguity, avoid sarcasm. Return JSON with keys gentle and direct.`;
-      const completion = await client.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Original message: "${message}"` }
-        ],
-        response_format: { type: 'json_object' },
-        max_tokens: 200,
-        temperature: 0.5
+      const result = await geminiJSON(systemPrompt, `Original message: "${message}"`, { temperature: 0.5, maxOutputTokens: 512 });
+      return res.json({
+        rephrase: {
+          gentle: result.gentle || softenText(message),
+          direct: result.direct || directText(message)
+        }
       });
-      const responseContent = completion.choices[0]?.message?.content;
-      if (responseContent) {
-        const rephrase = JSON.parse(responseContent);
-        return res.json({
-          rephrase: {
-            gentle: rephrase.gentle || softenText(message),
-            direct: rephrase.direct || directText(message)
-          }
-        });
-      }
     } catch {
       // fall through to template-based rephrase
     }

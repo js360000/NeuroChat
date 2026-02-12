@@ -14,40 +14,13 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import { adminApi } from '@/lib/api/admin';
+import { adminApi, type N8nConfigData, type N8nWorkflow, type SocialSchedule, type N8nRun } from '@/lib/api/admin';
 import { toast } from 'sonner';
 
-interface N8nConfig {
-  baseUrl: string;
-  apiVersion: number;
-  webhookUrl: string;
-  enabled: boolean;
-  apiKeyMasked?: string;
-}
-
-interface WorkflowSummary {
-  id: string;
-  name: string;
-  active: boolean;
-}
-
-interface ScheduleEntry {
-  id: string;
-  channel: string;
-  title: string;
-  scheduledAt?: string;
-  caption?: string;
-  status?: string;
-}
-
-interface WorkflowRun {
-  id: string;
-  workflowId: string;
-  status: string;
-  responseStatus?: number;
-  triggeredAt: string;
-  error?: string;
-}
+type N8nConfig = N8nConfigData;
+type WorkflowSummary = N8nWorkflow;
+type ScheduleEntry = SocialSchedule;
+type WorkflowRun = N8nRun;
 
 const CHANNELS = [
   { value: 'instagram', label: 'Instagram' },
@@ -127,12 +100,11 @@ export function AdminAutomation() {
   const loadWorkflows = async () => {
     try {
       const response = await adminApi.getN8nWorkflows();
-      const list = (response.workflows || []).map((workflow: any) => ({
-        id: workflow.id?.toString?.() ?? workflow.id,
-        name: workflow.name,
-        active: workflow.active ?? false
-      }));
-      setWorkflows(list);
+      setWorkflows((response.workflows || []).map((w) => ({
+        ...w,
+        id: String(w.id),
+        active: w.active ?? false
+      })));
     } catch (error: any) {
       toast.error(error?.response?.data?.error || 'Failed to load workflows');
     }

@@ -1,4 +1,5 @@
 import { api } from './client';
+import type { A11ySettings } from '../a11y';
 
 export interface User {
   id: string;
@@ -40,16 +41,10 @@ export interface User {
     resourcesViewed: boolean;
     completed: boolean;
   };
-  accessibilityPreset?: {
-    theme: 'light' | 'dark';
-    highContrast: boolean;
-    largeText: boolean;
-    dyslexicFont: boolean;
-    underlineLinks: boolean;
-    reduceMotion: boolean;
-    focusRing: boolean;
-  };
+  accessibilityPreset?: Partial<A11ySettings>;
   isPaused?: boolean;
+  nameChanges?: string[];
+  blockNsfwImages?: boolean;
   subscription: {
     plan: 'free' | 'premium' | 'pro';
     status: 'active' | 'inactive' | 'cancelled' | 'past_due';

@@ -1,8 +1,13 @@
 import { Router } from 'express';
 import { db, findSitePageBySlug } from '../db/index.js';
-import { getExperiments } from '../config/settings.js';
+import { getExperiments, getAppConfig, getAdConfig } from '../config/settings.js';
 
 const router = Router();
+
+// GET /pages/config - public app config (traits, interests, goals, pricing, crisis resources)
+router.get('/config', (_req, res) => {
+  res.json({ config: getAppConfig() });
+});
 
 // GET /pages/testimonials - public testimonials
 router.get('/testimonials', (req, res) => {
@@ -23,6 +28,23 @@ router.get('/testimonials', (req, res) => {
       featured: item.featured
     }));
   res.json({ testimonials: results });
+});
+
+// GET /pages/ads - public ad config (client ID + enabled slots only)
+router.get('/ads', (_req, res) => {
+  const config = getAdConfig();
+  if (!config.globalEnabled || !config.adsenseClientId) {
+    return res.json({ enabled: false, clientId: '', slots: [] });
+  }
+  const enabledSlots = config.slots
+    .filter((s) => s.enabled && s.adSlotId)
+    .map((s) => ({ id: s.id, area: s.area, format: s.format, adSlotId: s.adSlotId }));
+  res.json({
+    enabled: true,
+    clientId: config.adsenseClientId,
+    showToFreeOnly: config.showToFreeOnly,
+    slots: enabledSlots,
+  });
 });
 
 // GET /pages/experiments - public experiment toggles

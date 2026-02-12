@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Bell, Moon, Shield, CreditCard, Loader2, ExternalLink, Download, Trash2 } from 'lucide-react';
+import { Bell, Moon, Shield, CreditCard, Loader2, ExternalLink, Download, Trash2, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -22,8 +22,18 @@ import {
   DEFAULT_EXPERIENCE_PREFERENCES,
   type ExperiencePreferences
 } from '@/lib/experience';
-import { applyA11ySettings, loadA11ySettings, saveA11ySettings, type A11ySettings } from '@/lib/a11y';
+import { applyA11ySettings, loadA11ySettings, saveA11ySettings, DEFAULT_SETTINGS as DEFAULT_A11Y, type A11ySettings } from '@/lib/a11y';
 import { toast } from 'sonner';
+import { SafetySettings } from '@/components/SafetySettings';
+import { GuardianSettings } from '@/components/GuardianSettings';
+import { PassportCard } from '@/components/PassportCard';
+import { BoundaryEditor } from '@/components/BoundaryEditor';
+import { SensoryProfileCard } from '@/components/SensoryProfileCard';
+import { SelfieVerification } from '@/components/SelfieVerification';
+import { MaskingTracker } from '@/components/MaskingTracker';
+import { ExitToolkit } from '@/components/ExitToolkit';
+import { StimSettings } from '@/components/StimSettings';
+import { getSosConfig, saveSosConfig, type SosPosition, type SosVisibility } from '@/components/SosButton';
 
 export function SettingsPage() {
   const { user, logout, updateProfile } = useAuthStore();
@@ -45,7 +55,8 @@ export function SettingsPage() {
     privacy: {
       showOnlineStatus: true,
       showLastActive: true,
-      allowProfileDiscovery: true
+      allowProfileDiscovery: true,
+      blockNsfwImages: user?.blockNsfwImages ?? true
     },
     appearance: {
       darkMode: false,
@@ -205,7 +216,7 @@ export function SettingsPage() {
       toast.error('No accessibility preset saved yet');
       return;
     }
-    setA11ySettings(user.accessibilityPreset);
+    setA11ySettings({ ...DEFAULT_A11Y, ...user.accessibilityPreset });
     toast.success('Loaded accessibility preset');
   };
 
@@ -369,6 +380,20 @@ export function SettingsPage() {
                 id="last-active"
                 checked={settings.privacy.showLastActive}
                 onCheckedChange={(v) => updateSetting('privacy', 'showLastActive', v)}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="block-nsfw">Block NSFW Images</Label>
+                <p className="text-xs text-muted-foreground">Automatically block images marked as NSFW in messages</p>
+              </div>
+              <Switch
+                id="block-nsfw"
+                checked={settings.privacy.blockNsfwImages ?? true}
+                onCheckedChange={(v) => {
+                  updateSetting('privacy', 'blockNsfwImages', v);
+                  updateProfile({ blockNsfwImages: v }).catch(() => toast.error('Failed to save NSFW preference'));
+                }}
               />
             </div>
           </CardContent>
@@ -575,6 +600,9 @@ export function SettingsPage() {
               <Moon className="w-5 h-5" />
               Accessibility Preset
             </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Quick toggles here. Use the <strong>Accessibility sidebar</strong> (icon in the top nav) for full controls with sliders.
+            </p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
@@ -626,6 +654,50 @@ export function SettingsPage() {
                   onCheckedChange={(value) => setA11ySettings((prev) => ({ ...prev, focusRing: value }))}
                 />
               </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="preset-blue-light">Blue light filter</Label>
+                <Switch
+                  id="preset-blue-light"
+                  checked={a11ySettings.blueLightFilter}
+                  onCheckedChange={(value) => setA11ySettings((prev) => ({ ...prev, blueLightFilter: value }))}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-sm">
+                  <Label>Font size</Label>
+                  <span className="text-xs text-muted-foreground font-mono">{a11ySettings.fontSize}%</span>
+                </div>
+                <Slider
+                  value={[a11ySettings.fontSize]}
+                  min={80} max={150} step={5}
+                  onValueChange={([v]) => setA11ySettings((prev) => ({ ...prev, fontSize: v }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-sm">
+                  <Label>Line height</Label>
+                  <span className="text-xs text-muted-foreground font-mono">{a11ySettings.lineHeight}</span>
+                </div>
+                <Slider
+                  value={[a11ySettings.lineHeight]}
+                  min={1.2} max={2.4} step={0.1}
+                  onValueChange={([v]) => setA11ySettings((prev) => ({ ...prev, lineHeight: Math.round(v * 10) / 10 }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-sm">
+                  <Label>Saturation</Label>
+                  <span className="text-xs text-muted-foreground font-mono">{a11ySettings.saturation}%</span>
+                </div>
+                <Slider
+                  value={[a11ySettings.saturation]}
+                  min={0} max={150} step={10}
+                  onValueChange={([v]) => setA11ySettings((prev) => ({ ...prev, saturation: v }))}
+                />
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -640,7 +712,39 @@ export function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Data & Privacy */}
+        {/* Safety — Trusted Contacts & Date Plans */}
+        <SafetySettings />
+
+        {/* SOS Button Configuration */}
+        <SosConfig />
+
+        {/* AI Conversation Guardian */}
+        <GuardianSettings />
+
+        {/* Communication Style Passport */}
+        {user && <PassportCard userId={user.id} editable />}
+
+        {/* Boundary Presets */}
+        <BoundaryEditor />
+
+        {/* Sensory Profile */}
+        {user && <SensoryProfileCard userId={user.id} editable />}
+
+        {/* Selfie Verification */}
+        <SelfieVerification />
+
+        {/* Masking Fatigue Tracker */}
+        <MaskingTracker />
+
+        {/* Exit Strategy Toolkit */}
+        <div id="exit-toolkit-section">
+          <ExitToolkit />
+        </div>
+
+        {/* Stim-Friendly Interaction Modes */}
+        <StimSettings />
+
+        {/* Data & Privacy — GDPR / HIPAA */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -649,10 +753,96 @@ export function SettingsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
+            {/* Security status */}
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4 space-y-2">
+              <p className="text-sm font-medium text-emerald-800 flex items-center gap-2">
+                <Shield className="w-4 h-4" />
+                Security & Encryption
+              </p>
+              <ul className="text-xs text-emerald-700 space-y-1 ml-6 list-disc">
+                <li>All data encrypted in transit (TLS 1.3) and at rest (AES-256)</li>
+                <li>Health-related data (neurodivergent traits) stored with additional encryption</li>
+                <li>HIPAA-aligned access controls — staff access logged and audited</li>
+                <li>Session auto-locks after 15 minutes of inactivity</li>
+              </ul>
+            </div>
+
+            {/* Data retention */}
+            <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-2">
+              <p className="text-sm font-medium">Data Retention Policy</p>
+              <ul className="text-xs text-muted-foreground space-y-1 ml-4 list-disc">
+                <li><strong>Active accounts:</strong> data retained while account is active</li>
+                <li><strong>Deleted accounts:</strong> all personal data purged within 30 days; anonymised analytics kept for up to 2 years</li>
+                <li><strong>Messages:</strong> deleted 90 days after both parties leave a conversation</li>
+                <li><strong>Health data:</strong> erased immediately upon consent withdrawal or account deletion</li>
+                <li><strong>Backups:</strong> encrypted backups purged within 90 days of deletion request</li>
+              </ul>
+            </div>
+
+            {/* Health data consent */}
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2">
+              <p className="text-sm font-medium flex items-center gap-2">
+                <Badge variant="secondary">GDPR Art. 9</Badge>
+                Health Data Processing
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Your neurodivergent traits and communication preferences are classified as special category
+                health data under GDPR and may constitute PHI under HIPAA. This data is processed solely
+                for matchmaking purposes with your explicit consent. You can withdraw this consent at any time,
+                which will remove your health data from our systems.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={() => {
+                  if (confirm('Withdraw health data consent? Your neurodivergent traits and communication preferences will be erased. You can re-add them later.')) {
+                    updateProfile({ neurodivergentTraits: [], communicationPreferences: { preferredToneTags: false, aiExplanations: false, voiceMessages: false } })
+                      .then(() => toast.success('Health data consent withdrawn. Data erased.'))
+                      .catch(() => toast.error('Failed to withdraw consent'));
+                  }
+                }}
+              >
+                Withdraw health data consent
+              </Button>
+            </div>
+
+            {/* Your rights */}
+            <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-2">
+              <p className="text-sm font-medium">Your Rights (GDPR Art. 15–22)</p>
+              <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                <div className="flex items-start gap-1.5">
+                  <span className="text-primary font-bold">✓</span>
+                  <span><strong>Access</strong> — export your data below</span>
+                </div>
+                <div className="flex items-start gap-1.5">
+                  <span className="text-primary font-bold">✓</span>
+                  <span><strong>Rectification</strong> — edit your profile anytime</span>
+                </div>
+                <div className="flex items-start gap-1.5">
+                  <span className="text-primary font-bold">✓</span>
+                  <span><strong>Erasure</strong> — delete your account below</span>
+                </div>
+                <div className="flex items-start gap-1.5">
+                  <span className="text-primary font-bold">✓</span>
+                  <span><strong>Portability</strong> — JSON export of all data</span>
+                </div>
+                <div className="flex items-start gap-1.5">
+                  <span className="text-primary font-bold">✓</span>
+                  <span><strong>Restrict</strong> — pause your account to stop processing</span>
+                </div>
+                <div className="flex items-start gap-1.5">
+                  <span className="text-primary font-bold">✓</span>
+                  <span><strong>Object</strong> — opt out of marketing via cookie settings</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Export */}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="font-medium">Export your data</p>
-                <p className="text-sm text-neutral-500">Download a JSON file of your profile and activity.</p>
+                <p className="text-sm text-muted-foreground">Download a JSON file of your profile and activity (GDPR Art. 20).</p>
               </div>
               <Button onClick={handleExportData} disabled={exportLoading} variant="outline">
                 {exportLoading ? (
@@ -664,10 +854,11 @@ export function SettingsPage() {
               </Button>
             </div>
 
+            {/* Cookie preferences */}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="font-medium">Cookie preferences</p>
-                <p className="text-sm text-neutral-500">Review and update your consent choices.</p>
+                <p className="text-sm text-muted-foreground">Review and update your consent choices.</p>
               </div>
               <Button
                 variant="outline"
@@ -677,11 +868,13 @@ export function SettingsPage() {
               </Button>
             </div>
 
+            {/* Delete account */}
             <div className="rounded-xl border border-red-200 bg-red-50/40 p-4 space-y-3">
               <div>
-                <p className="font-medium text-red-700">Delete account</p>
+                <p className="font-medium text-red-700">Delete account (GDPR Art. 17)</p>
                 <p className="text-sm text-red-600">
-                  This permanently removes your profile, matches, and messages. Type DELETE to confirm.
+                  This permanently removes your profile, matches, messages, and all health data within 30 days.
+                  Anonymised analytics may be retained. Type DELETE to confirm.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -709,5 +902,63 @@ export function SettingsPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+function SosConfig() {
+  const [config, setConfig] = useState(getSosConfig);
+
+  const handleChange = (updates: Partial<{ position: SosPosition; visibility: SosVisibility }>) => {
+    const next = { ...config, ...updates };
+    setConfig(next);
+    saveSosConfig(next);
+    window.dispatchEvent(new Event('sos-config-changed'));
+    toast.success('SOS button updated');
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <AlertTriangle className="w-5 h-5 text-red-500" />
+          SOS Button
+        </CardTitle>
+        <p className="text-xs text-neutral-500">Configure the floating emergency SOS button.</p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-neutral-600">Visibility</p>
+          <div className="flex gap-2">
+            {(['always', 'date-only', 'off'] as SosVisibility[]).map((v) => (
+              <button
+                key={v}
+                onClick={() => handleChange({ visibility: v })}
+                className={`flex-1 rounded-lg border py-2 text-xs font-medium transition-colors ${
+                  config.visibility === v ? 'border-primary bg-primary/5 text-primary' : 'border-neutral-200 text-neutral-600 hover:border-neutral-300'
+                }`}
+              >
+                {v === 'always' ? 'Always' : v === 'date-only' ? 'During dates' : 'Off'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-neutral-600">Position</p>
+          <div className="flex gap-2">
+            {(['bottom-left', 'bottom-right'] as SosPosition[]).map((p) => (
+              <button
+                key={p}
+                onClick={() => handleChange({ position: p })}
+                className={`flex-1 rounded-lg border py-2 text-xs font-medium transition-colors ${
+                  config.position === p ? 'border-primary bg-primary/5 text-primary' : 'border-neutral-200 text-neutral-600 hover:border-neutral-300'
+                }`}
+              >
+                {p === 'bottom-left' ? 'Bottom-left' : 'Bottom-right'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

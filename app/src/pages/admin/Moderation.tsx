@@ -3,19 +3,8 @@ import { Shield, CheckCircle2, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { adminApi } from '@/lib/api/admin';
+import { adminApi, type Report } from '@/lib/api/admin';
 import { toast } from 'sonner';
-
-type Report = {
-  id: string;
-  targetType: 'user' | 'community_post' | 'message';
-  targetId: string;
-  reason: string;
-  description?: string;
-  status: 'pending' | 'reviewed' | 'resolved';
-  createdAt: string;
-  reporter: { id: string; name: string; email?: string };
-};
 
 export function AdminModeration() {
   const [reports, setReports] = useState<Report[]>([]);
@@ -93,7 +82,7 @@ export function AdminModeration() {
               <div key={report.id} className="rounded-xl border border-neutral-200 p-4 space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="text-sm text-neutral-600">
-                    <span className="font-medium">{report.reporter.name}</span> reported{' '}
+                    <span className="font-medium">{report.reporter?.name ?? 'Unknown'}</span> reported{' '}
                     <span className="font-medium">{report.targetType.replace('_', ' ')}</span>
                   </div>
                   <Badge variant="secondary">{report.status}</Badge>

@@ -13,11 +13,25 @@ import {
   LifeBuoy,
   Wand2,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  ImagePlus,
+  EyeOff,
+  ShieldAlert,
+  BookOpen,
+  X,
+  Crown,
+  ChevronDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { TrustLevelBadge } from '@/components/TrustLevelBadge';
+import { safetyApi } from '@/lib/api/safety';
+import { GuardianNudge } from '@/components/GuardianNudge';
+import { PassportCard } from '@/components/PassportCard';
+import { SensoryProfileCard } from '@/components/SensoryProfileCard';
+import { BoundariesIntroCard } from '@/components/BoundariesIntroCard';
+import { VenueSuggestions } from '@/components/VenueSuggestions';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,7 +46,9 @@ import {
   DialogTitle
 } from '@/components/ui/dialog';
 import { ContentWarningDialog } from '@/components/ContentWarningDialog';
-import { cn } from '@/lib/utils';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { AdBanner } from '@/components/AdBanner';
+import { cn, isQuietHoursActive, formatTime } from '@/lib/utils';
 import { aiApi, type AIRephrase, type AISummary } from '@/lib/api/ai';
 import { messagesApi, type Conversation, type Message } from '@/lib/api/messages';
 import { api } from '@/lib/api/client';
@@ -52,28 +68,7 @@ const TONE_TAGS = ['/j', '/srs', '/gen', '/info', '/nm', '/pos'];
 
 const SLOW_SEND_DELAY = 15;
 const LOAD_LIMIT = 50;
-
-function isQuietHoursActive(quietHours?: { enabled: boolean; start: string; end: string }) {
-  if (!quietHours?.enabled) return false;
-  const now = new Date();
-  const [startH, startM] = quietHours.start.split(':').map(Number);
-  const [endH, endM] = quietHours.end.split(':').map(Number);
-  if (Number.isNaN(startH) || Number.isNaN(endH)) return false;
-  const start = new Date();
-  start.setHours(startH, startM || 0, 0, 0);
-  const end = new Date();
-  end.setHours(endH, endM || 0, 0, 0);
-  if (start <= end) {
-    return now >= start && now <= end;
-  }
-  return now >= start || now <= end;
-}
-
-function formatTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
+const REACTION_EMOJIS = ['❤️', '👍', '😂', '😮', '😢', '🔥'];
 
 export function MessagesPage() {
   const { conversationId } = useParams();
@@ -93,11 +88,11 @@ export function MessagesPage() {
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [warningOpen, setWarningOpen] = useState(false);
   const [warningMessages, setWarningMessages] = useState<string[]>([]);
-  const [pendingSend, setPendingSend] = useState<{ content: string; toneTag?: string } | null>(null);
+  const [pendingSend, setPendingSend] = useState<{ content: string; toneTag?: string; imageUrl?: string; isNsfw?: boolean } | null>(null);
   const [slowMode, setSlowMode] = useState(false);
   const [slowDialogOpen, setSlowDialogOpen] = useState(false);
   const [slowCountdown, setSlowCountdown] = useState(0);
-  const [queuedSend, setQueuedSend] = useState<{ content: string; toneTag?: string } | null>(null);
+  const [queuedSend, setQueuedSend] = useState<{ content: string; toneTag?: string; imageUrl?: string; isNsfw?: boolean } | null>(null);
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
   const [tagDraft, setTagDraft] = useState('');
   const [tagConversation, setTagConversation] = useState<Conversation | null>(null);
@@ -107,8 +102,18 @@ export function MessagesPage() {
   const [isSending, setIsSending] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [partnerTyping, setPartnerTyping] = useState(false);
+  const [imageUrl, setImageUrl] = useState('');
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [canSendImages, setCanSendImages] = useState(false);
+  const [markNsfw, setMarkNsfw] = useState(false);
+  const [revealedNsfw, setRevealedNsfw] = useState<Set<string>>(new Set());
+  const [safetyGuideOpen, setSafetyGuideOpen] = useState(false);
+  const [safetyOnboardingShown, setSafetyOnboardingShown] = useState(() => {
+    return localStorage.getItem('neuronest_msg_safety_seen') === '1';
+  });
 
   const socketRef = useRef<Socket | null>(null);
+  const imageFileRef = useRef<HTMLInputElement | null>(null);
   const typingTimeoutRef = useRef<number | null>(null);
   const slowTimerRef = useRef<number | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
@@ -142,8 +147,16 @@ export function MessagesPage() {
 
   useEffect(() => {
     if (!activeConversationId) return;
+    // If navigated to a conversation not in the list (e.g. just created), re-fetch
+    if (!isLoadingConversations && !conversations.find((c) => c.id === activeConversationId)) {
+      loadConversations();
+    }
     loadMessages(activeConversationId);
     markAsRead(activeConversationId);
+    // Fetch trust level to gate image sending
+    safetyApi.getTrustLevel(activeConversationId)
+      .then((info) => setCanSendImages(info.features.images))
+      .catch(() => setCanSendImages(false));
   }, [activeConversationId]);
 
   useEffect(() => {
@@ -154,17 +167,22 @@ export function MessagesPage() {
   useEffect(() => {
     const token = api.getToken();
     if (!token) return;
-    const apiUrl = import.meta.env.VITE_API_URL || '/api';
-    const socketUrl = apiUrl ? apiUrl.replace(/\/api\/?$/, '') : undefined;
+    const explicitApiUrl = import.meta.env.VITE_API_URL as string | undefined;
+    // When using Vite proxy (no VITE_API_URL), connect to same origin — Vite proxies /socket.io
+    // When explicit URL is set (e.g. http://localhost:3001/api), strip /api to get socket base
+    const socketUrl = explicitApiUrl ? explicitApiUrl.replace(/\/api\/?$/, '') : undefined;
 
-    const socket = io(socketUrl, {
-      auth: { token }
+    const socket = io(socketUrl || window.location.origin, {
+      auth: { token },
+      transports: ['websocket', 'polling']
     });
 
     socketRef.current = socket;
 
     socket.on('message', (payload: { conversationId: string; message: Message }) => {
       const incoming = payload.message;
+      const isOwn = incoming.sender.id === user?.id;
+
       setConversations((prev) => {
         const updated = prev.map((conv) => {
           if (conv.id !== payload.conversationId) return conv;
@@ -175,10 +193,10 @@ export function MessagesPage() {
               content: incoming.content,
               toneTag: incoming.toneTag,
               createdAt: incoming.createdAt,
-              isMe: incoming.sender.id === user?.id
+              isMe: isOwn
             },
             unreadCount:
-              payload.conversationId === activeConversationId
+              isOwn || payload.conversationId === activeConversationId
                 ? 0
                 : Math.max(0, (conv.unreadCount || 0) + 1),
             updatedAt: incoming.createdAt
@@ -189,14 +207,13 @@ export function MessagesPage() {
         );
       });
 
+      // Skip own messages — handleSendNow already appends them from the HTTP response
+      if (isOwn) return;
+
       if (payload.conversationId === activeConversationId) {
         setMessages((prev) => {
           if (prev.some((msg) => msg.id === incoming.id)) return prev;
-          const normalized = {
-            ...incoming,
-            isMe: incoming.sender.id === user?.id
-          };
-          return [...prev, normalized];
+          return [...prev, { ...incoming, isMe: false }];
         });
         markAsRead(payload.conversationId);
       }
@@ -216,6 +233,19 @@ export function MessagesPage() {
       if (payload.conversationId !== activeConversationId) return;
       if (payload.userId === user?.id) return;
       setPartnerTyping(payload.isTyping);
+    });
+
+    socket.on('reaction', (payload: { conversationId: string; messageId: string; reactions: any[] }) => {
+      if (payload.conversationId !== activeConversationId) return;
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === payload.messageId ? { ...msg, reactions: payload.reactions } : msg))
+      );
+    });
+
+    socket.on('trust-level-changed', (payload: { conversationId: string; trustLevel: number; features: { images: boolean } }) => {
+      if (payload.conversationId === activeConversationId) {
+        setCanSendImages(payload.features.images);
+      }
     });
 
     return () => {
@@ -279,8 +309,13 @@ export function MessagesPage() {
       );
       setMessages(ordered);
       setHasMore(response.messages.length >= LOAD_LIMIT);
-    } catch {
-      toast.error('Failed to load messages');
+    } catch (err: any) {
+      if (err?.statusCode === 404) {
+        // Conversation no longer exists (server restart, etc.) — redirect
+        navigate('/messages', { replace: true });
+      } else {
+        toast.error('Failed to load messages');
+      }
     } finally {
       setIsLoadingMessages(false);
     }
@@ -367,11 +402,14 @@ export function MessagesPage() {
   const handleSend = () => {
     if (!activeConversationId) return;
     const content = messageDraft.trim();
-    if (!content) return;
+    const img = imageUrl.trim();
+    if (!content && !img) return;
 
     const payload = {
       content,
-      toneTag: toneTag.trim() || undefined
+      toneTag: toneTag.trim() || undefined,
+      imageUrl: img || undefined,
+      isNsfw: img ? markNsfw : undefined
     };
 
     const warnings = scanTextForWarnings(content);
@@ -384,7 +422,7 @@ export function MessagesPage() {
 
     queueSend(payload);
   };
-  const queueSend = (payload: { content: string; toneTag?: string }) => {
+  const queueSend = (payload: { content: string; toneTag?: string; imageUrl?: string; isNsfw?: boolean }) => {
     if (!activeConversationId) return;
     if (slowMode) {
       setQueuedSend(payload);
@@ -395,21 +433,32 @@ export function MessagesPage() {
     handleSendNow(payload);
   };
 
-  const handleSendNow = async (payload: { content: string; toneTag?: string }) => {
+  const handleSendNow = async (payload: { content: string; toneTag?: string; imageUrl?: string; isNsfw?: boolean }) => {
     if (!activeConversationId) return;
     setIsSending(true);
     try {
       const response = await messagesApi.sendMessage(
         activeConversationId,
         payload.content,
-        payload.toneTag
+        payload.toneTag,
+        payload.imageUrl,
+        payload.isNsfw
       );
-      setMessages((prev) => [...prev, response.message]);
+      setMessages((prev) =>
+        prev.some((m) => m.id === response.message.id) ? prev : [...prev, response.message]
+      );
       updateConversationFromMessage(activeConversationId, response.message);
       setMessageDraft('');
       setToneTag('');
+      setImageUrl('');
+      setImagePreview(null);
+      setMarkNsfw(false);
       setQueuedSend(null);
       setSlowDialogOpen(false);
+      // Refresh trust level (backend may have auto-upgraded)
+      safetyApi.getTrustLevel(activeConversationId)
+        .then((info) => setCanSendImages(info.features.images))
+        .catch(() => {});
     } catch {
       toast.error('Failed to send message');
     } finally {
@@ -423,6 +472,18 @@ export function MessagesPage() {
     setSlowCountdown(0);
     if (slowTimerRef.current) {
       window.clearInterval(slowTimerRef.current);
+    }
+  };
+
+  const handleReaction = async (messageId: string, emoji: string) => {
+    if (!activeConversationId) return;
+    try {
+      const res = await messagesApi.reactToMessage(activeConversationId, messageId, emoji);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, reactions: res.reactions } : m))
+      );
+    } catch {
+      toast.error('Failed to react');
     }
   };
 
@@ -504,10 +565,10 @@ export function MessagesPage() {
   const slowPaceNotice = activeConversation?.user?.communicationPreferences?.responsePace === 'slow';
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] p-4 sm:p-6">
-      <div className="max-w-6xl mx-auto grid gap-6 lg:grid-cols-[280px,1fr,320px]">
-        <Card className="h-full">
-          <CardContent className="p-4 space-y-4">
+    <div className="h-[calc(100vh-4rem)] p-4 sm:p-6 overflow-hidden">
+      <div className="max-w-6xl mx-auto h-full grid gap-6 lg:grid-cols-[280px,1fr,320px]">
+        <Card className="h-full overflow-hidden flex flex-col">
+          <CardContent className="p-4 space-y-4 flex flex-col flex-1 overflow-hidden">
             <div className="flex items-center gap-2">
               <MessageCircle className="w-4 h-4 text-primary" />
               <h2 className="font-semibold">Messages</h2>
@@ -549,9 +610,14 @@ export function MessagesPage() {
                           </Avatar>
                           <div className="flex-1 space-y-1">
                             <div className="flex items-center justify-between">
-                              <p className="font-medium text-sm">
-                                {conversation.user?.name || 'Unknown'}
-                              </p>
+                              <div className="flex items-center gap-1.5">
+                                <p className="font-medium text-sm">
+                                  {conversation.user?.name || 'Unknown'}
+                                </p>
+                                {conversation.prioritySender && (
+                                  <span title="Priority inbox"><Crown className="w-3.5 h-3.5 text-amber-500" /></span>
+                                )}
+                              </div>
                               {conversation.unreadCount > 0 && (
                                 <Badge variant="secondary" className="text-xs">
                                   {conversation.unreadCount}
@@ -579,8 +645,8 @@ export function MessagesPage() {
           </CardContent>
         </Card>
 
-        <Card className="flex flex-col min-h-[640px]">
-          <CardContent className="p-4 flex flex-col flex-1 gap-4">
+        <Card className="flex flex-col overflow-hidden">
+          <CardContent className="p-4 flex flex-col flex-1 gap-4 overflow-hidden">
             {activeConversation ? (
               <>
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -594,6 +660,9 @@ export function MessagesPage() {
                         <h2 className="text-lg font-semibold">
                           {activeConversation.user?.name || 'Unknown'}
                         </h2>
+                        {activeConversation.id && (
+                          <TrustLevelBadge conversationId={activeConversation.id} compact />
+                        )}
                         {quietHoursActive && (
                           <Badge variant="outline" className="text-[10px]">
                             <Clock className="w-3 h-3 mr-1" />
@@ -671,11 +740,12 @@ export function MessagesPage() {
                       ) : (
                         <p className="text-sm text-neutral-500">Generate a quick summary for this thread.</p>
                       )}
+                      <p className="text-[10px] text-neutral-400">Messages are processed by Google Gemini in real-time and are not stored. <a href="/privacy" className="underline hover:text-primary">Privacy policy</a></p>
                     </CardContent>
                   </Card>
                 ) : (
-                  <div className="flex-1 flex flex-col gap-3">
-                    <ScrollArea className="flex-1 pr-2">
+                  <div className="flex-1 flex flex-col gap-3 min-h-0">
+                    <ScrollArea className="flex-1 min-h-0 pr-2">
                       <div className="space-y-3">
                         {hasMore && (
                           <div className="flex justify-center">
@@ -687,10 +757,13 @@ export function MessagesPage() {
                         {isLoadingMessages ? (
                           <div className="text-sm text-neutral-500">Loading messages...</div>
                         ) : (
-                          messages.map((message) => (
+                          messages.map((message) => {
+                            const nsfwFullyBlocked = !message.isMe && !!message.nsfwBlocked;
+                            const showNsfwOverlay = !!message.isNsfw && !nsfwFullyBlocked && !revealedNsfw.has(message.id);
+                            return (
                             <div
                               key={message.id}
-                              className={cn('flex gap-3', message.isMe ? 'justify-end' : 'justify-start')}
+                              className={cn('flex gap-3 group', message.isMe ? 'justify-end' : 'justify-start')}
                             >
                               {!message.isMe && (
                                 <Avatar className="w-9 h-9">
@@ -698,15 +771,40 @@ export function MessagesPage() {
                                   <AvatarFallback>{message.sender.name[0]}</AvatarFallback>
                                 </Avatar>
                               )}
+                              <div className="relative max-w-[75%]">
                               <div
                                 className={cn(
-                                  'max-w-[75%] rounded-2xl px-4 py-3 text-sm',
+                                  'rounded-2xl px-4 py-3 text-sm',
                                   message.isMe
                                     ? 'bg-primary text-white'
                                     : 'bg-neutral-100 text-neutral-800'
                                 )}
                               >
-                                <p className="whitespace-pre-wrap">{message.content}</p>
+                                {message.content && <p className="whitespace-pre-wrap">{message.content}</p>}
+                                {message.imageUrl && !nsfwFullyBlocked && (
+                                  <div className="relative mt-2 rounded-lg overflow-hidden">
+                                    <img
+                                      src={message.imageUrl}
+                                      alt="Shared image"
+                                      className={cn('max-w-full max-h-60 rounded-lg', showNsfwOverlay && 'blur-xl')}
+                                    />
+                                    {showNsfwOverlay && (
+                                      <button
+                                        onClick={() => setRevealedNsfw((prev) => new Set([...prev, message.id]))}
+                                        className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white gap-2"
+                                      >
+                                        <EyeOff className="w-6 h-6" />
+                                        <span className="text-xs font-medium">NSFW — tap to reveal</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                                {nsfwFullyBlocked && (
+                                  <div className="mt-2 flex items-center gap-2 rounded-lg border border-neutral-300 bg-neutral-200 p-3 text-xs text-neutral-600">
+                                    <EyeOff className="w-4 h-4 shrink-0" />
+                                    NSFW image blocked by recipient&apos;s settings
+                                  </div>
+                                )}
                                 <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-neutral-200">
                                   {message.toneTag && (
                                     <Badge variant="outline" className="text-[10px]">
@@ -724,8 +822,51 @@ export function MessagesPage() {
                                   )}
                                 </div>
                               </div>
+                              {/* Emoji reaction picker — visible on hover */}
+                              <div className={cn(
+                                'absolute -bottom-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 bg-white border rounded-full shadow-sm px-1 py-0.5 z-10',
+                                message.isMe ? 'right-0' : 'left-0'
+                              )}>
+                                {REACTION_EMOJIS.map((emoji) => (
+                                  <button
+                                    key={emoji}
+                                    onClick={() => handleReaction(message.id, emoji)}
+                                    className="hover:scale-125 transition-transform text-sm leading-none p-0.5"
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+                              {/* Display existing reactions */}
+                              {(message.reactions?.length ?? 0) > 0 && (
+                                <div className={cn('flex flex-wrap gap-1 mt-1', message.isMe ? 'justify-end' : 'justify-start')}>
+                                  {Object.entries(
+                                    (message.reactions || []).reduce<Record<string, string[]>>((acc, r) => {
+                                      if (!acc[r.emoji]) acc[r.emoji] = [];
+                                      acc[r.emoji].push(r.userId);
+                                      return acc;
+                                    }, {})
+                                  ).map(([emoji, userIds]) => (
+                                    <button
+                                      key={emoji}
+                                      onClick={() => handleReaction(message.id, emoji)}
+                                      className={cn(
+                                        'inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs transition-colors',
+                                        userIds.includes(user?.id || '')
+                                          ? 'bg-primary/10 border-primary/30 text-primary'
+                                          : 'bg-white border-neutral-200 text-neutral-600 hover:border-primary/30'
+                                      )}
+                                    >
+                                      <span>{emoji}</span>
+                                      {userIds.length > 1 && <span className="text-[10px]">{userIds.length}</span>}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                              </div>
                             </div>
-                          ))
+                            );
+                          })
                         )}
                         {partnerTyping && (
                           <div className="text-xs text-neutral-400">Typing...</div>
@@ -734,50 +875,137 @@ export function MessagesPage() {
                       </div>
                     </ScrollArea>
 
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap gap-2">
-                        {QUICK_REPLIES.map((reply) => (
-                          <Button
-                            key={reply}
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setMessageDraft(reply)}
-                          >
-                            {reply}
-                          </Button>
-                        ))}
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2">
-                        {TONE_TAGS.map((tag) => (
-                          <Button
-                            key={tag}
-                            size="sm"
-                            variant={toneTag === tag ? 'default' : 'outline'}
-                            onClick={() => setToneTag(tag)}
-                          >
-                            {tag}
-                          </Button>
-                        ))}
-                        <Input
-                          value={toneTag}
-                          onChange={(event) => setToneTag(event.target.value)}
-                          placeholder="Tone tag"
-                          className="max-w-[140px]"
-                        />
-                      </div>
+                    <div className="space-y-3 shrink-0 max-h-[45%] flex flex-col">
+                      <div className="overflow-y-auto space-y-3 flex-1 min-h-0">
+                      <Collapsible>
+                        <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors w-full">
+                          <ChevronDown className="w-3.5 h-3.5 transition-transform [[data-state=open]>&]:rotate-180" />
+                          Quick replies & tone tags
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="space-y-2 pt-2">
+                          <div className="flex flex-wrap gap-1.5">
+                            {QUICK_REPLIES.map((reply) => (
+                              <Button
+                                key={reply}
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7"
+                                onClick={() => setMessageDraft(reply)}
+                              >
+                                {reply}
+                              </Button>
+                            ))}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {TONE_TAGS.map((tag) => (
+                              <Button
+                                key={tag}
+                                size="sm"
+                                variant={toneTag === tag ? 'default' : 'outline'}
+                                className="text-xs h-7"
+                                onClick={() => setToneTag(tag)}
+                              >
+                                {tag}
+                              </Button>
+                            ))}
+                            <Input
+                              value={toneTag}
+                              onChange={(event) => setToneTag(event.target.value)}
+                              placeholder="Tone tag"
+                              className="max-w-[120px] h-7 text-xs"
+                            />
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
 
                       <Textarea
                         value={messageDraft}
                         onChange={(event) => handleTyping(event.target.value)}
                         placeholder="Write a message"
-                        rows={3}
+                        rows={2}
                       />
 
-                      <div className="flex flex-wrap items-center justify-between gap-3">
+                      {/* Image attachment */}
+                      <div className="space-y-2">
+                        <input
+                          ref={imageFileRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            if (!file.type.startsWith('image/')) { toast.error('Please select an image file'); return; }
+                            if (file.size > 5 * 1024 * 1024) { toast.error('Image must be under 5 MB'); return; }
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                              const dataUrl = reader.result as string;
+                              setImageUrl(dataUrl);
+                              setImagePreview(dataUrl);
+                            };
+                            reader.onerror = () => toast.error('Failed to read file');
+                            reader.readAsDataURL(file);
+                            e.target.value = '';
+                          }}
+                        />
                         <div className="flex items-center gap-2">
-                          <Switch checked={slowMode} onCheckedChange={setSlowMode} />
-                          <span className="text-xs text-neutral-500">Slow mode</span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={!canSendImages}
+                            onClick={() => imageFileRef.current?.click()}
+                          >
+                            <ImagePlus className={`w-4 h-4 mr-1.5 ${canSendImages ? '' : 'text-neutral-300'}`} />
+                            {canSendImages ? 'Attach image' : 'Images unlock at trust level 2'}
+                          </Button>
+                          {imagePreview && (
+                            <Button variant="ghost" size="sm" onClick={() => { setImageUrl(''); setImagePreview(null); setMarkNsfw(false); }}>
+                              <X className="w-3.5 h-3.5 mr-1" /> Remove
+                            </Button>
+                          )}
+                        </div>
+                        {imagePreview && (
+                          <div className="space-y-2 rounded-lg border border-border p-3 bg-muted/30">
+                            <img src={imagePreview} alt="Preview" className="max-h-32 rounded-lg" />
+                            <div className="flex items-center gap-2">
+                              <Switch checked={markNsfw} onCheckedChange={setMarkNsfw} />
+                              <span className="text-xs text-foreground font-medium">Mark as NSFW</span>
+                            </div>
+                            {markNsfw && (
+                              <>
+                                {activeConversation?.user?.blockNsfwImages && (
+                                  <div className="flex items-center gap-2 rounded-lg border border-red-300 bg-red-50 p-2 text-[11px] text-red-700">
+                                    <EyeOff className="w-3.5 h-3.5 shrink-0" />
+                                    <span>{activeConversation.user.name} blocks NSFW images — it will be hidden on their end.</span>
+                                  </div>
+                                )}
+                                <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-800">
+                                  <ShieldAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                  <p>Only share NSFW content with clear mutual consent. Unsolicited explicit images may result in a ban.</p>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-3 shrink-0">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <Switch checked={slowMode} onCheckedChange={setSlowMode} />
+                            <span className="text-xs text-neutral-500">Slow mode</span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSafetyGuideOpen(true)}
+                            className="text-xs text-muted-foreground"
+                          >
+                            <BookOpen className="w-3.5 h-3.5 mr-1" />
+                            Safety Guide
+                          </Button>
                         </div>
                         <div className="flex items-center gap-2">
                           <Button
@@ -789,7 +1017,7 @@ export function MessagesPage() {
                             <Wand2 className="w-4 h-4 mr-2" />
                             {isRephrasing ? 'Rephrasing...' : 'Rephrase'}
                           </Button>
-                          <Button onClick={handleSend} disabled={isSending || !messageDraft.trim()}>
+                          <Button onClick={handleSend} disabled={isSending || (!messageDraft.trim() && !imageUrl.trim())}>
                             <Send className="w-4 h-4 mr-2" />
                             Send
                           </Button>
@@ -807,10 +1035,16 @@ export function MessagesPage() {
             )}
           </CardContent>
         </Card>
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-y-auto">
+          <AdBanner area="messages" className="hidden lg:block" />
           <Card>
             <CardContent className="p-4 space-y-3">
-              <h3 className="font-semibold">Thread context</h3>
+              <Collapsible defaultOpen>
+              <CollapsibleTrigger className="flex items-center justify-between w-full">
+                <h3 className="font-semibold">Thread context</h3>
+                <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform [[data-state=closed]>&]:rotate-[-90deg]" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-3 pt-3">
               {activeConversation ? (
                 <>
                   <div className="space-y-2">
@@ -856,6 +1090,27 @@ export function MessagesPage() {
                       )}
                     </div>
                   </div>
+                  {activeConversation?.id && (
+                    <div className="space-y-2">
+                      <div className="text-xs text-neutral-500">Trust Level</div>
+                      <TrustLevelBadge conversationId={activeConversation.id} />
+                    </div>
+                  )}
+                  {activeConversation?.id && (
+                    <GuardianNudge conversationId={activeConversation.id} />
+                  )}
+                  {activeConversation?.user?.id && (
+                    <PassportCard userId={activeConversation.user.id} compact />
+                  )}
+                  {activeConversation?.user?.id && (
+                    <SensoryProfileCard userId={activeConversation.user.id} compact />
+                  )}
+                  {activeConversation?.user?.id && (
+                    <BoundariesIntroCard userId={activeConversation.user.id} />
+                  )}
+                  {activeConversation?.user?.id && (
+                    <VenueSuggestions matchUserId={activeConversation.user.id} />
+                  )}
                   {quietHoursActive && (
                     <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-600">
                       Quiet hours are active. Expect slower responses.
@@ -865,12 +1120,19 @@ export function MessagesPage() {
               ) : (
                 <p className="text-sm text-neutral-500">Select a conversation to see context.</p>
               )}
+              </CollapsibleContent>
+              </Collapsible>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="p-4 space-y-3">
-              <h3 className="font-semibold">Safety reminders</h3>
+              <Collapsible defaultOpen>
+              <CollapsibleTrigger className="flex items-center justify-between w-full">
+                <h3 className="font-semibold">Safety reminders</h3>
+                <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform [[data-state=closed]>&]:rotate-[-90deg]" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-3 pt-3">
               <div className="flex items-start gap-2 text-sm text-neutral-600">
                 <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5" />
                 Share personal info only when you feel safe. Slow mode can help keep pacing comfortable.
@@ -879,6 +1141,8 @@ export function MessagesPage() {
                 <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5" />
                 You can report or block if a conversation feels off.
               </div>
+              </CollapsibleContent>
+              </Collapsible>
             </CardContent>
           </Card>
         </div>
@@ -919,8 +1183,12 @@ export function MessagesPage() {
             <Button
               onClick={() => {
                 if (!queuedSend) return;
+                const payload = queuedSend;
+                setQueuedSend(null);
+                setSlowDialogOpen(false);
                 setSlowCountdown(0);
-                handleSendNow(queuedSend);
+                if (slowTimerRef.current) window.clearInterval(slowTimerRef.current);
+                handleSendNow(payload);
               }}
             >
               Send now
@@ -969,6 +1237,7 @@ export function MessagesPage() {
           ) : (
             <p className="text-sm text-neutral-500">No suggestions yet.</p>
           )}
+          <p className="text-[10px] text-neutral-400">Your draft is processed by Google Gemini in real-time and is not stored. <a href="/privacy" className="underline hover:text-primary">Privacy policy</a></p>
         </DialogContent>
       </Dialog>
 
@@ -989,6 +1258,131 @@ export function MessagesPage() {
           setPendingSend(null);
         }}
       />
+
+      {/* One-time messaging safety onboarding */}
+      <Dialog
+        open={!safetyOnboardingShown && !!activeConversationId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSafetyOnboardingShown(true);
+            localStorage.setItem('neuronest_msg_safety_seen', '1');
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-primary" />
+              Messaging Safety Guide
+            </DialogTitle>
+            <DialogDescription>
+              A few things to keep you safe while messaging.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <div className="flex items-start gap-3">
+              <ShieldCheck className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-foreground">NSFW image blocking</p>
+                <p>NSFW images are blocked by default. You can change this in Settings &gt; Privacy. Senders must mark images as NSFW before sending.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-foreground">Personal info detection</p>
+                <p>We scan messages for credit card numbers and phone numbers before sending, and warn you before they go out.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <Clock className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-foreground">Slow mode</p>
+                <p>Enable slow mode to add a 15-second review window before each message is sent. Great for managing impulsive responses.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <EyeOff className="w-5 h-5 text-violet-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-foreground">Guardian nudges</p>
+                <p>Our AI Guardian monitors for manipulation patterns and will gently alert you if something seems off.</p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                setSafetyOnboardingShown(true);
+                localStorage.setItem('neuronest_msg_safety_seen', '1');
+              }}
+            >
+              Got it
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Re-readable Safety Guide dialog */}
+      <Dialog open={safetyGuideOpen} onOpenChange={setSafetyGuideOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-primary" />
+              Safety Guide
+            </DialogTitle>
+            <DialogDescription>
+              Safety features active in your conversations.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <div className="flex items-start gap-3">
+              <ShieldCheck className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-foreground">NSFW image blocking</p>
+                <p>NSFW images are blocked by default. Senders must explicitly mark images as NSFW. You can toggle this in Settings &gt; Privacy.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-foreground">Cyber-flashing prevention</p>
+                <p>Sending unsolicited explicit images is a bannable offense. The NSFW toggle includes a consent reminder.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-foreground">Personal info scanning</p>
+                <p>Credit card numbers and phone numbers are detected before sending. You'll be warned before they go out.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <Clock className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-foreground">Slow mode</p>
+                <p>Adds a 15-second review window. Automatically enabled when your conversation partner prefers a slow pace.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <EyeOff className="w-5 h-5 text-violet-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-foreground">AI Guardian</p>
+                <p>Monitors for manipulation patterns (love-bombing, guilt-tripping, isolation tactics) and alerts you.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <Sparkles className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-foreground">Tone tags & rephrase</p>
+                <p>Add tone tags to clarify intent. Use AI rephrase to get gentle or direct alternatives before sending.</p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSafetyGuideOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

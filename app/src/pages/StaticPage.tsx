@@ -59,7 +59,7 @@ export function StaticPage({ slug }: StaticPageProps) {
     applySeo({
       title: `${page.title} - NeuroNest`,
       description: page.summary,
-      canonical: `https://arcane-waters-46868-5bf57db34e8e.herokuapp.com/${page.slug}`
+      canonical: `${window.location.origin}/${page.slug}`
     });
   }, [page]);
 

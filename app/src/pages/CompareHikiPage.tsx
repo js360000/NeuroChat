@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { applySeo } from '@/lib/seo';
+import { PublicNav } from '@/components/PublicNav';
+import { PublicFooter } from '@/components/PublicFooter';
 
 const HIGHLIGHTS = [
   {
@@ -52,14 +54,15 @@ export function CompareHikiPage() {
       title: 'NeuroNest vs Hiki — A Neurodivergent Dating Alternative',
       description:
         'Compare NeuroNest and Hiki for neurodivergent dating. See how NeuroNest prioritizes affordability, clarity tools, and community.',
-      canonical: 'https://arcane-waters-46868-5bf57db34e8e.herokuapp.com/compare/hiki',
+      canonical: `${typeof window !== 'undefined' ? window.location.origin : ''}/compare/hiki`,
       ogImage: '/landing_hero_neurodivergent_connection_1770055018741.png'
     });
   }, []);
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-neutral-50">
-      <div className="max-w-5xl mx-auto px-6 py-12 space-y-8">
+    <div className="min-h-screen bg-neutral-50">
+      <PublicNav />
+      <div className="max-w-5xl mx-auto px-6 pt-24 pb-14 space-y-8">
         <div className="space-y-4">
           <Badge className="bg-primary/10 text-primary">
             <BadgeCheck className="w-4 h-4 mr-2" />
@@ -169,6 +172,7 @@ export function CompareHikiPage() {
           </Card>
         </div>
       </div>
+      <PublicFooter />
     </div>
   );
 }

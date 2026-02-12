@@ -1,4 +1,5 @@
 import { api } from './client';
+import type { AppConfig } from './pages';
 
 export interface AdminUser {
   id: string;
@@ -102,6 +103,207 @@ export interface ExperimentSettings {
   compassCtaVariant: 'standard' | 'mentor';
 }
 
+export interface AdminSettings {
+  siteName: string;
+  maintenanceMode: boolean;
+  registrationEnabled: boolean;
+  maxMatchesPerDay: number;
+  aiExplanationsEnabled: boolean;
+}
+
+export interface AdSlot {
+  id: string;
+  label: string;
+  area: string;
+  format: 'banner' | 'sidebar' | 'in-feed';
+  adSlotId: string;
+  enabled: boolean;
+}
+
+export interface AdConfig {
+  adsenseClientId: string;
+  globalEnabled: boolean;
+  showToFreeOnly: boolean;
+  slots: AdSlot[];
+}
+
+export interface UserStats {
+  total: number;
+  online: number;
+  today: number;
+  premium: number;
+}
+
+export interface SubscriptionBreakdown {
+  free: number;
+  premium: number;
+  pro: number;
+}
+
+export interface RetentionStats {
+  day1: number;
+  day7: number;
+  day30: number;
+}
+
+export interface N8nWorkflow {
+  id: string;
+  name: string;
+  active: boolean;
+  webhookUrl?: string;
+  status?: 'connected' | 'disconnected';
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface N8nWorkflowHook {
+  id: string;
+  name: string;
+  webhookUrl: string;
+}
+
+export interface N8nRun {
+  id: string;
+  workflowId: string;
+  status: string;
+  responseStatus?: number;
+  startedAt: string;
+  triggeredAt: string;
+  finishedAt?: string;
+  error?: string;
+}
+
+export interface N8nConfigData {
+  baseUrl: string;
+  apiKey?: string;
+  apiKeyMasked?: string;
+  apiVersion: number;
+  webhookUrl: string;
+  enabled: boolean;
+}
+
+export interface SocialSchedule {
+  id: string;
+  channel: string;
+  title?: string;
+  content?: string;
+  caption?: string;
+  description?: string;
+  mediaUrl?: string;
+  scheduledFor?: string;
+  scheduledAt?: string;
+  status?: string;
+  webhookUrl?: string;
+  createdAt: string;
+}
+
+export interface EnvVar {
+  key: string;
+  valueMasked: string;
+  description: string;
+  isSecret: boolean;
+  isSet: boolean;
+  restartRequired: boolean;
+}
+
+export interface AdminSitePage {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string;
+  body: string;
+  updatedAt: string;
+}
+
+export interface ConsentLog {
+  id: string;
+  userId?: string;
+  analytics: boolean;
+  marketing: boolean;
+  version?: string;
+  healthDataConsent?: boolean;
+  userAgent?: string;
+  ip?: string;
+  createdAt: string;
+}
+
+export interface Report {
+  id: string;
+  reporterId?: string;
+  reporterName?: string;
+  targetId: string;
+  targetType: string;
+  reason: string;
+  description?: string;
+  details?: string;
+  status: 'pending' | 'reviewed' | 'resolved';
+  reporter?: { id: string; name: string; email?: string };
+  createdAt: string;
+}
+
+export interface AdminCommunityPost {
+  id: string;
+  title?: string;
+  content: string;
+  tags: string[];
+  toneTag?: string;
+  contentWarning?: string;
+  hidden: boolean;
+  reportCount?: number;
+  sentiment?: { score: number; label: 'positive' | 'negative' | 'neutral' };
+  flaggedKeywords?: string[];
+  author: { id: string; name: string; email?: string };
+  createdAt: string;
+}
+
+export interface PaymentRecord {
+  id: string;
+  userId: string;
+  userName?: string;
+  amount: number;
+  currency: string;
+  plan: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface SelfieVerificationEntry {
+  userId: string;
+  userName: string;
+  email: string;
+  avatar?: string;
+  status: 'pending' | 'verified' | 'rejected';
+  authenticityScore?: number;
+  selfieDataUrl?: string;
+  submittedAt?: string;
+  verifiedAt?: string;
+  reviewedBy?: string;
+  reviewNotes?: string;
+}
+
+export interface SelfieVerificationDetail {
+  userId: string;
+  userName: string;
+  email: string;
+  avatar?: string;
+  selfieVerification: {
+    status: 'none' | 'pending' | 'verified' | 'rejected';
+    authenticityScore?: number;
+    selfieDataUrl?: string;
+    submittedAt?: string;
+    verifiedAt?: string;
+    reviewedBy?: string;
+    reviewNotes?: string;
+  };
+  verification: {
+    email: boolean;
+    photo: boolean;
+    id: boolean;
+  };
+  createdAt: string;
+}
+
 export const adminApi = {
   getOverview: async () => {
     return api.get<DashboardStats>('/admin/overview');
@@ -134,9 +336,9 @@ export const adminApi = {
     const params = days ? `?days=${days}` : '';
     return api.get<{
       dailyActivity: DailyActivity[];
-      userStats: any;
-      subscriptionBreakdown: any;
-      retention: any;
+      userStats: UserStats;
+      subscriptionBreakdown: SubscriptionBreakdown;
+      retention: RetentionStats;
     }>(`/admin/analytics${params}`);
   },
 
@@ -145,11 +347,11 @@ export const adminApi = {
   },
 
   getSettings: async () => {
-    return api.get<{ settings: any }>('/admin/settings');
+    return api.get<{ settings: AdminSettings }>('/admin/settings');
   },
 
-  updateSettings: async (settings: any) => {
-    return api.patch('/admin/settings', settings);
+  updateSettings: async (settings: Partial<AdminSettings>) => {
+    return api.patch<{ settings: AdminSettings }>('/admin/settings', settings);
   },
 
   getExperiments: async () => {
@@ -160,34 +362,42 @@ export const adminApi = {
     return api.patch<{ experiments: ExperimentSettings }>('/admin/experiments', experiments);
   },
 
+  getAppConfig: async () => {
+    return api.get<{ config: AppConfig }>('/admin/config');
+  },
+
+  updateAppConfig: async (config: Partial<AppConfig>) => {
+    return api.patch<{ config: AppConfig }>('/admin/config', config);
+  },
+
   getIntegrations: async () => {
-    return api.get<{ integrations: any[] }>('/admin/integrations');
+    return api.get<{ integrations: N8nWorkflow[] }>('/admin/integrations');
   },
 
   getN8nConfig: async () => {
-    return api.get<{ config: any }>('/admin/n8n/config');
+    return api.get<{ config: N8nConfigData }>('/admin/n8n/config');
   },
 
-  updateN8nConfig: async (config: any) => {
-    return api.patch<{ config: any }>('/admin/n8n/config', config);
+  updateN8nConfig: async (config: Partial<N8nConfigData>) => {
+    return api.patch<{ config: N8nConfigData }>('/admin/n8n/config', config);
   },
 
   getN8nWorkflows: async (params?: { active?: boolean }) => {
     const query = new URLSearchParams();
     if (params?.active !== undefined) query.append('active', String(params.active));
     const suffix = query.toString() ? `?${query}` : '';
-    return api.get<{ workflows: any[] }>(`/admin/n8n/workflows${suffix}`);
+    return api.get<{ workflows: N8nWorkflow[] }>(`/admin/n8n/workflows${suffix}`);
   },
 
   getN8nWorkflowHooks: async () => {
-    return api.get<{ hooks: any[] }>('/admin/n8n/workflows/hooks');
+    return api.get<{ hooks: N8nWorkflowHook[] }>('/admin/n8n/workflows/hooks');
   },
 
   updateN8nWorkflowHook: async (id: string, webhookUrl: string) => {
-    return api.patch<{ hook: any }>(`/admin/n8n/workflows/${id}/hook`, { webhookUrl });
+    return api.patch<{ hook: N8nWorkflowHook }>(`/admin/n8n/workflows/${id}/hook`, { webhookUrl });
   },
 
-  runN8nWorkflow: async (id: string, payload?: any, webhookUrl?: string) => {
+  runN8nWorkflow: async (id: string, payload?: Record<string, unknown>, webhookUrl?: string) => {
     return api.post(`/admin/n8n/workflows/${id}/run`, { payload, webhookUrl });
   },
 
@@ -200,10 +410,10 @@ export const adminApi = {
     if (params?.workflowId) query.append('workflowId', params.workflowId);
     if (params?.limit) query.append('limit', String(params.limit));
     const suffix = query.toString() ? `?${query}` : '';
-    return api.get<{ runs: any[] }>(`/admin/n8n/runs${suffix}`);
+    return api.get<{ runs: N8nRun[] }>(`/admin/n8n/runs${suffix}`);
   },
 
-  triggerN8nWebhook: async (payload: { event: string; channel: string; payload: any; webhookUrl?: string; scheduleId?: string }) => {
+  triggerN8nWebhook: async (payload: { event: string; channel: string; payload: Record<string, unknown>; webhookUrl?: string; scheduleId?: string }) => {
     return api.post('/admin/n8n/trigger', payload);
   },
 
@@ -213,19 +423,19 @@ export const adminApi = {
     if (params?.status) query.append('status', params.status);
     if (params?.limit) query.append('limit', String(params.limit));
     const suffix = query.toString() ? `?${query}` : '';
-    return api.get<{ schedules: any[] }>(`/admin/social/schedule${suffix}`);
+    return api.get<{ schedules: SocialSchedule[] }>(`/admin/social/schedule${suffix}`);
   },
 
-  createSocialSchedule: async (payload: any) => {
-    return api.post<{ schedule: any }>('/admin/social/schedule', payload);
+  createSocialSchedule: async (payload: Partial<SocialSchedule>) => {
+    return api.post<{ schedule: SocialSchedule }>('/admin/social/schedule', payload);
   },
 
-  updateSocialSchedule: async (id: string, payload: any) => {
-    return api.patch<{ schedule: any }>(`/admin/social/schedule/${id}`, payload);
+  updateSocialSchedule: async (id: string, payload: Partial<SocialSchedule>) => {
+    return api.patch<{ schedule: SocialSchedule }>(`/admin/social/schedule/${id}`, payload);
   },
 
   getEnvVars: async () => {
-    return api.get<{ vars: any[] }>('/admin/env');
+    return api.get<{ vars: EnvVar[] }>('/admin/env');
   },
 
   updateEnvVar: async (key: string, value: string) => {
@@ -236,15 +446,15 @@ export const adminApi = {
   },
 
   getSitePages: async () => {
-    return api.get<{ pages: any[] }>('/admin/pages');
+    return api.get<{ pages: AdminSitePage[] }>('/admin/pages');
   },
 
   getSitePage: async (slug: string) => {
-    return api.get<{ page: any }>(`/admin/pages/${slug}`);
+    return api.get<{ page: AdminSitePage }>(`/admin/pages/${slug}`);
   },
 
   updateSitePage: async (slug: string, payload: { title?: string; summary?: string; body?: string }) => {
-    return api.patch<{ page: any }>(`/admin/pages/${slug}`, payload);
+    return api.patch<{ page: AdminSitePage }>(`/admin/pages/${slug}`, payload);
   },
 
   getConsentLogs: async (params?: { limit?: number; offset?: number; analytics?: string; marketing?: string }) => {
@@ -254,18 +464,18 @@ export const adminApi = {
     if (params?.analytics) query.append('analytics', params.analytics);
     if (params?.marketing) query.append('marketing', params.marketing);
     const suffix = query.toString() ? `?${query}` : '';
-    return api.get<{ logs: any[]; total: number }>(`/admin/consent${suffix}`);
+    return api.get<{ logs: ConsentLog[]; total: number }>(`/admin/consent${suffix}`);
   },
 
   exportConsentLogs: async () => {
-    return api.get<{ logs: any[] }>('/admin/consent/export');
+    return api.get<{ logs: ConsentLog[] }>('/admin/consent/export');
   },
 
   getReports: async (params?: { status?: string; targetType?: string }) => {
     const query = new URLSearchParams();
     if (params?.status) query.append('status', params.status);
     if (params?.targetType) query.append('targetType', params.targetType);
-    return api.get<{ reports: any[] }>(`/admin/reports?${query}`);
+    return api.get<{ reports: Report[] }>(`/admin/reports?${query}`);
   },
 
   reviewReport: async (id: string) => {
@@ -279,7 +489,7 @@ export const adminApi = {
   getCommunityPosts: async (params?: { q?: string }) => {
     const query = new URLSearchParams();
     if (params?.q) query.append('q', params.q);
-    return api.get<{ posts: any[] }>(`/admin/community/posts?${query}`);
+    return api.get<{ posts: AdminCommunityPost[] }>(`/admin/community/posts?${query}`);
   },
 
   hideCommunityPost: async (id: string) => {
@@ -297,7 +507,7 @@ export const adminApi = {
   },
 
   getPaymentsRecent: async () => {
-    return api.get<{ payments: any[] }>('/admin/payments/recent');
+    return api.get<{ payments: PaymentRecord[] }>('/admin/payments/recent');
   },
 
   getDigestQueue: async (params?: { status?: string }) => {
@@ -344,5 +554,34 @@ export const adminApi = {
       suspiciousReporters: { id: string; name: string; count: number }[];
       suspiciousTargets: { id: string; count: number }[];
     }>('/admin/anomalies');
+  },
+
+  getVerifications: async (status?: string) => {
+    const query = status ? `?status=${status}` : '';
+    return api.get<{ verifications: SelfieVerificationEntry[]; total: number; pending: number }>(`/admin/verifications${query}`);
+  },
+
+  getVerificationDetail: async (userId: string) => {
+    return api.get<SelfieVerificationDetail>(`/admin/verifications/${userId}`);
+  },
+
+  approveVerification: async (userId: string, notes?: string) => {
+    return api.patch<{ success: boolean; verification: SelfieVerificationEntry }>(`/admin/verifications/${userId}/approve`, { notes });
+  },
+
+  rejectVerification: async (userId: string, notes?: string) => {
+    return api.patch<{ success: boolean; verification: SelfieVerificationEntry }>(`/admin/verifications/${userId}/reject`, { notes });
+  },
+
+  resetVerification: async (userId: string) => {
+    return api.patch<{ success: boolean }>(`/admin/verifications/${userId}/reset`, {});
+  },
+
+  getAdConfig: async () => {
+    return api.get<{ adConfig: AdConfig }>('/admin/ads');
+  },
+
+  updateAdConfig: async (config: Partial<AdConfig>) => {
+    return api.patch<{ adConfig: AdConfig }>('/admin/ads', config);
   }
 };

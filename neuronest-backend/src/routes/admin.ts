@@ -4,6 +4,7 @@ import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 import {
   db,
   findUserById,
+  updateUser,
   findSitePageBySlug,
   persistDb,
   type ContentCalendarEntry,
@@ -16,7 +17,11 @@ import {
   getN8nConfig,
   updateN8nConfig,
   getExperiments,
-  updateExperiments
+  updateExperiments,
+  getAppConfig,
+  updateAppConfig,
+  getAdConfig,
+  updateAdConfig
 } from '../config/settings.js';
 
 const router = Router();
@@ -118,8 +123,8 @@ const ENV_ALLOWLIST = [
     restartRequired: true
   },
   {
-    key: 'OPENAI_API_KEY',
-    description: 'OpenAI API key',
+    key: 'GEMINI_API_KEY',
+    description: 'Google Gemini API key',
     isSecret: true,
     restartRequired: true
   },
@@ -651,8 +656,8 @@ router.get('/payments/recent', async (req: Request, res: Response) => {
       created: new Date(charge.created * 1000).toISOString()
     }));
     res.json({ payments });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch {
+    res.json({ payments: [] });
   }
 });
 
@@ -840,6 +845,38 @@ router.patch('/experiments', (req: Request, res: Response) => {
   });
 
   res.json({ experiments: next });
+});
+
+// GET /config - Get app config (traits, interests, goals, pricing, crisis resources)
+router.get('/config', (req: Request, res: Response) => {
+  res.json({ config: getAppConfig() });
+});
+
+// PATCH /config - Update app config
+router.patch('/config', (req: Request, res: Response) => {
+  const allowedKeys = [
+    'traitOptions', 'interestOptions', 'goalOptions',
+    'paceOptions', 'directnessOptions', 'pricingPlans', 'crisisResources'
+  ];
+
+  const updates: Record<string, any> = {};
+  for (const key of allowedKeys) {
+    if (req.body[key] !== undefined) {
+      updates[key] = req.body[key];
+    }
+  }
+
+  const next = updateAppConfig(updates);
+  db.auditLogs.push({
+    id: uuidv4(),
+    actorId: req.user!.id,
+    action: 'update_app_config',
+    targetType: 'system',
+    metadata: { updatedKeys: Object.keys(updates) },
+    createdAt: new Date()
+  });
+
+  res.json({ config: next });
 });
 
 // GET /pages - list site pages
@@ -1699,11 +1736,11 @@ router.get('/integrations', async (req: Request, res: Response) => {
     });
   }
 
-  // Check OpenAI connection
+  // Check Gemini connection
   integrations.push({
-    id: 'openai',
-    name: 'OpenAI',
-    status: process.env.OPENAI_API_KEY ? 'connected' : 'disconnected',
+    id: 'gemini',
+    name: 'Google Gemini',
+    status: process.env.GEMINI_API_KEY ? 'connected' : 'disconnected',
     description: 'AI message explanations'
   });
 
@@ -1716,6 +1753,315 @@ router.get('/integrations', async (req: Request, res: Response) => {
   });
 
   res.json({ integrations });
+});
+
+// ─── Selfie Verification Review ──────────────────────────────────
+
+// GET /admin/verifications — list all users with selfie verification data
+router.get('/verifications', (req: Request, res: Response) => {
+  const { status } = req.query;
+  let users = db.users.filter((u) => u.selfieVerification && u.selfieVerification.status !== 'none');
+
+  if (status && typeof status === 'string') {
+    users = users.filter((u) => u.selfieVerification.status === status);
+  }
+
+  const verifications = users.map((u) => ({
+    userId: u.id,
+    userName: u.name,
+    email: u.email,
+    avatar: u.avatar,
+    status: u.selfieVerification.status,
+    authenticityScore: u.selfieVerification.authenticityScore,
+    selfieDataUrl: u.selfieVerification.selfieDataUrl,
+    submittedAt: u.selfieVerification.submittedAt,
+    verifiedAt: u.selfieVerification.verifiedAt,
+    reviewedBy: u.selfieVerification.reviewedBy,
+    reviewNotes: u.selfieVerification.reviewNotes
+  }));
+
+  // Sort: pending first, then by submittedAt desc
+  verifications.sort((a, b) => {
+    if (a.status === 'pending' && b.status !== 'pending') return -1;
+    if (a.status !== 'pending' && b.status === 'pending') return 1;
+    const aTime = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+    const bTime = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+    return bTime - aTime;
+  });
+
+  res.json({ verifications, total: verifications.length, pending: verifications.filter((v) => v.status === 'pending').length });
+});
+
+// GET /admin/verifications/:userId — get detail for a single user's verification
+router.get('/verifications/:userId', (req: Request, res: Response) => {
+  const user = findUserById(req.params.userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  res.json({
+    userId: user.id,
+    userName: user.name,
+    email: user.email,
+    avatar: user.avatar,
+    selfieVerification: user.selfieVerification,
+    verification: user.verification,
+    createdAt: user.createdAt
+  });
+});
+
+// PATCH /admin/verifications/:userId/approve — approve a pending selfie
+router.patch('/verifications/:userId/approve', (req: Request, res: Response) => {
+  const adminId = req.user!.id;
+  const user = findUserById(req.params.userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  if (user.selfieVerification.status !== 'pending') {
+    return res.status(400).json({ error: `Cannot approve — current status is "${user.selfieVerification.status}"` });
+  }
+
+  const { notes } = req.body;
+  const updatedVerification = {
+    ...user.selfieVerification,
+    status: 'verified' as const,
+    verifiedAt: new Date(),
+    reviewedBy: adminId,
+    reviewNotes: notes || undefined
+  };
+
+  updateUser(user.id, {
+    selfieVerification: updatedVerification,
+    verification: { ...user.verification, photo: true }
+  });
+
+  db.auditLogs.push({
+    id: uuidv4(),
+    actorId: adminId,
+    action: 'selfie_verification_approved',
+    targetType: 'user',
+    targetId: user.id,
+    metadata: { notes, authenticityScore: updatedVerification.authenticityScore },
+    createdAt: new Date()
+  });
+
+  res.json({ success: true, verification: updatedVerification });
+});
+
+// PATCH /admin/verifications/:userId/reject — reject a pending selfie
+router.patch('/verifications/:userId/reject', (req: Request, res: Response) => {
+  const adminId = req.user!.id;
+  const user = findUserById(req.params.userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  if (user.selfieVerification.status !== 'pending') {
+    return res.status(400).json({ error: `Cannot reject — current status is "${user.selfieVerification.status}"` });
+  }
+
+  const { notes } = req.body;
+  const updatedVerification = {
+    ...user.selfieVerification,
+    status: 'rejected' as const,
+    reviewedBy: adminId,
+    reviewNotes: notes || 'Verification did not meet requirements.'
+  };
+
+  updateUser(user.id, {
+    selfieVerification: updatedVerification,
+    verification: { ...user.verification, photo: false }
+  });
+
+  db.auditLogs.push({
+    id: uuidv4(),
+    actorId: adminId,
+    action: 'selfie_verification_rejected',
+    targetType: 'user',
+    targetId: user.id,
+    metadata: { notes },
+    createdAt: new Date()
+  });
+
+  res.json({ success: true, verification: updatedVerification });
+});
+
+// PATCH /admin/verifications/:userId/reset — reset verification to allow re-submission
+router.patch('/verifications/:userId/reset', (req: Request, res: Response) => {
+  const adminId = req.user!.id;
+  const user = findUserById(req.params.userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  updateUser(user.id, {
+    selfieVerification: { status: 'none' as const },
+    verification: { ...user.verification, photo: false }
+  });
+
+  db.auditLogs.push({
+    id: uuidv4(),
+    actorId: adminId,
+    action: 'selfie_verification_reset',
+    targetType: 'user',
+    targetId: user.id,
+    metadata: {},
+    createdAt: new Date()
+  });
+
+  res.json({ success: true });
+});
+
+// GET /ads - Get ad configuration
+router.get('/ads', (req: Request, res: Response) => {
+  res.json({ adConfig: getAdConfig() });
+});
+
+// PATCH /ads - Update ad configuration
+router.patch('/ads', (req: Request, res: Response) => {
+  const next = updateAdConfig(req.body);
+  db.auditLogs.push({
+    id: uuidv4(),
+    actorId: req.user!.id,
+    action: 'update_ad_config',
+    targetType: 'system',
+    metadata: req.body,
+    createdAt: new Date()
+  });
+  res.json({ adConfig: next });
+});
+
+// ─── Feedback Management ───────────────────────────────────
+
+// GET /feedback - List all feedback
+router.get('/feedback', (req: Request, res: Response) => {
+  const { status, area } = req.query;
+  let items = [...db.feedback];
+  if (status && typeof status === 'string') {
+    items = items.filter((f) => f.status === status);
+  }
+  if (area && typeof area === 'string') {
+    items = items.filter((f) => f.area === area);
+  }
+  items.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  res.json({
+    feedback: items.map((f) => ({
+      id: f.id,
+      userId: f.userId,
+      userName: f.userName,
+      anonymous: f.anonymous,
+      area: f.area,
+      rating: f.rating,
+      message: f.message,
+      status: f.status,
+      adminNotes: f.adminNotes,
+      createdAt: f.createdAt.toISOString()
+    })),
+    total: items.length
+  });
+});
+
+// PATCH /feedback/:id - Update feedback status / admin notes
+router.patch('/feedback/:id', (req: Request, res: Response) => {
+  const entry = db.feedback.find((f) => f.id === req.params.id);
+  if (!entry) return res.status(404).json({ error: 'Feedback not found' });
+
+  if (req.body.status) entry.status = req.body.status;
+  if (req.body.adminNotes !== undefined) entry.adminNotes = req.body.adminNotes;
+
+  res.json({ feedback: { ...entry, createdAt: entry.createdAt.toISOString() } });
+});
+
+// ─── Changelog Management ──────────────────────────────────
+
+// GET /changelog - List all changelog entries
+router.get('/changelog', (_req: Request, res: Response) => {
+  const entries = [...db.changelog]
+    .sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime())
+    .map((e) => ({
+      id: e.id,
+      title: e.title,
+      description: e.description,
+      category: e.category,
+      feedbackId: e.feedbackId,
+      feedbackQuote: e.feedbackQuote,
+      version: e.version,
+      publishedAt: e.publishedAt.toISOString(),
+      createdAt: e.createdAt.toISOString()
+    }));
+  res.json({ entries });
+});
+
+// POST /changelog - Create a changelog entry
+router.post('/changelog', (req: Request, res: Response) => {
+  const { title, description, category, feedbackId, version } = req.body;
+  if (!title || !description) {
+    return res.status(400).json({ error: 'title and description are required' });
+  }
+
+  let feedbackQuote: string | undefined;
+  if (feedbackId) {
+    const fb = db.feedback.find((f) => f.id === feedbackId);
+    if (fb) {
+      feedbackQuote = fb.message;
+      if (fb.status === 'reviewed') fb.status = 'actioned';
+    }
+  }
+
+  const now = new Date();
+  const entry = {
+    id: uuidv4(),
+    title,
+    description,
+    category: category || 'improvement',
+    feedbackId,
+    feedbackQuote,
+    version: version || undefined,
+    publishedAt: now,
+    createdAt: now
+  };
+
+  db.changelog.push(entry);
+
+  db.auditLogs.push({
+    id: uuidv4(),
+    actorId: req.user!.id,
+    action: 'create_changelog',
+    targetType: 'changelog',
+    targetId: entry.id,
+    metadata: { title },
+    createdAt: now
+  });
+
+  res.status(201).json({
+    entry: { ...entry, publishedAt: entry.publishedAt.toISOString(), createdAt: entry.createdAt.toISOString() }
+  });
+});
+
+// PATCH /changelog/:id - Update a changelog entry
+router.patch('/changelog/:id', (req: Request, res: Response) => {
+  const entry = db.changelog.find((e) => e.id === req.params.id);
+  if (!entry) return res.status(404).json({ error: 'Entry not found' });
+
+  if (req.body.title !== undefined) entry.title = req.body.title;
+  if (req.body.description !== undefined) entry.description = req.body.description;
+  if (req.body.category !== undefined) entry.category = req.body.category;
+  if (req.body.version !== undefined) entry.version = req.body.version;
+
+  if (req.body.feedbackId !== undefined) {
+    entry.feedbackId = req.body.feedbackId;
+    if (req.body.feedbackId) {
+      const fb = db.feedback.find((f) => f.id === req.body.feedbackId);
+      entry.feedbackQuote = fb?.message;
+    } else {
+      entry.feedbackQuote = undefined;
+    }
+  }
+
+  res.json({
+    entry: { ...entry, publishedAt: entry.publishedAt.toISOString(), createdAt: entry.createdAt.toISOString() }
+  });
+});
+
+// DELETE /changelog/:id - Delete a changelog entry
+router.delete('/changelog/:id', (req: Request, res: Response) => {
+  const idx = db.changelog.findIndex((e) => e.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Entry not found' });
+  db.changelog.splice(idx, 1);
+  res.json({ success: true });
 });
 
 export default router;

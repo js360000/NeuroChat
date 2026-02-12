@@ -18,7 +18,10 @@ import {
   Calendar,
   FlaskConical,
   AlertTriangle,
-  Inbox
+  Inbox,
+  Camera,
+  DollarSign,
+  MessageSquare
 } from 'lucide-react';
 import { adminApi, type DashboardStats } from '@/lib/api/admin';
 import { useAuthStore } from '@/lib/stores/auth';
@@ -41,6 +44,10 @@ import { AdminDigest } from './admin/Digest';
 import { AdminContentCalendar } from './admin/ContentCalendar';
 import { AdminExperiments } from './admin/Experiments';
 import { AdminAnomalies } from './admin/Anomalies';
+import { AdminVerifications } from './admin/Verifications';
+import { AdminAdvertising } from './admin/Advertising';
+import { AdminFeedback } from './admin/Feedback';
+import { AdminChangelog } from './admin/Changelog';
 
 export function AdminPage() {
   const location = useLocation();
@@ -77,6 +84,10 @@ export function AdminPage() {
     { path: '/admin/calendar', label: 'Content Calendar', icon: Calendar },
     { path: '/admin/experiments', label: 'Experiments', icon: FlaskConical },
     { path: '/admin/anomalies', label: 'Anomalies', icon: AlertTriangle },
+    { path: '/admin/verifications', label: 'Verifications', icon: Camera },
+    { path: '/admin/feedback', label: 'Feedback', icon: MessageSquare },
+    { path: '/admin/changelog', label: 'Changelog', icon: ScrollText },
+    { path: '/admin/advertising', label: 'Advertising', icon: DollarSign },
     { path: '/admin/automation', label: 'Automation', icon: Workflow },
     { path: '/admin/environment', label: 'Environment', icon: Server },
     { path: '/admin/settings', label: 'Settings', icon: Settings },
@@ -155,7 +166,11 @@ export function AdminPage() {
           <Route path="/calendar" element={<AdminContentCalendar />} />
           <Route path="/experiments" element={<AdminExperiments />} />
           <Route path="/anomalies" element={<AdminAnomalies />} />
+          <Route path="/verifications" element={<AdminVerifications />} />
           <Route path="/compliance" element={<AdminCompliance />} />
+          <Route path="/feedback" element={<AdminFeedback />} />
+          <Route path="/changelog" element={<AdminChangelog />} />
+          <Route path="/advertising" element={<AdminAdvertising />} />
           <Route path="/automation" element={<AdminAutomation />} />
           <Route path="/environment" element={<AdminEnvironment />} />
           <Route path="/settings" element={<AdminSettings />} />

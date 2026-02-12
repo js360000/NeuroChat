@@ -6,18 +6,22 @@ import {
   User, 
   Settings, 
   Menu, 
-  X, 
   LogOut,
   Sparkles,
   Users,
   BookOpen,
   Gamepad2,
   Compass,
-  LifeBuoy
+  LifeBuoy,
+  MoreHorizontal,
+  ChevronRight
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { EnergyMeter } from '@/components/EnergyMeter';
+import { Sheet, SheetContent, SheetTitle, SheetDescription, SheetTrigger } from '@/components/ui/sheet';
 import { useAuthStore } from '@/lib/stores/auth';
+import { useMessagesStore } from '@/lib/stores/messages';
 import { AccessibilityControls } from '@/components/AccessibilityControls';
 
 export function Navigation() {
@@ -25,19 +29,26 @@ export function Navigation() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
+  const unreadCount = useMessagesStore((s) => s.unreadCount);
 
-  const navItems = [
+  type NavItem = { path: string; label: string; icon: React.ComponentType<{ className?: string }>; badge?: number };
+
+  const primaryNav: NavItem[] = [
     { path: '/compass', label: 'Compass', icon: Compass },
     { path: '/dashboard', label: 'Discover', icon: Sparkles },
     { path: '/matches', label: 'Matches', icon: Heart },
-    { path: '/messages', label: 'Messages', icon: MessageCircle },
+    { path: '/messages', label: 'Messages', icon: MessageCircle, badge: unreadCount },
     { path: '/community', label: 'Community', icon: Users },
+  ];
+
+  const secondaryNav: NavItem[] = [
     { path: '/blog', label: 'Blog', icon: BookOpen },
     { path: '/games', label: 'Games', icon: Gamepad2 },
     { path: '/help', label: 'Help', icon: LifeBuoy },
+    { path: '/compare/hiki', label: 'Hiki Alternative', icon: Sparkles },
   ];
 
-  const compareItem = { path: '/compare/hiki', label: 'Hiki Alternative', icon: Sparkles };
+  const allNav = [...primaryNav, ...secondaryNav];
 
   const handleLogout = async () => {
     await logout();
@@ -68,11 +79,11 @@ export function Navigation() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
-            {navItems.map((item) => (
+            {primaryNav.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                className={`relative flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
                   isActive(item.path)
                     ? 'bg-primary/10 text-primary'
                     : 'text-neutral-600 hover:bg-neutral-100'
@@ -81,21 +92,39 @@ export function Navigation() {
               >
                 <item.icon className="w-4 h-4" />
                 {item.label}
+                {item.badge != null && item.badge > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1 shadow-sm">
+                    {item.badge > 99 ? '99+' : item.badge}
+                  </span>
+                )}
               </Link>
             ))}
-            <Link
-              key={compareItem.path}
-              to={compareItem.path}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium ${
-                isActive(compareItem.path)
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-neutral-600 hover:bg-neutral-50'
-              }`}
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              <compareItem.icon className="w-5 h-5" />
-              {compareItem.label}
-            </Link>
+            {/* More dropdown */}
+            <div className="relative group">
+              <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-neutral-600 hover:bg-neutral-100 transition-colors">
+                <MoreHorizontal className="w-4 h-4" />
+                More
+              </button>
+              <div className="absolute right-0 top-full mt-2 w-48 bg-popover rounded-xl shadow-card border border-border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                <div className="p-2">
+                  {secondaryNav.map((item) => (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${
+                        isActive(item.path)
+                          ? 'text-primary bg-primary/5'
+                          : 'text-neutral-600 hover:bg-neutral-50 dark:text-muted-foreground dark:hover:bg-muted'
+                      }`}
+                      onMouseEnter={() => prefetchRoute(item.path)}
+                    >
+                      <item.icon className="w-4 h-4" />
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Right Side */}
@@ -108,6 +137,7 @@ export function Navigation() {
             )}
 
             <AccessibilityControls />
+            <EnergyMeter />
 
             {/* Profile Dropdown */}
             <div className="relative group">
@@ -158,66 +188,88 @@ export function Navigation() {
             </div>
 
             {/* Mobile Menu Button */}
-            <button
-              className="md:hidden p-2 rounded-lg hover:bg-neutral-100"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            >
-              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
+            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <button className="md:hidden p-2 rounded-lg hover:bg-neutral-100 transition-colors">
+                  <Menu className="w-5 h-5" />
+                </button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[300px] p-0">
+                <SheetTitle className="sr-only">Navigation menu</SheetTitle>
+                <SheetDescription className="sr-only">Main navigation links</SheetDescription>
+                <div className="flex flex-col h-full">
+                  {/* Sheet header */}
+                  <div className="p-5 border-b border-border">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="w-10 h-10">
+                        <AvatarImage src={user?.avatar} />
+                        <AvatarFallback>{user?.name?.[0] || 'U'}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-semibold text-sm">{user?.name || 'User'}</p>
+                        <p className="text-xs text-muted-foreground">{user?.email}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Nav items */}
+                  <div className="flex-1 overflow-y-auto py-3 px-3 space-y-1">
+                    {allNav.map((item) => (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+                          isActive(item.path)
+                            ? 'bg-primary/10 text-primary'
+                            : 'text-foreground hover:bg-muted'
+                        }`}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        <item.icon className="w-5 h-5" />
+                        {item.label}
+                        {item.badge != null && item.badge > 0 && (
+                          <span className="ml-auto min-w-[20px] h-5 flex items-center justify-center rounded-full bg-red-500 text-white text-[11px] font-bold px-1.5">
+                            {item.badge > 99 ? '99+' : item.badge}
+                          </span>
+                        )}
+                        {isActive(item.path) && !(item.badge != null && item.badge > 0) && <ChevronRight className="w-4 h-4 ml-auto" />}
+                      </Link>
+                    ))}
+                  </div>
+
+                  {/* Bottom actions */}
+                  <div className="border-t border-border p-3 space-y-1">
+                    <Link
+                      to="/profile"
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-foreground hover:bg-muted transition-colors"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <User className="w-5 h-5" />
+                      Profile
+                    </Link>
+                    <Link
+                      to="/settings"
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-foreground hover:bg-muted transition-colors"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <Settings className="w-5 h-5" />
+                      Settings
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <LogOut className="w-5 h-5" />
+                      Logout
+                    </button>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </div>
 
-      {/* Mobile Menu */}
-      {isMobileMenuOpen && (
-        <div className="md:hidden bg-background border-t border-border">
-          <div className="px-4 py-2 space-y-1">
-            {navItems.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium ${
-                  isActive(item.path)
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-neutral-600 hover:bg-neutral-50'
-                }`}
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <item.icon className="w-5 h-5" />
-                {item.label}
-              </Link>
-            ))}
-            <Link
-              to={compareItem.path}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium ${
-                isActive(compareItem.path)
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-neutral-600 hover:bg-neutral-50'
-              }`}
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              <compareItem.icon className="w-5 h-5" />
-              {compareItem.label}
-            </Link>
-            <hr className="my-2" />
-            <Link
-              to="/profile"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-neutral-600 hover:bg-neutral-50"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              <User className="w-5 h-5" />
-              Profile
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-red-600 hover:bg-red-50"
-            >
-              <LogOut className="w-5 h-5" />
-              Logout
-            </button>
-          </div>
-        </div>
-      )}
     </nav>
   );
 }

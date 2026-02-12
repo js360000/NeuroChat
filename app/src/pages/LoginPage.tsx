@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Eye, EyeOff, Loader2, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,6 +14,8 @@ export function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { login, error, clearError } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
+  const sessionExpired = (location.state as any)?.reason === 'session_timeout';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,6 +42,13 @@ export function LoginPage() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {sessionExpired && (
+            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-center gap-2">
+              <Shield className="w-4 h-4 flex-shrink-0" />
+              Your session expired due to inactivity. Please sign in again.
+            </div>
+          )}
+
           {error && (
             <div className="p-3 rounded-lg bg-red-50 text-red-600 text-sm">
               {error}

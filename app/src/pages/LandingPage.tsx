@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import {
-  Heart,
   Brain,
   MessageCircle,
   Shield,
@@ -13,11 +12,13 @@ import {
   ShieldCheck,
   Download,
   Trash2,
-  Cookie
+  Cookie,
+  Crown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { AdBanner } from '@/components/AdBanner';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -28,9 +29,12 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { applySeo } from '@/lib/seo';
-import { AccessibilityControls } from '@/components/AccessibilityControls';
+import { AnimateIn } from '@/components/AnimateIn';
+import { PublicNav } from '@/components/PublicNav';
+import { PublicFooter } from '@/components/PublicFooter';
 import { testimonialsApi, type Testimonial } from '@/lib/api';
 import { pagesApi, type ExperimentSettings } from '@/lib/api/pages';
+import { useAppConfig } from '@/lib/stores/config';
 
 const FEATURES = [
   {
@@ -114,24 +118,7 @@ const DEFAULT_TESTIMONIALS: Testimonial[] = [
   }
 ];
 
-const PLANS = [
-  {
-    name: 'Basic',
-    price: 0,
-    features: ['Create a full profile', 'Browse and match', 'Basic messaging', 'Community access']
-  },
-  {
-    name: 'Premium',
-    price: 12,
-    features: ['AI Message Explanations', 'Tone Tags', 'See who liked you', 'Unlimited likes', 'Priority support'],
-    featured: true
-  },
-  {
-    name: 'Pro',
-    price: 24,
-    features: ['Video messaging', 'Incognito mode', 'Travel mode', 'Profile consultation', 'Exclusive events']
-  }
-];
+// PLANS derived from config inside component
 
 const TRUST_PILLARS = [
   {
@@ -156,9 +143,15 @@ const TRUST_PILLARS = [
   }
 ];
 
-const PACE_OPTIONS: Array<'slow' | 'balanced' | 'fast'> = ['slow', 'balanced', 'fast'];
-
 export function LandingPage() {
+  const appConfig = useAppConfig();
+  const PLANS = appConfig.pricingPlans.map((p) => ({
+    name: p.name,
+    price: p.monthlyPrice,
+    features: p.features,
+    featured: p.featured
+  }));
+  const PACE_OPTIONS = appConfig.paceOptions as Array<'slow' | 'balanced' | 'fast'>;
   const [demoCalm, setDemoCalm] = useState(35);
   const [demoToneTags, setDemoToneTags] = useState(true);
   const [demoPace, setDemoPace] = useState<'slow' | 'balanced' | 'fast'>('balanced');
@@ -172,7 +165,7 @@ export function LandingPage() {
       title: 'NeuroNest - Neurodivergent Dating, Friendship & Community',
       description:
         'NeuroNest is a neurodivergent-first platform for dating, friendship, and community. Clear communication tools, safety-first design, and a welcoming community.',
-      canonical: 'https://arcane-waters-46868-5bf57db34e8e.herokuapp.com/',
+      canonical: `${window.location.origin}/`,
       ogImage: '/landing_hero_neurodivergent_connection_1770055018741.png'
     });
   }, []);
@@ -248,36 +241,18 @@ export function LandingPage() {
 
   return (
     <div className="min-h-screen">
-      {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-xl border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Link to="/" className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-accent-violet flex items-center justify-center">
-                <Heart className="w-5 h-5 text-white fill-white" />
-              </div>
-              <span className="text-xl font-bold text-dark">NeuroNest</span>
-            </Link>
-            <div className="flex items-center gap-4">
-              <AccessibilityControls />
-              <Link to="/games" className="text-sm font-medium text-neutral-600 hover:text-dark">
-                Games
-              </Link>
-              <Link to="/login" className="text-sm font-medium text-neutral-600 hover:text-dark">
-                Log in
-              </Link>
-              <Link to="/register">
-                <Button className="bg-primary hover:bg-primary-600">Get Started</Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <PublicNav />
 
       {/* Story Hero */}
-      <section className="pt-32 pb-20 px-4 bg-gradient-to-br from-primary/5 via-peach/30 to-primary/5 overflow-hidden">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center max-w-3xl mx-auto">
+      <section className="pt-32 pb-20 px-4 bg-gradient-to-br from-primary/5 via-peach/30 to-primary/5 overflow-hidden relative">
+        {/* Floating decorative blobs */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+          <div className="absolute -top-20 -left-20 w-96 h-96 rounded-full bg-primary/5 blur-3xl animate-float" />
+          <div className="absolute top-40 -right-20 w-80 h-80 rounded-full bg-accent-violet/5 blur-3xl animate-float-slow" />
+          <div className="absolute bottom-20 left-1/4 w-64 h-64 rounded-full bg-peach/20 blur-3xl animate-float" />
+        </div>
+        <div className="max-w-7xl mx-auto relative z-10">
+          <AnimateIn className="text-center max-w-3xl mx-auto">
             <Badge className="mb-6 bg-peach text-dark">
               <Sparkles className="w-4 h-4 mr-1" />
               {heroVariant.badge}
@@ -308,11 +283,12 @@ export function LandingPage() {
               </Link>
               .
             </p>
-          </div>
+          </AnimateIn>
 
           <div className="grid md:grid-cols-3 gap-6 mt-12">
             {STORY_STEPS.map((step, index) => (
-              <Card key={step.title} className="border border-white/30 bg-white/80 backdrop-blur">
+              <AnimateIn key={step.title} delay={index * 150}>
+              <Card className="border border-white/30 bg-white/80 backdrop-blur h-full">
                 <CardContent className="p-6 space-y-4">
                   <div className="flex items-center justify-between text-sm text-neutral-500">
                     <div className="flex items-center gap-2">
@@ -333,6 +309,7 @@ export function LandingPage() {
                   )}
                 </CardContent>
               </Card>
+              </AnimateIn>
             ))}
           </div>
 
@@ -491,16 +468,17 @@ export function LandingPage() {
       {/* Features */}
       <section className="py-20 px-4">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
+          <AnimateIn className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Built Different, For Different</h2>
             <p className="text-neutral-500 max-w-xl mx-auto">
               Our features are designed with neurodivergent needs in mind.
             </p>
-          </div>
+          </AnimateIn>
 
           <div className="grid md:grid-cols-3 gap-8">
-            {FEATURES.map((feature) => (
-              <Card key={feature.title} className="hover:shadow-card-hover transition-all duration-300 group">
+            {FEATURES.map((feature, index) => (
+              <AnimateIn key={feature.title} delay={index * 120}>
+              <Card className="hover:shadow-card-hover transition-all duration-300 group h-full">
                 <CardContent className="p-6">
                   <Badge className="mb-4">{feature.badge}</Badge>
                   <div className="relative mb-6">
@@ -516,6 +494,7 @@ export function LandingPage() {
                   <p className="text-neutral-500 leading-relaxed">{feature.description}</p>
                 </CardContent>
               </Card>
+              </AnimateIn>
             ))}
           </div>
         </div>
@@ -554,9 +533,9 @@ export function LandingPage() {
       {/* Testimonials */}
       <section className="py-20 px-4 bg-neutral-50">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
+          <AnimateIn className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Real People, Real Connections</h2>
-          </div>
+          </AnimateIn>
 
           <div className="grid md:grid-cols-3 gap-6">
             {showcaseTestimonials.map((testimonial) => (
@@ -590,18 +569,18 @@ export function LandingPage() {
       {/* Pricing */}
       <section className="py-20 px-4">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
+          <AnimateIn className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Simple, Fair Pricing</h2>
             <p className="text-neutral-500">
               Up to 70% lower than competitors. Everyone deserves love.
             </p>
-          </div>
+          </AnimateIn>
 
           <div className="grid md:grid-cols-3 gap-8">
-            {PLANS.map((plan) => (
+            {PLANS.map((plan, index) => (
+              <AnimateIn key={plan.name} delay={index * 120}>
               <Card
-                key={plan.name}
-                className={plan.featured ? 'border-2 border-primary shadow-glow' : ''}
+                className={plan.featured ? 'border-2 border-primary shadow-glow h-full' : 'h-full'}
               >
                 <CardContent className="p-6">
                   {plan.featured && (
@@ -632,14 +611,56 @@ export function LandingPage() {
                   </Link>
                 </CardContent>
               </Card>
+              </AnimateIn>
             ))}
           </div>
         </div>
       </section>
 
+      {/* Respectful Advertising Promise */}
+      <section className="py-16 px-4 bg-neutral-50">
+        <AnimateIn className="max-w-4xl mx-auto">
+          <div className="rounded-2xl border border-neutral-200 bg-white p-8 sm:p-10">
+            <div className="flex flex-col sm:flex-row items-start gap-6">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Crown className="w-6 h-6 text-primary" />
+              </div>
+              <div className="space-y-3">
+                <h3 className="text-xl font-bold">Our Promise: Respectful Advertising</h3>
+                <p className="text-neutral-600">
+                  NeuroNest is free to use, and we keep it that way with thoughtful, non-intrusive ads.
+                  We believe advertising should never compromise your experience:
+                </p>
+                <ul className="text-sm text-neutral-600 space-y-1.5">
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-primary flex-shrink-0" />
+                    Ads are placed in dedicated, clearly-labelled spots — never over content
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-primary flex-shrink-0" />
+                    No pop-ups, no auto-play video, no full-screen takeovers
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-primary flex-shrink-0" />
+                    Ads are hidden in safety-sensitive areas (crisis tools, safety features)
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-primary flex-shrink-0" />
+                    Upgrade to Premium or Pro for a completely ad-free experience
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div className="mt-6">
+            <AdBanner area="landing" />
+          </div>
+        </AnimateIn>
+      </section>
+
       {/* CTA */}
       <section className="py-20 px-4 bg-gradient-to-br from-primary to-accent-violet">
-        <div className="max-w-4xl mx-auto text-center text-white">
+        <AnimateIn className="max-w-4xl mx-auto text-center text-white">
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
             Ready to Find Your People?
           </h2>
@@ -652,33 +673,10 @@ export function LandingPage() {
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
           </Link>
-        </div>
+        </AnimateIn>
       </section>
 
-      {/* Footer */}
-      <footer className="py-12 px-4 bg-dark-300 text-white">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent-violet flex items-center justify-center">
-              <Heart className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-lg font-bold">NeuroNest</span>
-          </div>
-          <div className="flex flex-wrap items-center gap-4 text-sm text-neutral-300 mb-3">
-            <Link to="/compare/hiki" className="hover:text-white">Hiki Alternative</Link>
-            <Link to="/blog" className="hover:text-white">Blog</Link>
-            <Link to="/community" className="hover:text-white">Community</Link>
-            <Link to="/games" className="hover:text-white">Games</Link>
-            <Link to="/about" className="hover:text-white">About</Link>
-            <Link to="/contact" className="hover:text-white">Contact</Link>
-            <Link to="/terms" className="hover:text-white">Terms</Link>
-            <Link to="/privacy" className="hover:text-white">Privacy</Link>
-          </div>
-          <p className="text-neutral-400 text-sm">
-            (c) 2025 NeuroNest. All rights reserved. Built with care for the ND community.
-          </p>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

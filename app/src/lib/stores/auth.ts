@@ -75,6 +75,11 @@ export const useAuthStore = create<AuthState>()(
       },
 
       fetchUser: async () => {
+        const token = localStorage.getItem('neuronest_token');
+        if (!token) {
+          set({ user: null, isAuthenticated: false });
+          return;
+        }
         try {
           const response = await authApi.getCurrentUser();
           set({

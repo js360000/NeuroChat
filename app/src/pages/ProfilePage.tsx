@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Camera, Loader2, Plus, X } from 'lucide-react';
+import { useRef, useMemo, useState } from 'react';
+import { Camera, Loader2, Plus, X, Upload, AlertCircle, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,32 +9,20 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { useAuthStore } from '@/lib/stores/auth';
+import { useAppConfig } from '@/lib/stores/config';
 import { toast } from 'sonner';
 
-const NEURODIVERGENT_TRAITS = [
-  'Autism', 'ADHD', 'Dyslexia', 'Dyspraxia', 'Dyscalculia',
-  'Tourette\'s', 'OCD', 'Bipolar', 'Anxiety', 'Sensory Processing'
-];
-
-const RESPONSE_PACE_OPTIONS: Array<'slow' | 'balanced' | 'fast'> = ['slow', 'balanced', 'fast'];
-const DIRECTNESS_OPTIONS: Array<'gentle' | 'direct'> = ['gentle', 'direct'];
-
-const CONNECTION_GOALS = [
-  'Friendship',
-  'Dating',
-  'Creative collaborators',
-  'Study buddies',
-  'Accountability partners',
-  'Community events',
-  'Co-working',
-  'Local meetups'
-];
-
 export function ProfilePage() {
+  const appConfig = useAppConfig();
+  const NEURODIVERGENT_TRAITS = appConfig.traitOptions;
+  const RESPONSE_PACE_OPTIONS = appConfig.paceOptions as Array<'slow' | 'balanced' | 'fast'>;
+  const DIRECTNESS_OPTIONS = appConfig.directnessOptions as Array<'gentle' | 'direct'>;
+  const CONNECTION_GOALS = appConfig.goalOptions;
   const { user, updateProfile } = useAuthStore();
-  const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+
   const [formData, setFormData] = useState({
     name: user?.name || '',
     bio: user?.bio || '',
@@ -49,20 +37,67 @@ export function ProfilePage() {
       directness: user?.communicationPreferences?.directness ?? 'gentle'
     }
   });
-  
+
   const [newInterest, setNewInterest] = useState('');
   const [newGoal, setNewGoal] = useState('');
+
+  const nameChangesRemaining = useMemo(() => {
+    const changes = user?.nameChanges || [];
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const recent = changes.filter((d) => new Date(d).getTime() > thirtyDaysAgo);
+    return Math.max(0, 2 - recent.length);
+  }, [user?.nameChanges]);
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
       await updateProfile(formData);
-      setIsEditing(false);
-      toast.success('Profile updated successfully');
-    } catch (error) {
+      toast.success('Profile updated');
+    } catch {
       toast.error('Failed to update profile');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be under 5 MB');
+      return;
+    }
+    setAvatarUploading(true);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        await updateProfile({ avatar: reader.result as string } as any);
+        toast.success('Profile photo updated');
+      } catch {
+        toast.error('Failed to update photo');
+      } finally {
+        setAvatarUploading(false);
+      }
+    };
+    reader.onerror = () => {
+      toast.error('Failed to read file');
+      setAvatarUploading(false);
+    };
+    reader.readAsDataURL(file);
+    // Reset so the same file can be re-selected
+    e.target.value = '';
+  };
+
+  const handleRemoveAvatar = async () => {
+    try {
+      await updateProfile({ avatar: '' } as any);
+      toast.success('Profile photo removed');
+    } catch {
+      toast.error('Failed to remove photo');
     }
   };
 
@@ -135,19 +170,56 @@ export function ProfilePage() {
                     {user?.name?.[0] || 'U'}
                   </AvatarFallback>
                 </Avatar>
-                {isEditing && (
-                  <button className="absolute bottom-0 right-0 w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center shadow-lg">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={avatarUploading}
+                  className="absolute bottom-0 right-0 w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center shadow-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  title="Change profile photo"
+                >
+                  {avatarUploading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
                     <Camera className="w-4 h-4" />
-                  </button>
-                )}
+                  )}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarFile}
+                />
               </div>
-              <div>
+              <div className="flex-1 min-w-0">
                 <h2 className="text-xl font-bold">{user?.name}</h2>
-                <p className="text-neutral-500">{user?.email}</p>
-                <Badge className="mt-2">
-                  {user?.subscription?.plan === 'free' ? 'Free' : 
-                   user?.subscription?.plan === 'premium' ? 'Premium' : 'Pro'}
-                </Badge>
+                <p className="text-neutral-500 truncate">{user?.email}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <Badge>
+                    {user?.subscription?.plan === 'free' ? 'Free' :
+                     user?.subscription?.plan === 'premium' ? 'Premium' : 'Pro'}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={avatarUploading}
+                  >
+                    <Upload className="w-3 h-3 mr-1" />
+                    Upload photo
+                  </Button>
+                  {user?.avatar && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-red-500 hover:text-red-600"
+                      onClick={handleRemoveAvatar}
+                    >
+                      <Trash2 className="w-3 h-3 mr-1" />
+                      Remove
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           </CardContent>
@@ -160,29 +232,32 @@ export function ProfilePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label>Name</Label>
-              {isEditing ? (
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                />
-              ) : (
-                <p className="text-neutral-600">{user?.name}</p>
-              )}
+              <div className="flex items-center justify-between">
+                <Label>Name</Label>
+                <span className={`text-[11px] ${nameChangesRemaining === 0 ? 'text-red-500' : 'text-neutral-400'}`}>
+                  {nameChangesRemaining === 0 ? (
+                    <span className="flex items-center gap-1"><AlertCircle className="w-3 h-3" /> No changes left this month</span>
+                  ) : (
+                    `${nameChangesRemaining} change${nameChangesRemaining === 1 ? '' : 's'} left this month`
+                  )}
+                </span>
+              </div>
+              <Input
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                disabled={nameChangesRemaining === 0 && formData.name !== user?.name}
+              />
             </div>
 
             <div>
               <Label>Bio</Label>
-              {isEditing ? (
-                <Textarea
-                  value={formData.bio}
-                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                  placeholder="Tell others about yourself..."
-                  maxLength={500}
-                />
-              ) : (
-                <p className="text-neutral-600">{user?.bio || 'No bio yet'}</p>
-              )}
+              <Textarea
+                value={formData.bio}
+                onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                placeholder="Tell others about yourself..."
+                maxLength={500}
+              />
+              <p className="text-xs text-neutral-400 mt-1 text-right">{formData.bio.length}/500</p>
             </div>
           </CardContent>
         </Card>
@@ -197,13 +272,12 @@ export function ProfilePage() {
               {NEURODIVERGENT_TRAITS.map((trait) => (
                 <button
                   key={trait}
-                  onClick={() => isEditing && toggleTrait(trait)}
-                  disabled={!isEditing}
+                  onClick={() => toggleTrait(trait)}
                   className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
                     formData.neurodivergentTraits.includes(trait)
                       ? 'bg-primary text-white'
                       : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                  } ${!isEditing && 'cursor-default'}`}
+                  }`}
                 >
                   {trait}
                 </button>
@@ -226,30 +300,26 @@ export function ProfilePage() {
                   className="flex items-center gap-1"
                 >
                   {interest}
-                  {isEditing && (
-                    <button
-                      onClick={() => removeInterest(interest)}
-                      className="ml-1 hover:text-red-500"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => removeInterest(interest)}
+                    className="ml-1 hover:text-red-500"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
                 </Badge>
               ))}
             </div>
-            {isEditing && (
-              <div className="flex gap-2">
-                <Input
-                  value={newInterest}
-                  onChange={(e) => setNewInterest(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addInterest()}
-                  placeholder="Add an interest..."
-                />
-                <Button type="button" onClick={addInterest} variant="outline">
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
+            <div className="flex gap-2">
+              <Input
+                value={newInterest}
+                onChange={(e) => setNewInterest(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addInterest()}
+                placeholder="Add an interest..."
+              />
+              <Button type="button" onClick={addInterest} variant="outline">
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
@@ -263,13 +333,12 @@ export function ProfilePage() {
               {CONNECTION_GOALS.map((goal) => (
                 <button
                   key={goal}
-                  onClick={() => isEditing && toggleGoal(goal)}
-                  disabled={!isEditing}
+                  onClick={() => toggleGoal(goal)}
                   className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
                     formData.connectionGoals.includes(goal)
                       ? 'bg-primary text-white'
                       : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                  } ${!isEditing && 'cursor-default'}`}
+                  }`}
                 >
                   {goal}
                 </button>
@@ -286,31 +355,27 @@ export function ProfilePage() {
                     className="flex items-center gap-1"
                   >
                     {goal}
-                    {isEditing && (
-                      <button
-                        onClick={() => removeGoal(goal)}
-                        className="ml-1 hover:text-red-500"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => removeGoal(goal)}
+                      className="ml-1 hover:text-red-500"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
                   </Badge>
                 ))}
             </div>
 
-            {isEditing && (
-              <div className="flex gap-2">
-                <Input
-                  value={newGoal}
-                  onChange={(e) => setNewGoal(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addGoal()}
-                  placeholder="Add a goal..."
-                />
-                <Button type="button" onClick={addGoal} variant="outline">
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
+            <div className="flex gap-2">
+              <Input
+                value={newGoal}
+                onChange={(e) => setNewGoal(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addGoal()}
+                placeholder="Add a goal..."
+              />
+              <Button type="button" onClick={addGoal} variant="outline">
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
@@ -327,7 +392,7 @@ export function ProfilePage() {
               </div>
               <Switch
                 checked={formData.communicationPreferences.preferredToneTags}
-                onCheckedChange={(checked) => 
+                onCheckedChange={(checked) =>
                   setFormData(prev => ({
                     ...prev,
                     communicationPreferences: {
@@ -336,7 +401,6 @@ export function ProfilePage() {
                     }
                   }))
                 }
-                disabled={!isEditing}
               />
             </div>
 
@@ -347,7 +411,7 @@ export function ProfilePage() {
               </div>
               <Switch
                 checked={formData.communicationPreferences.aiExplanations}
-                onCheckedChange={(checked) => 
+                onCheckedChange={(checked) =>
                   setFormData(prev => ({
                     ...prev,
                     communicationPreferences: {
@@ -356,7 +420,7 @@ export function ProfilePage() {
                     }
                   }))
                 }
-                disabled={!isEditing || user?.subscription?.plan === 'free'}
+                disabled={user?.subscription?.plan === 'free'}
               />
             </div>
 
@@ -367,7 +431,7 @@ export function ProfilePage() {
               </div>
               <Switch
                 checked={formData.communicationPreferences.voiceMessages}
-                onCheckedChange={(checked) => 
+                onCheckedChange={(checked) =>
                   setFormData(prev => ({
                     ...prev,
                     communicationPreferences: {
@@ -376,103 +440,77 @@ export function ProfilePage() {
                     }
                   }))
                 }
-                disabled={!isEditing}
               />
             </div>
 
             <div className="space-y-2">
               <p className="text-sm font-medium">Response pace</p>
-              {isEditing ? (
-                <div className="flex flex-wrap gap-2">
-                  {RESPONSE_PACE_OPTIONS.map((pace) => (
-                    <Button
-                      key={pace}
-                      type="button"
-                      size="sm"
-                      variant={formData.communicationPreferences.responsePace === pace ? 'default' : 'outline'}
-                      onClick={() =>
-                        setFormData(prev => ({
-                          ...prev,
-                          communicationPreferences: {
-                            ...prev.communicationPreferences,
-                            responsePace: pace
-                          }
-                        }))
-                      }
-                    >
-                      {pace.charAt(0).toUpperCase() + pace.slice(1)}
-                    </Button>
-                  ))}
-                </div>
-              ) : (
-                <Badge variant="secondary">
-                  {formData.communicationPreferences.responsePace.charAt(0).toUpperCase() +
-                    formData.communicationPreferences.responsePace.slice(1)}
-                </Badge>
-              )}
+              <div className="flex flex-wrap gap-2">
+                {RESPONSE_PACE_OPTIONS.map((pace) => (
+                  <Button
+                    key={pace}
+                    type="button"
+                    size="sm"
+                    variant={formData.communicationPreferences.responsePace === pace ? 'default' : 'outline'}
+                    onClick={() =>
+                      setFormData(prev => ({
+                        ...prev,
+                        communicationPreferences: {
+                          ...prev.communicationPreferences,
+                          responsePace: pace
+                        }
+                      }))
+                    }
+                  >
+                    {pace.charAt(0).toUpperCase() + pace.slice(1)}
+                  </Button>
+                ))}
+              </div>
             </div>
 
             <div className="space-y-2">
               <p className="text-sm font-medium">Directness</p>
-              {isEditing ? (
-                <div className="flex flex-wrap gap-2">
-                  {DIRECTNESS_OPTIONS.map((tone) => (
-                    <Button
-                      key={tone}
-                      type="button"
-                      size="sm"
-                      variant={formData.communicationPreferences.directness === tone ? 'default' : 'outline'}
-                      onClick={() =>
-                        setFormData(prev => ({
-                          ...prev,
-                          communicationPreferences: {
-                            ...prev.communicationPreferences,
-                            directness: tone
-                          }
-                        }))
-                      }
-                    >
-                      {tone.charAt(0).toUpperCase() + tone.slice(1)}
-                    </Button>
-                  ))}
-                </div>
-              ) : (
-                <Badge variant="secondary">
-                  {formData.communicationPreferences.directness.charAt(0).toUpperCase() +
-                    formData.communicationPreferences.directness.slice(1)}
-                </Badge>
-              )}
+              <div className="flex flex-wrap gap-2">
+                {DIRECTNESS_OPTIONS.map((tone) => (
+                  <Button
+                    key={tone}
+                    type="button"
+                    size="sm"
+                    variant={formData.communicationPreferences.directness === tone ? 'default' : 'outline'}
+                    onClick={() =>
+                      setFormData(prev => ({
+                        ...prev,
+                        communicationPreferences: {
+                          ...prev.communicationPreferences,
+                          directness: tone
+                        }
+                      }))
+                    }
+                  >
+                    {tone.charAt(0).toUpperCase() + tone.slice(1)}
+                  </Button>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-4">
-          {isEditing ? (
-            <>
-              <Button variant="outline" onClick={() => setIsEditing(false)}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleSave} 
-                className="bg-primary hover:bg-primary-600"
-                disabled={isSaving}
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  'Save Changes'
-                )}
-              </Button>
-            </>
-          ) : (
-            <Button onClick={() => setIsEditing(true)} variant="outline">
-              Edit Profile
-            </Button>
-          )}
+        {/* Save */}
+        <div className="flex justify-end">
+          <Button
+            onClick={handleSave}
+            className="bg-primary hover:bg-primary-600"
+            disabled={isSaving}
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Save Changes'
+            )}
+          </Button>
         </div>
       </div>
     </div>

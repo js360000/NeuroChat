@@ -10,32 +10,24 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { useAuthStore } from '@/lib/stores/auth';
+import { useAppConfig } from '@/lib/stores/config';
 
-const RESOURCE_MAP: Record<string, { name: string; description: string; contact: string }[]> = {
-  us: [
-    { name: '988 Lifeline', description: 'Crisis support (US)', contact: 'Call or text 988' },
-    { name: 'Crisis Text Line', description: 'Text support', contact: 'Text HOME to 741741' },
-    { name: 'SAMHSA', description: 'Treatment referral', contact: '1-800-662-HELP' }
-  ],
-  uk: [
-    { name: 'Samaritans', description: '24/7 support', contact: 'Call 116 123' },
-    { name: 'Mind', description: 'Mental health advice', contact: '0300 123 3393' }
-  ],
-  ca: [
-    { name: 'Talk Suicide Canada', description: '24/7 support', contact: '1-833-456-4566' },
-    { name: 'Crisis Services Canada', description: 'Text support', contact: 'Text 45645' }
-  ],
-  other: [
-    { name: 'Local emergency services', description: 'Immediate danger', contact: 'Call local emergency number' },
-    { name: 'Local crisis hotline', description: 'Find a local line', contact: 'Search: "crisis hotline + your country"' }
-  ]
+const REGION_LABELS: Record<string, string> = {
+  us: 'United States',
+  uk: 'United Kingdom',
+  ca: 'Canada',
+  au: 'Australia',
+  other: 'Other'
 };
 
 export function HelpPage() {
+  const appConfig = useAppConfig();
+  const RESOURCE_MAP = appConfig.crisisResources;
+  const regionKeys = Object.keys(RESOURCE_MAP);
   const [region, setRegion] = useState('us');
   const { user, updateProfile } = useAuthStore();
 
-  const resources = useMemo(() => RESOURCE_MAP[region] || RESOURCE_MAP.other, [region]);
+  const resources = useMemo(() => RESOURCE_MAP[region] || RESOURCE_MAP.other || [], [region, RESOURCE_MAP]);
 
   useEffect(() => {
     if (!user || user.safetyChecklist?.resourcesViewed) return;
@@ -76,10 +68,11 @@ export function HelpPage() {
                   <SelectValue placeholder="Select region" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="us">United States</SelectItem>
-                  <SelectItem value="uk">United Kingdom</SelectItem>
-                  <SelectItem value="ca">Canada</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  {regionKeys.map((key) => (
+                    <SelectItem key={key} value={key}>
+                      {REGION_LABELS[key] || key.toUpperCase()}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

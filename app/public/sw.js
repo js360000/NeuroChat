@@ -1,6 +1,6 @@
-const CACHE_NAME = 'neuronest-static-v1';
-const RUNTIME_CACHE = 'neuronest-runtime-v1';
-const AVATAR_CACHE = 'neuronest-avatars-v1';
+const CACHE_NAME = 'neuronest-static-v2';
+const RUNTIME_CACHE = 'neuronest-runtime-v2';
+const AVATAR_CACHE = 'neuronest-avatars-v2';
 const IMAGE_FALLBACK = '/icon.svg';
 
 const PRECACHE_URLS = [
@@ -73,14 +73,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // JS/CSS assets: network-first to avoid serving stale cached chunks
   event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached;
-      return fetch(request).then((response) => {
+    fetch(request)
+      .then((response) => {
         const copy = response.clone();
         caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
         return response;
-      });
-    })
+      })
+      .catch(() => caches.match(request))
   );
 });

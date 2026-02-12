@@ -4,28 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { adminApi } from '@/lib/api/admin';
+import { adminApi, type AdminCommunityPost } from '@/lib/api/admin';
 import { toast } from 'sonner';
 
-type CommunityPost = {
-  id: string;
-  title?: string;
-  content: string;
-  tags: string[];
-  toneTag?: string;
-  contentWarning?: string;
-  hidden: boolean;
-  sentiment?: {
-    score: number;
-    label: 'positive' | 'negative' | 'neutral';
-  };
-  flaggedKeywords?: string[];
-  author: { id: string; name: string; email?: string };
-  createdAt: string;
-};
-
 export function AdminContent() {
-  const [posts, setPosts] = useState<CommunityPost[]>([]);
+  const [posts, setPosts] = useState<AdminCommunityPost[]>([]);
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 

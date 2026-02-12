@@ -3,25 +3,15 @@ import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { adminApi } from '@/lib/api/admin';
+import { adminApi, type N8nWorkflow, type AdminSettings as AdminSettingsType } from '@/lib/api/admin';
 import { toast } from 'sonner';
 
-interface Integration {
-  name: string;
-  status: 'connected' | 'disconnected';
-  description: string;
-}
+type Integration = N8nWorkflow;
 
 export function AdminSettings() {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [settings, setSettings] = useState<{
-    siteName: string;
-    maintenanceMode: boolean;
-    registrationEnabled: boolean;
-    maxMatchesPerDay: number;
-    aiExplanationsEnabled: boolean;
-  } | null>(null);
+  const [settings, setSettings] = useState<AdminSettingsType | null>(null);
 
   useEffect(() => {
     loadSettings();
@@ -42,7 +32,7 @@ export function AdminSettings() {
     }
   };
 
-  const updateSetting = async (updates: Partial<typeof settings>) => {
+  const updateSetting = async (updates: Partial<AdminSettingsType>) => {
     if (!settings) return;
     const next = { ...settings, ...updates };
     setSettings(next);

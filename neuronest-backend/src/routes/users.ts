@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { authenticateToken } from '../middleware/auth.js';
 import { db, findUserById, User, persistDb } from '../db/index.js';
+import { getPlanLimits, canLike, incrementLike, getDailyUsage, setLastLike, getLastLike, clearLastLike } from '../config/premium.js';
 
 const router = Router();
 
@@ -179,9 +180,97 @@ router.get('/:id', authenticateToken, (req: Request, res: Response): void => {
   res.json({ user: toUserProfile(user) });
 });
 
+// GET /me/likes-received — see who liked you (premium+ only)
+router.get('/me/likes-received', authenticateToken, (req: Request, res: Response): void => {
+  const currentUserId = req.user!.id;
+  const currentUser = findUserById(currentUserId);
+  const plan = currentUser?.subscription?.plan || 'free';
+  const limits = getPlanLimits(plan);
+
+  const incomingLikes = db.likes
+    .filter((l) => l.toUserId === currentUserId)
+    .filter((l) => {
+      // exclude already-matched users
+      const alreadyMatched = db.matches.some(
+        (m) =>
+          ((m.userId1 === currentUserId && m.userId2 === l.fromUserId) ||
+            (m.userId1 === l.fromUserId && m.userId2 === currentUserId)) &&
+          m.status === 'matched'
+      );
+      return !alreadyMatched;
+    })
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  const likers = incomingLikes.map((like) => {
+    const fromUser = findUserById(like.fromUserId);
+    return {
+      id: like.id,
+      isSuper: like.isSuper || false,
+      createdAt: like.createdAt,
+      user: limits.canSeeWhoLikedYou && fromUser
+        ? {
+            id: fromUser.id,
+            name: fromUser.name,
+            avatar: fromUser.avatar,
+            bio: fromUser.bio,
+            neurodivergentTraits: fromUser.neurodivergentTraits,
+            specialInterests: fromUser.specialInterests,
+            isOnline: fromUser.isOnline,
+          }
+        : null,
+    };
+  });
+
+  res.json({
+    likes: likers,
+    count: likers.length,
+    revealed: limits.canSeeWhoLikedYou,
+  });
+});
+
+// GET /me/premium-status — daily usage + plan limits
+router.get('/me/premium-status', authenticateToken, (req: Request, res: Response): void => {
+  const currentUserId = req.user!.id;
+  const currentUser = findUserById(currentUserId);
+  const plan = currentUser?.subscription?.plan || 'free';
+  const limits = getPlanLimits(plan);
+  const usage = getDailyUsage(currentUserId);
+
+  res.json({
+    plan,
+    limits,
+    usage: {
+      likesToday: usage.likes,
+      superLikesToday: usage.superLikes,
+    },
+    remaining: {
+      likes: limits.dailyLikes === -1 ? -1 : Math.max(0, limits.dailyLikes - usage.likes),
+      superLikes: Math.max(0, limits.dailySuperLikes - usage.superLikes),
+    },
+  });
+});
+
 router.post('/:id/like', authenticateToken, (req: Request, res: Response): void => {
   const currentUserId = req.user!.id;
   const targetUserId = req.params.id;
+  const isSuper = req.body?.isSuper === true;
+
+  const currentUser = findUserById(currentUserId);
+  const plan = currentUser?.subscription?.plan || 'free';
+
+  // Enforce daily like limits
+  const check = canLike(currentUserId, plan, isSuper);
+  if (!check.allowed) {
+    const kind = isSuper ? 'Super Like' : 'like';
+    res.status(429).json({
+      error: `Daily ${kind} limit reached`,
+      limit: check.limit,
+      remaining: 0,
+      plan,
+      upgrade: plan === 'free' ? 'premium' : plan === 'premium' ? 'pro' : null,
+    });
+    return;
+  }
 
   const targetUser = findUserById(targetUserId);
   if (!targetUser) {
@@ -201,16 +290,23 @@ router.post('/:id/like', authenticateToken, (req: Request, res: Response): void 
     return;
   }
 
+  // Track usage
+  incrementLike(currentUserId, isSuper);
+  setLastLike(currentUserId, targetUserId);
+
   db.likes.push({
     id: uuidv4(),
     fromUserId: currentUserId,
     toUserId: targetUserId,
+    isSuper,
     createdAt: new Date(),
   });
 
   const mutualLike = db.likes.find(
     (l) => l.fromUserId === targetUserId && l.toUserId === currentUserId
   );
+
+  const updatedCheck = canLike(currentUserId, plan, isSuper);
 
   if (mutualLike) {
     const matchId = uuidv4();
@@ -227,15 +323,48 @@ router.post('/:id/like', authenticateToken, (req: Request, res: Response): void 
       id: conversationId,
       participants: [currentUserId, targetUserId],
       tags: [],
+      trustLevel: 1,
+      trustOverride: null,
+      messageCount: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
 
-    res.json({ message: 'It\'s a match!', match: true, conversationId });
+    res.json({ message: 'It\'s a match!', match: true, conversationId, remaining: updatedCheck.remaining });
     return;
   }
 
-  res.json({ message: 'Like sent', match: false });
+  res.json({ message: isSuper ? 'Super Like sent!' : 'Like sent', match: false, isSuper, remaining: updatedCheck.remaining });
+});
+
+// POST /:id/rewind — undo last like (premium+ only)
+router.post('/rewind', authenticateToken, (req: Request, res: Response): void => {
+  const currentUserId = req.user!.id;
+  const currentUser = findUserById(currentUserId);
+  const plan = currentUser?.subscription?.plan || 'free';
+  const limits = getPlanLimits(plan);
+
+  if (!limits.canRewind) {
+    res.status(403).json({ error: 'Rewind requires Premium or Pro', upgrade: 'premium' });
+    return;
+  }
+
+  const lastTargetId = getLastLike(currentUserId);
+  if (!lastTargetId) {
+    res.status(400).json({ error: 'Nothing to rewind' });
+    return;
+  }
+
+  // Remove the like
+  const likeIndex = db.likes.findIndex(
+    (l) => l.fromUserId === currentUserId && l.toUserId === lastTargetId
+  );
+  if (likeIndex !== -1) {
+    db.likes.splice(likeIndex, 1);
+  }
+
+  clearLastLike(currentUserId);
+  res.json({ message: 'Rewound successfully', targetUserId: lastTargetId });
 });
 
 router.delete('/:id/unmatch', authenticateToken, (req: Request, res: Response): void => {

@@ -7,11 +7,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ContentWarningDialog } from '@/components/ContentWarningDialog';
+import { AdBanner } from '@/components/AdBanner';
 import { blogApi, type BlogPost } from '@/lib/api/blog';
 import { useAuthStore } from '@/lib/stores/auth';
 import { scanTextForWarnings } from '@/lib/safety';
 import { applySeo } from '@/lib/seo';
 import { toast } from 'sonner';
+import { PublicNav } from '@/components/PublicNav';
+import { PublicFooter } from '@/components/PublicFooter';
+import { Navigation } from '@/components/Navigation';
 
 function isAdminEmail(email?: string) {
   if (!email) return false;
@@ -61,12 +65,15 @@ export function BlogPage() {
   }, []);
 
   useEffect(() => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const canonical = origin ? `${origin}/blog` : undefined;
     applySeo({
-      title: 'NeuroNest Blog — Guides & Stories',
+      title: 'NeuroNest Blog - Guides and Stories',
       description:
         'Read NeuroNest blog posts on neurodivergent dating, communication tools, and community stories.',
-      canonical: 'https://arcane-waters-46868-5bf57db34e8e.herokuapp.com/blog',
-      ogImage: '/blog_header_neural_pathways_1770055085954.png'
+      canonical,
+      ogImage: '/blog_header_neural_pathways_1770055085954.png',
+      keywords: ['neurodivergent dating', 'tone tags', 'calm communication', 'NeuroNest blog']
     });
   }, []);
 
@@ -140,8 +147,12 @@ export function BlogPage() {
     }
   }, [isAdmin]);
 
+  const isAuthenticated = !!user;
+
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-12">
+    <div className="min-h-screen bg-background">
+      {isAuthenticated ? <Navigation /> : <PublicNav />}
+      <div className={`max-w-6xl mx-auto p-6 space-y-12 ${isAuthenticated ? 'pt-20' : 'pt-24'}`}>
       {/* Blog Hero Header */}
       <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-primary to-accent-violet text-white h-[300px] flex flex-col items-center justify-center text-center p-8">
         <div className="absolute inset-0">
@@ -263,6 +274,8 @@ export function BlogPage() {
         </Card>
       )}
 
+      <AdBanner area="blog" />
+
       {isLoading ? (
         <div className="text-center text-neutral-500">Loading posts...</div>
       ) : posts.length === 0 ? (
@@ -271,7 +284,16 @@ export function BlogPage() {
         <div className="grid gap-4">
           {posts.map((post) => (
             <Card key={post.id} className="hover:shadow-card transition-shadow">
-              <CardContent className="p-5 space-y-3">
+              <CardContent className="p-5 space-y-4">
+                {(post.coverImage || post.ogImage) && (
+                  <div className="overflow-hidden rounded-xl border border-neutral-200">
+                    <img
+                      src={post.coverImage || post.ogImage}
+                      alt={post.title}
+                      className="w-full aspect-[2/1] object-cover"
+                    />
+                  </div>
+                )}
                 <div className="flex flex-wrap gap-2">
                   {post.tags.map((tag) => (
                     <Badge key={tag} variant="secondary">
@@ -331,6 +353,9 @@ export function BlogPage() {
         }}
         confirmLabel="Publish anyway"
       />
+      </div>
+      {!isAuthenticated && <PublicFooter />}
     </div>
   );
 }
+

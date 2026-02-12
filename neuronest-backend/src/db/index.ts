@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+﻿import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcryptjs';
 import { initPersistence as initPersistenceStore, persistDbSnapshot, type PersistenceDb } from './persistence.js';
 
@@ -68,6 +68,42 @@ export interface User {
   isOnline: boolean;
   isSuspended: boolean;
   isPaused?: boolean;
+  socialEnergy: {
+    level: number;
+    label: 'full' | 'medium' | 'low' | 'recharging';
+    showOnProfile: boolean;
+    autoPauseThreshold: number;
+    updatedAt?: Date;
+  };
+  guardianSensitivity: 'off' | 'subtle' | 'active';
+  communicationPassport: CommunicationPassportItem[];
+  boundaryPresets: UserBoundaryPreset[];
+  sensoryProfile: {
+    noise: number;
+    light: number;
+    foodTexture: number;
+    crowds: number;
+    touch: number;
+    scents: number;
+  };
+  selfieVerification: {
+    status: 'none' | 'pending' | 'verified' | 'rejected';
+    authenticityScore?: number;
+    selfieDataUrl?: string;
+    submittedAt?: Date;
+    verifiedAt?: Date;
+    reviewedBy?: string;
+    reviewNotes?: string;
+  };
+  stimPreferences: {
+    hapticIntensity: 'off' | 'light' | 'medium' | 'strong';
+    doodleMode: boolean;
+    fidgetReactions: boolean;
+    voiceToText: boolean;
+  };
+  nameChanges: Date[];
+  blockNsfwImages: boolean;
+  rechargeReminder: boolean;
   onboarding: {
     completed: boolean;
     completedAt?: Date;
@@ -90,8 +126,17 @@ export interface Conversation {
   id: string;
   participants: string[];
   tags?: string[];
+  trustLevel: number;
+  trustOverride?: number | null;
+  messageCount: number;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface MessageReaction {
+  userId: string;
+  emoji: string;
+  createdAt: Date;
 }
 
 export interface Message {
@@ -100,8 +145,30 @@ export interface Message {
   senderId: string;
   content: string;
   toneTag?: string;
+  imageUrl?: string;
+  isNsfw?: boolean;
+  nsfwBlocked?: boolean;
+  reactions?: MessageReaction[];
   createdAt: Date;
   readAt?: Date;
+}
+
+export interface BlogContentBlock {
+  type: 'heading' | 'paragraph' | 'list' | 'quote' | 'callout' | 'statGrid' | 'steps' | 'checklist' | 'image' | 'divider' | 'cta' | 'resourceGrid';
+  text?: string;
+  level?: 2 | 3 | 4;
+  style?: 'bullet' | 'number';
+  items?: Array<{ text?: string; checked?: boolean; label?: string; value?: string; note?: string; title?: string; description?: string; href?: string }>;
+  steps?: Array<{ title: string; body?: string }>;
+  author?: string;
+  tone?: 'info' | 'gentle' | 'note' | 'warning';
+  title?: string;
+  body?: string;
+  buttonLabel?: string;
+  buttonHref?: string;
+  src?: string;
+  alt?: string;
+  caption?: string;
 }
 
 export interface BlogPost {
@@ -110,8 +177,14 @@ export interface BlogPost {
   title: string;
   excerpt: string;
   content: string;
+  contentBlocks?: BlogContentBlock[];
   tags: string[];
   coverImage?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string[];
+  canonicalUrl?: string;
+  ogImage?: string;
   status: 'draft' | 'published';
   authorId: string;
   createdAt: Date;
@@ -163,6 +236,7 @@ export interface Like {
   id: string;
   fromUserId: string;
   toUserId: string;
+  isSuper?: boolean;
   createdAt: Date;
 }
 
@@ -188,7 +262,7 @@ export interface AuditLog {
   id: string;
   actorId: string;
   action: string;
-  targetType: 'user' | 'community_post' | 'report' | 'system' | 'integration';
+  targetType: 'user' | 'community_post' | 'report' | 'system' | 'integration' | 'changelog';
   targetId?: string;
   metadata?: Record<string, unknown>;
   createdAt: Date;
@@ -234,6 +308,111 @@ export interface SitePage {
   body: string;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface CommunicationPassportItem {
+  id: string;
+  text: string;
+  category: 'literal' | 'processing' | 'tone' | 'pacing' | 'sensory' | 'custom';
+  isPreset: boolean;
+  endorsements: number;
+}
+
+export interface UserBoundaryPreset {
+  id: string;
+  text: string;
+  visibility: 'all' | 'matches' | 'private';
+  isPreset: boolean;
+  active: boolean;
+}
+
+export interface PassportEndorsement {
+  id: string;
+  passportItemId: string;
+  targetUserId: string;
+  endorserId: string;
+  endorserName: string;
+  createdAt: Date;
+}
+
+export interface MessageFlag {
+  id: string;
+  messageId: string;
+  conversationId: string;
+  recipientId: string;
+  patternType: 'love-bombing' | 'gaslighting' | 'negging' | 'coercion' | 'pressure' | 'manipulation';
+  confidence: number;
+  snippet: string;
+  dismissed: boolean;
+  createdAt: Date;
+}
+
+export interface MaskingLog {
+  id: string;
+  userId: string;
+  intensity: 1 | 2 | 3 | 4 | 5;
+  context: 'conversation' | 'date' | 'social' | 'work' | 'other';
+  contextRef?: string;
+  energyBefore: number;
+  energyAfter: number;
+  notes?: string;
+  tags: string[];
+  createdAt: Date;
+}
+
+export interface RescueCall {
+  id: string;
+  userId: string;
+  datePlanId?: string;
+  scheduledAt: string;
+  message: string;
+  status: 'scheduled' | 'fired' | 'cancelled';
+  createdAt: Date;
+}
+
+export interface Doodle {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  dataUrl: string;
+  createdAt: Date;
+}
+
+export interface TrustedContact {
+  id: string;
+  userId: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  relationship: string;
+  createdAt: Date;
+}
+
+export interface DatePlan {
+  id: string;
+  userId: string;
+  matchName: string;
+  location: string;
+  scheduledAt: string;
+  durationMinutes: number;
+  trustedContactIds: string[];
+  status: 'upcoming' | 'active' | 'checked-in' | 'alert-sent' | 'completed' | 'cancelled';
+  checkInBy?: string;
+  checkedInAt?: string;
+  moodCheckIn?: 'great' | 'okay' | 'not-great' | 'need-support';
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface SosEvent {
+  id: string;
+  userId: string;
+  location?: string;
+  datePlanId?: string;
+  message?: string;
+  contactsNotified: string[];
+  createdAt: Date;
 }
 
 export interface CookieConsentLog {
@@ -307,12 +486,32 @@ export interface Testimonial {
   updatedAt: Date;
 }
 
+const DEFAULT_SOCIAL_ENERGY = {
+  level: 75,
+  label: 'medium' as const,
+  showOnProfile: false,
+  autoPauseThreshold: 15
+};
+
+const DEFAULT_P1_FIELDS = {
+  socialEnergy: { ...DEFAULT_SOCIAL_ENERGY },
+  guardianSensitivity: 'subtle' as const,
+  communicationPassport: [] as CommunicationPassportItem[],
+  boundaryPresets: [] as UserBoundaryPreset[],
+  sensoryProfile: { noise: 50, light: 50, foodTexture: 50, crowds: 50, touch: 50, scents: 50 },
+  selfieVerification: { status: 'none' as const },
+  stimPreferences: { hapticIntensity: 'off' as const, doodleMode: false, fidgetReactions: false, voiceToText: false },
+  nameChanges: [] as Date[],
+  blockNsfwImages: true,
+  rechargeReminder: false
+};
+
 const hashedPassword = bcrypt.hashSync('password123', 10);
 const adminPassword = bcrypt.hashSync('changethis!', 10);
 
 const seedUsers: User[] = [
   {
-    id: uuidv4(),
+    id: '00000000-0000-4000-a000-000000000001',
     email: 'joseph2x16@gmail.com',
     password: adminPassword,
     name: 'Joseph Admin',
@@ -353,13 +552,14 @@ const seedUsers: User[] = [
     isOnline: false,
     isSuspended: false,
     isPaused: false,
+    ...DEFAULT_P1_FIELDS,
     onboarding: { completed: true, completedAt: new Date() },
     lastActive: new Date(),
     createdAt: new Date('2024-01-01'),
     updatedAt: new Date(),
   },
   {
-    id: uuidv4(),
+    id: '00000000-0000-4000-a000-000000000002',
     email: 'alex.chen@email.com',
     password: hashedPassword,
     name: 'Alex Chen',
@@ -400,13 +600,14 @@ const seedUsers: User[] = [
     isOnline: true,
     isSuspended: false,
     isPaused: false,
+    ...DEFAULT_P1_FIELDS,
     onboarding: { completed: true, completedAt: new Date() },
     lastActive: new Date(),
     createdAt: new Date('2024-01-15'),
     updatedAt: new Date(),
   },
   {
-    id: uuidv4(),
+    id: '00000000-0000-4000-a000-000000000003',
     email: 'maya.johnson@email.com',
     password: hashedPassword,
     name: 'Maya Johnson',
@@ -447,13 +648,14 @@ const seedUsers: User[] = [
     isOnline: false,
     isSuspended: false,
     isPaused: false,
+    ...DEFAULT_P1_FIELDS,
     onboarding: { completed: true, completedAt: new Date() },
     lastActive: new Date(Date.now() - 3600000),
     createdAt: new Date('2024-02-20'),
     updatedAt: new Date(),
   },
   {
-    id: uuidv4(),
+    id: '00000000-0000-4000-a000-000000000004',
     email: 'sam.williams@email.com',
     password: hashedPassword,
     name: 'Sam Williams',
@@ -494,13 +696,14 @@ const seedUsers: User[] = [
     isOnline: true,
     isSuspended: false,
     isPaused: false,
+    ...DEFAULT_P1_FIELDS,
     onboarding: { completed: true, completedAt: new Date() },
     lastActive: new Date(),
     createdAt: new Date('2024-01-05'),
     updatedAt: new Date(),
   },
   {
-    id: uuidv4(),
+    id: '00000000-0000-4000-a000-000000000005',
     email: 'jordan.taylor@email.com',
     password: hashedPassword,
     name: 'Jordan Taylor',
@@ -541,13 +744,14 @@ const seedUsers: User[] = [
     isOnline: false,
     isSuspended: false,
     isPaused: false,
+    ...DEFAULT_P1_FIELDS,
     onboarding: { completed: true, completedAt: new Date() },
     lastActive: new Date(Date.now() - 7200000),
     createdAt: new Date('2024-03-10'),
     updatedAt: new Date(),
   },
   {
-    id: uuidv4(),
+    id: '00000000-0000-4000-a000-000000000006',
     email: 'riley.parker@email.com',
     password: hashedPassword,
     name: 'Riley Parker',
@@ -588,6 +792,7 @@ const seedUsers: User[] = [
     isOnline: true,
     isSuspended: false,
     isPaused: false,
+    ...DEFAULT_P1_FIELDS,
     onboarding: { completed: true, completedAt: new Date() },
     lastActive: new Date(),
     createdAt: new Date('2024-04-01'),
@@ -596,32 +801,262 @@ const seedUsers: User[] = [
 ];
 
 const now = new Date();
+const day = 86400000;
 const seedBlogPosts: BlogPost[] = [
   {
     id: uuidv4(),
     slug: 'welcome-to-neuronest',
-    title: 'Welcome to NeuroNest',
+    title: 'Welcome to NeuroNest: Calm, clear, and consent-first',
     excerpt: 'Why we built a calmer, clearer social space for neurodivergent connection.',
-    content: `NeuroNest is built to reduce ambiguity, lower social friction, and create a safer space for connection.\n\nWe focus on clear communication tools like tone tags, gentle pacing, and transparent preferences so people can meet with less stress and more clarity.`,
-    tags: ['Product', 'Community'],
+    content:
+      'NeuroNest is built to reduce ambiguity, lower social friction, and create a safer space for connection. We focus on clarity tools like tone tags, pacing, and preferences so people can meet with less stress and more trust.',
+    contentBlocks: [
+      { type: 'paragraph', text: 'NeuroNest is built to reduce ambiguity, lower social friction, and create a safer space for connection. We focus on clarity tools like tone tags, pacing, and preferences so people can meet with less stress and more trust.' },
+      { type: 'heading', level: 2, text: 'What we optimize for' },
+      {
+        type: 'list',
+        style: 'bullet',
+        items: [
+          { text: 'Signal clarity over speed.' },
+          { text: 'Consent before escalation.' },
+          { text: 'Predictability without losing warmth.' }
+        ]
+      },
+      {
+        type: 'callout',
+        tone: 'gentle',
+        title: 'Design principle',
+        text: 'Calm is a feature. If a flow creates pressure, we slow it down or make it optional.'
+      },
+      {
+        type: 'statGrid',
+        items: [
+          { label: 'Tone clarity', value: '3x', note: 'Fewer misunderstandings in early chats.' },
+          { label: 'Pacing control', value: 'Flexible', note: 'You decide how fast things move.' },
+          { label: 'Boundary respect', value: 'Built in', note: 'Preferences are visible and actionable.' }
+        ]
+      },
+      { type: 'divider' },
+      { type: 'heading', level: 2, text: 'How it feels' },
+      { type: 'paragraph', text: 'Less guessing. Fewer surprises. More room to be yourself. That is the core promise of NeuroNest.' },
+      {
+        type: 'cta',
+        title: 'Start with a low pressure hello',
+        body: 'Set your pace, choose your tone defaults, and see how much easier it gets to connect.',
+        buttonLabel: 'Explore the community',
+        buttonHref: '/community'
+      }
+    ],
+    tags: ['Product', 'Community', 'Design'],
+    coverImage: '/blog_header_neural_pathways_1770055085954.png',
+    seoTitle: 'NeuroNest blog: Calm, clear, consent-first connection',
+    seoDescription: 'Learn how NeuroNest designs for low friction connection using pacing, tone tags, and clear preferences.',
+    seoKeywords: ['neurodivergent dating', 'consent-first design', 'tone tags', 'calm social app'],
+    ogImage: '/blog_header_neural_pathways_1770055085954.png',
     status: 'published',
     authorId: seedUsers[0].id,
-    createdAt: now,
+    createdAt: new Date(Date.now() - 6 * day),
     updatedAt: now,
-    publishedAt: now
+    publishedAt: new Date(Date.now() - 6 * day)
   },
   {
     id: uuidv4(),
-    slug: 'how-tone-tags-help',
-    title: 'How Tone Tags Help Conversations',
-    excerpt: 'A quick guide on tone tags and when to use them.',
-    content: `Tone tags make intent explicit. They help reduce misunderstandings in text-based communication and can make conversations feel safer.\n\nExamples include /j for joking, /srs for serious, and /nm for not mad.`,
-    tags: ['Guides', 'Accessibility'],
+    slug: 'tone-tags-clarity-guide',
+    title: 'Tone tags and clarity: a practical guide',
+    excerpt: 'Tone tags reduce ambiguity. Here is when to use them, and how to keep them lightweight.',
+    content:
+      'Tone tags make intent explicit. They reduce misunderstandings in text-based communication and can make conversations feel safer. This guide shows when to use them and how to keep them simple.',
+    contentBlocks: [
+      { type: 'paragraph', text: 'Tone tags make intent explicit. They reduce misunderstandings in text-based communication and can make conversations feel safer. This guide shows when to use them and how to keep them simple.' },
+      { type: 'heading', level: 2, text: 'Use tone tags when' },
+      {
+        type: 'list',
+        style: 'bullet',
+        items: [
+          { text: 'Your message could be read in multiple ways.' },
+          { text: 'You are using sarcasm, teasing, or irony.' },
+          { text: 'You are setting a boundary or asking for clarity.' }
+        ]
+      },
+      {
+        type: 'callout',
+        tone: 'info',
+        title: 'Keep it simple',
+        text: 'You do not need a long list. Start with 3 or 4 tags that feel natural for you.'
+      },
+      { type: 'heading', level: 3, text: 'A starter set' },
+      {
+        type: 'checklist',
+        items: [
+          { text: '/srs for serious', checked: true },
+          { text: '/j for joking', checked: true },
+          { text: '/nm for not mad', checked: true },
+          { text: '/gen for genuine question', checked: true }
+        ]
+      },
+      { type: 'divider' },
+      { type: 'paragraph', text: 'Tone tags are optional, not a rule. The goal is clarity, not perfection.' }
+    ],
+    tags: ['Guides', 'Accessibility', 'Communication'],
+    coverImage: '/tone_tags_illustration_1770055069365.png',
+    seoTitle: 'Tone tags guide: reduce ambiguity in ND conversations',
+    seoDescription: 'A practical guide to tone tags for clearer, calmer text conversations.',
+    seoKeywords: ['tone tags', 'neurodivergent communication', 'text clarity'],
+    ogImage: '/tone_tags_illustration_1770055069365.png',
     status: 'published',
     authorId: seedUsers[1].id,
-    createdAt: now,
+    createdAt: new Date(Date.now() - 5 * day),
     updatedAt: now,
-    publishedAt: now
+    publishedAt: new Date(Date.now() - 5 * day)
+  },
+  {
+    id: uuidv4(),
+    slug: 'sensory-friendly-first-dates',
+    title: 'Sensory friendly first dates: plan for comfort',
+    excerpt: 'A low pressure plan for first dates with less sensory load and more autonomy.',
+    content:
+      'First dates can be noisy and unpredictable. This guide offers a low pressure plan that prioritizes sensory comfort, consent, and clear exit ramps.',
+    contentBlocks: [
+      { type: 'paragraph', text: 'First dates can be noisy and unpredictable. This guide offers a low pressure plan that prioritizes sensory comfort, consent, and clear exit ramps.' },
+      { type: 'heading', level: 2, text: 'A gentle plan you can reuse' },
+      {
+        type: 'steps',
+        steps: [
+          { title: 'Pick a predictable place', body: 'Quiet cafes, parks, or calm museum hours are reliable.' },
+          { title: 'Share your preferences early', body: 'Lighting, volume, and duration can be negotiated.' },
+          { title: 'Set an easy exit', body: 'Plan a 60 to 90 minute cap with an optional extension.' }
+        ]
+      },
+      {
+        type: 'callout',
+        tone: 'note',
+        title: 'Consent-first pacing',
+        text: 'You can be warm and clear at the same time. A simple heads up makes the whole date feel safer.'
+      },
+      { type: 'heading', level: 3, text: 'Comfort checklist' },
+      {
+        type: 'checklist',
+        items: [
+          { text: 'Bring a grounding item', checked: true },
+          { text: 'Choose low scent spaces', checked: true },
+          { text: 'Share quiet hour preferences', checked: true },
+          { text: 'Have a reset plan after', checked: true }
+        ]
+      },
+      { type: 'image', src: '/safe_verified_illustration_1770055050348.png', alt: 'Safety and trust illustration', caption: 'Safety is a shared responsibility, not a secret rule.' }
+    ],
+    tags: ['Guides', 'Dating', 'Sensory'],
+    coverImage: '/safe_verified_illustration_1770055050348.png',
+    seoTitle: 'Sensory friendly first dates for neurodivergent adults',
+    seoDescription: 'Plan first dates that respect sensory needs with clear pacing, consent, and exit ramps.',
+    seoKeywords: ['sensory friendly', 'first dates', 'neurodivergent dating'],
+    ogImage: '/safe_verified_illustration_1770055050348.png',
+    status: 'published',
+    authorId: seedUsers[2].id,
+    createdAt: new Date(Date.now() - 4 * day),
+    updatedAt: now,
+    publishedAt: new Date(Date.now() - 4 * day)
+  },
+  {
+    id: uuidv4(),
+    slug: 'ai-explain-without-losing-your-voice',
+    title: 'AI Explain: clarity without losing your voice',
+    excerpt: 'Use AI Explain to summarize intent while keeping your tone and boundaries intact.',
+    content:
+      'AI Explain helps clarify what was said without rewriting who you are. Here is how to use it to reduce guesswork while staying authentic.',
+    contentBlocks: [
+      { type: 'paragraph', text: 'AI Explain helps clarify what was said without rewriting who you are. Here is how to use it to reduce guesswork while staying authentic.' },
+      { type: 'heading', level: 2, text: 'When AI Explain helps most' },
+      {
+        type: 'list',
+        style: 'bullet',
+        items: [
+          { text: 'Messages with mixed signals or vague intent.' },
+          { text: 'High stakes conversations where clarity matters.' },
+          { text: 'After a misunderstanding when you want a calmer reset.' }
+        ]
+      },
+      {
+        type: 'statGrid',
+        items: [
+          { label: 'Clarity gain', value: 'High', note: 'Short summaries focus on intent.' },
+          { label: 'Tone preserved', value: 'Yes', note: 'We do not overwrite your voice.' },
+          { label: 'Control', value: 'Always', note: 'You decide what to send.' }
+        ]
+      },
+      { type: 'heading', level: 3, text: 'A simple flow' },
+      {
+        type: 'steps',
+        steps: [
+          { title: 'Run Explain on a confusing message', body: 'You get a short, neutral summary.' },
+          { title: 'Choose a response template', body: 'Pick clear, kind options or write your own.' },
+          { title: 'Send with a tone tag', body: 'If it helps, add /srs or /gen.' }
+        ]
+      },
+      { type: 'image', src: '/ai_analysis_feature_illustration_1770055034329.png', alt: 'AI clarity illustration', caption: 'AI Explain reduces ambiguity without replacing your voice.' }
+    ],
+    tags: ['AI', 'Product', 'Communication'],
+    coverImage: '/ai_analysis_feature_illustration_1770055034329.png',
+    seoTitle: 'AI Explain: clarify intent without losing your voice',
+    seoDescription: 'How to use AI Explain for calmer, clearer conversations while staying authentic.',
+    seoKeywords: ['ai explain', 'communication tools', 'neurodivergent messaging'],
+    ogImage: '/ai_analysis_feature_illustration_1770055034329.png',
+    status: 'published',
+    authorId: seedUsers[0].id,
+    createdAt: new Date(Date.now() - 3 * day),
+    updatedAt: now,
+    publishedAt: new Date(Date.now() - 3 * day)
+  },
+  {
+    id: uuidv4(),
+    slug: 'repairing-misunderstandings-kindly',
+    title: 'Repairing misunderstandings kindly',
+    excerpt: 'A calm, consent-first repair script for when conversations go sideways.',
+    content:
+      'Misunderstandings happen. A gentle repair keeps connection intact and lowers pressure for everyone involved.',
+    contentBlocks: [
+      { type: 'paragraph', text: 'Misunderstandings happen. A gentle repair keeps connection intact and lowers pressure for everyone involved.' },
+      { type: 'heading', level: 2, text: 'A three step repair script' },
+      {
+        type: 'steps',
+        steps: [
+          { title: 'Name what happened', body: 'Use neutral language and keep it short.' },
+          { title: 'Share your intent', body: 'Clarify what you meant without defending.' },
+          { title: 'Offer a next step', body: 'Ask what would feel safe or clear now.' }
+        ]
+      },
+      {
+        type: 'quote',
+        text: 'Thanks for telling me. I want to reset this kindly and clearly.',
+        author: 'NeuroNest community norm'
+      },
+      {
+        type: 'resourceGrid',
+        items: [
+          { title: 'Boundary templates', description: 'Short scripts for asking for clarity.', href: '/help' },
+          { title: 'Community support', description: 'Peer spaces for gentle repair practice.', href: '/community' },
+          { title: 'Your preferences', description: 'Update pacing and tone defaults.', href: '/settings' }
+        ]
+      },
+      {
+        type: 'cta',
+        title: 'Need a reset? Try the calm chat tools',
+        body: 'Use tone tags, pacing, and AI Explain to bring clarity back to the conversation.',
+        buttonLabel: 'Open messages',
+        buttonHref: '/messages'
+      }
+    ],
+    tags: ['Community', 'Conflict repair', 'Guides'],
+    coverImage: '/landing_hero_neurodivergent_connection_1770055018741.png',
+    seoTitle: 'Repair misunderstandings kindly: a calm script',
+    seoDescription: 'A three step repair script for neurodivergent friendly conversations.',
+    seoKeywords: ['repair script', 'conflict repair', 'neurodivergent communication'],
+    ogImage: '/landing_hero_neurodivergent_connection_1770055018741.png',
+    status: 'published',
+    authorId: seedUsers[3].id,
+    createdAt: new Date(Date.now() - 2 * day),
+    updatedAt: now,
+    publishedAt: new Date(Date.now() - 2 * day)
   }
 ];
 
@@ -675,7 +1110,7 @@ const seedTestimonials: Testimonial[] = [
   },
   {
     id: uuidv4(),
-    quote: 'I’ve made more genuine friends on NeuroNest in 3 months than in my entire life.',
+    quote: "I've made more genuine friends on NeuroNest in 3 months than in my entire life.",
     author: 'Sam T.',
     role: 'ADHD',
     avatar: '/user_headshot_3_sam_1770055235874.png',
@@ -804,6 +1239,31 @@ const seedSitePages: SitePage[] = [
   }
 ];
 
+export interface Feedback {
+  id: string;
+  userId?: string;
+  userName?: string;
+  anonymous: boolean;
+  area: string;
+  rating: number;
+  message: string;
+  status: 'new' | 'reviewed' | 'actioned';
+  adminNotes?: string;
+  createdAt: Date;
+}
+
+export interface ChangelogEntry {
+  id: string;
+  title: string;
+  description: string;
+  category: 'feature' | 'improvement' | 'fix' | 'feedback-driven';
+  feedbackId?: string;
+  feedbackQuote?: string;
+  version?: string;
+  publishedAt: Date;
+  createdAt: Date;
+}
+
 export const db = {
   users: [...seedUsers],
   matches: [] as Match[],
@@ -829,6 +1289,16 @@ export const db = {
   sharedRoutines: [...seedSharedRoutines],
   digestQueue: [...seedDigestQueue],
   contentCalendar: [...seedContentCalendar],
+  trustedContacts: [] as TrustedContact[],
+  datePlans: [] as DatePlan[],
+  sosEvents: [] as SosEvent[],
+  messageFlags: [] as MessageFlag[],
+  passportEndorsements: [] as PassportEndorsement[],
+  maskingLogs: [] as MaskingLog[],
+  rescueCalls: [] as RescueCall[],
+  doodles: [] as Doodle[],
+  feedback: [] as Feedback[],
+  changelog: [] as ChangelogEntry[],
 } as PersistenceDb & {
   users: User[];
   matches: Match[];
@@ -849,6 +1319,16 @@ export const db = {
   sharedRoutines: SharedRoutine[];
   digestQueue: DigestQueueEntry[];
   contentCalendar: ContentCalendarEntry[];
+  trustedContacts: TrustedContact[];
+  datePlans: DatePlan[];
+  sosEvents: SosEvent[];
+  messageFlags: MessageFlag[];
+  passportEndorsements: PassportEndorsement[];
+  maskingLogs: MaskingLog[];
+  rescueCalls: RescueCall[];
+  doodles: Doodle[];
+  feedback: Feedback[];
+  changelog: ChangelogEntry[];
 };
 
 export function findUserByEmail(email: string): User | undefined {
@@ -930,6 +1410,7 @@ export function createUser(data: CreateUserInput): User {
     isOnline: true,
     isSuspended: false,
     isPaused: false,
+    ...DEFAULT_P1_FIELDS,
     onboarding: {
       completed: false,
       step: 1
@@ -972,3 +1453,6 @@ export async function initPersistence() {
 export function persistDb() {
   void persistDbSnapshot(db);
 }
+
+
+

@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { authenticateToken, optionalAuth, requireAdmin } from '../middleware/auth.js';
-import { db, BlogPost, BlogComment, findUserById } from '../db/index.js';
+import { db, BlogPost, BlogComment, BlogContentBlock, findUserById } from '../db/index.js';
 
 const router = Router();
 
@@ -30,16 +30,77 @@ function readingTime(content: string): number {
   return Math.max(1, Math.round(words / 200));
 }
 
+function blocksToText(blocks?: BlogContentBlock[]): string {
+  if (!Array.isArray(blocks)) return '';
+  const parts: string[] = [];
+  for (const block of blocks) {
+    switch (block.type) {
+      case 'heading':
+      case 'paragraph':
+        if (block.text) parts.push(block.text);
+        break;
+      case 'quote':
+        if (block.text) parts.push(block.text);
+        if (block.author) parts.push(block.author);
+        break;
+      case 'callout':
+        if (block.title) parts.push(block.title);
+        if (block.text) parts.push(block.text);
+        if (block.body) parts.push(block.body);
+        break;
+      case 'list':
+      case 'checklist':
+      case 'statGrid':
+      case 'resourceGrid':
+        if (Array.isArray(block.items)) {
+          for (const item of block.items) {
+            if (item.text) parts.push(item.text);
+            if (item.label) parts.push(item.label);
+            if (item.value) parts.push(item.value);
+            if (item.note) parts.push(item.note);
+            if (item.title) parts.push(item.title);
+            if (item.description) parts.push(item.description);
+          }
+        }
+        break;
+      case 'steps':
+        if (Array.isArray(block.steps)) {
+          for (const step of block.steps) {
+            parts.push(step.title);
+            if (step.body) parts.push(step.body);
+          }
+        }
+        break;
+      case 'cta':
+        if (block.title) parts.push(block.title);
+        if (block.body) parts.push(block.body);
+        break;
+      default:
+        break;
+    }
+  }
+  return parts.join(' ');
+}
+
 function serializePost(post: BlogPost) {
   const author = findUserById(post.authorId);
+  const contentForReading = post.contentBlocks && post.contentBlocks.length > 0
+    ? blocksToText(post.contentBlocks) || post.content
+    : post.content;
   return {
     id: post.id,
     slug: post.slug,
     title: post.title,
     excerpt: post.excerpt,
     content: post.content,
+    contentBlocks: post.contentBlocks,
     tags: post.tags,
     coverImage: post.coverImage,
+    seoTitle: post.seoTitle,
+    seoDescription: post.seoDescription,
+    seoKeywords: post.seoKeywords,
+    canonicalUrl: post.canonicalUrl,
+    ogImage: post.ogImage,
     status: post.status,
     author: author
       ? { id: author.id, name: author.name, avatar: author.avatar }
@@ -47,7 +108,7 @@ function serializePost(post: BlogPost) {
     createdAt: post.createdAt.toISOString(),
     updatedAt: post.updatedAt.toISOString(),
     publishedAt: post.publishedAt?.toISOString(),
-    readingTime: readingTime(post.content)
+    readingTime: readingTime(contentForReading)
   };
 }
 
@@ -100,8 +161,12 @@ router.get('/:slug', optionalAuth, (req: Request, res: Response) => {
 
 router.post('/', authenticateToken, requireAdmin, (req: Request, res: Response) => {
 
-  const { title, content, tags, coverImage, status } = req.body;
-  if (!title || !content) {
+  const { title, content, contentBlocks, tags, coverImage, status, seoTitle, seoDescription, seoKeywords, canonicalUrl, ogImage } = req.body;
+  const parsedBlocks = Array.isArray(contentBlocks) ? (contentBlocks as BlogContentBlock[]) : undefined;
+  const contentText = typeof content === 'string' && content.trim().length > 0
+    ? content.trim()
+    : blocksToText(parsedBlocks);
+  if (!title || !contentText) {
     return res.status(400).json({ error: 'Title and content are required' });
   }
 
@@ -115,10 +180,16 @@ router.post('/', authenticateToken, requireAdmin, (req: Request, res: Response) 
     id: uuidv4(),
     slug,
     title,
-    content,
-    excerpt: toExcerpt(content),
+    content: contentText,
+    contentBlocks: parsedBlocks,
+    excerpt: toExcerpt(contentText),
     tags: Array.isArray(tags) ? tags : [],
     coverImage,
+    seoTitle,
+    seoDescription,
+    seoKeywords: Array.isArray(seoKeywords) ? seoKeywords : undefined,
+    canonicalUrl,
+    ogImage,
     status: status === 'draft' ? 'draft' : 'published',
     authorId: req.user!.id,
     createdAt: now,
@@ -137,7 +208,8 @@ router.patch('/:id', authenticateToken, requireAdmin, (req: Request, res: Respon
     return res.status(404).json({ error: 'Post not found' });
   }
 
-  const { title, content, tags, coverImage, status } = req.body;
+  const { title, content, contentBlocks, tags, coverImage, status, seoTitle, seoDescription, seoKeywords, canonicalUrl, ogImage } = req.body;
+  const parsedBlocks = Array.isArray(contentBlocks) ? (contentBlocks as BlogContentBlock[]) : undefined;
 
   if (title) {
     const newSlug = toSlug(title);
@@ -147,15 +219,39 @@ router.patch('/:id', authenticateToken, requireAdmin, (req: Request, res: Respon
     post.title = title;
     post.slug = newSlug;
   }
-  if (content) {
-    post.content = content;
-    post.excerpt = toExcerpt(content);
+  if (content !== undefined) {
+    const nextContent = typeof content === 'string' ? content : '';
+    post.content = nextContent;
+    post.excerpt = toExcerpt(nextContent);
+  }
+  if (parsedBlocks) {
+    post.contentBlocks = parsedBlocks;
+    if (!content) {
+      const nextContent = blocksToText(parsedBlocks);
+      post.content = nextContent;
+      post.excerpt = toExcerpt(nextContent);
+    }
   }
   if (Array.isArray(tags)) {
     post.tags = tags;
   }
   if (coverImage !== undefined) {
     post.coverImage = coverImage;
+  }
+  if (seoTitle !== undefined) {
+    post.seoTitle = seoTitle;
+  }
+  if (seoDescription !== undefined) {
+    post.seoDescription = seoDescription;
+  }
+  if (seoKeywords !== undefined) {
+    post.seoKeywords = Array.isArray(seoKeywords) ? seoKeywords : [];
+  }
+  if (canonicalUrl !== undefined) {
+    post.canonicalUrl = canonicalUrl;
+  }
+  if (ogImage !== undefined) {
+    post.ogImage = ogImage;
   }
   if (status) {
     post.status = status === 'draft' ? 'draft' : 'published';

@@ -4,17 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { adminApi } from '@/lib/api/admin';
+import { adminApi, type ConsentLog } from '@/lib/api/admin';
 import { toast } from 'sonner';
-
-interface ConsentLog {
-  id: string;
-  analytics: boolean;
-  marketing: boolean;
-  userAgent: string;
-  ip: string;
-  createdAt: string;
-}
 
 export function AdminCompliance() {
   const [logs, setLogs] = useState<ConsentLog[]>([]);

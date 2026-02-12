@@ -5,25 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { adminApi } from '@/lib/api/admin';
+import { adminApi, type AdminSitePage } from '@/lib/api/admin';
 import { toast } from 'sonner';
 
-interface SitePageSummary {
-  id: string;
-  slug: string;
-  title: string;
-  summary: string;
-  updatedAt: string;
-}
-
-interface SitePageDetail extends SitePageSummary {
-  body: string;
-}
-
 export function AdminPages() {
-  const [pages, setPages] = useState<SitePageSummary[]>([]);
+  const [pages, setPages] = useState<AdminSitePage[]>([]);
   const [selectedSlug, setSelectedSlug] = useState<string>('');
-  const [page, setPage] = useState<SitePageDetail | null>(null);
+  const [page, setPage] = useState<AdminSitePage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 

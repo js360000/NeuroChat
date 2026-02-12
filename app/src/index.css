@@ -115,7 +115,7 @@
   
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: var(--font-body), "Switzer", system-ui, sans-serif;
+    font-family: var(--font-body), "Lexend", system-ui, sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
     padding-bottom: env(safe-area-inset-bottom);
   }
@@ -135,22 +135,42 @@ a {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* --- Accessibility: CSS custom property defaults --- */
+:root {
+  --a11y-font-size: 100%;
+  --a11y-line-height: 1.6;
+  --a11y-letter-spacing: 0em;
+  --a11y-saturation: 100%;
+  --a11y-cursor-size: 1;
+}
+
+/* Large text toggle (quick toggle, independent of slider) */
 .a11y-large-text {
   font-size: 112.5%;
   line-height: 1.7;
 }
 
-.a11y-dyslexic body {
-  font-family: 'Lexend', 'Switzer', system-ui, sans-serif;
+/* Font size slider (overrides base font-size on body) */
+html:not(.a11y-large-text) body {
+  font-size: var(--a11y-font-size);
+  line-height: var(--a11y-line-height);
+  letter-spacing: var(--a11y-letter-spacing);
 }
 
+/* Dyslexia-friendly font */
+.a11y-dyslexic body {
+  font-family: 'Lexend', system-ui, sans-serif;
+}
+
+/* Underline all links */
 .a11y-underline-links a {
   text-decoration: underline;
   text-underline-offset: 3px;
   text-decoration-thickness: 2px;
 }
 
-.a11y-reduce-motion * ,
+/* Kill all animations and transitions */
+.a11y-reduce-motion *,
 .a11y-reduce-motion *::before,
 .a11y-reduce-motion *::after {
   animation-duration: 0.01ms !important;
@@ -159,10 +179,41 @@ a {
   scroll-behavior: auto !important;
 }
 
-  .a11y-focus :focus-visible {
-    outline: 3px solid hsl(var(--ring));
-    outline-offset: 3px;
-  }
+/* Strong focus ring */
+.a11y-focus :focus-visible {
+  outline: 3px solid hsl(var(--ring));
+  outline-offset: 3px;
+}
+
+/* Blue light filter — warm sepia overlay */
+.a11y-blue-light::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  pointer-events: none;
+  background: rgba(255, 180, 50, 0.12);
+  mix-blend-mode: multiply;
+}
+
+/* Saturation control — targets #app-content instead of body
+   to avoid breaking position:fixed on overlay components */
+#app-content {
+  filter: saturate(var(--a11y-saturation));
+}
+
+/* Cursor size */
+html {
+  cursor: default;
+}
+html[style*="--a11y-cursor-size: 2"] *,
+html[style*="--a11y-cursor-size: 2.5"] *,
+html[style*="--a11y-cursor-size: 3"] * {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M5 2l18 14H13l7 13-3 1-7-13-5 8z' fill='%23000' stroke='%23fff' stroke-width='1'/%3E%3C/svg%3E") 5 2, auto;
+}
+html[style*="--a11y-cursor-size: 1.5"] * {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 32 32'%3E%3Cpath d='M5 2l18 14H13l7 13-3 1-7-13-5 8z' fill='%23000' stroke='%23fff' stroke-width='1'/%3E%3C/svg%3E") 5 2, auto;
+}
 
   .calm-mode {
     --calm-saturation: calc(1 - var(--calm-level) * 0.18);
@@ -174,7 +225,7 @@ a {
     --calm-saturation: calc(1 - var(--calm-level) * 0.35);
   }
 
-  .calm-mode body {
+  .calm-mode #app-content {
     filter: saturate(var(--calm-saturation)) contrast(var(--calm-contrast)) brightness(var(--calm-brightness));
   }
 
@@ -388,32 +439,143 @@ a {
   background: #616055;
 }
 
-.dark .bg-white {
-  background-color: hsl(var(--card));
-}
+/* ═══════════════════════════════════════════════════════════════
+   Dark mode safety net
+   Pages should use semantic tokens (bg-background, bg-card, bg-muted,
+   text-foreground, text-muted-foreground, border-border) instead of
+   hardcoded neutral-* or bg-white classes. The overrides below provide
+   a safety net for legacy usage.
+   ═══════════════════════════════════════════════════════════════ */
 
-.dark .bg-neutral-50 {
-  background-color: hsl(var(--background));
-}
+/* --- Backgrounds --- */
+.dark .bg-white { background-color: hsl(var(--card)); }
+.dark .bg-neutral-50 { background-color: hsl(var(--background)); }
+.dark .bg-neutral-100 { background-color: hsl(var(--muted)); }
+.dark .bg-neutral-200 { background-color: hsl(250 10% 22%); }
+.dark .bg-neutral-300 { background-color: hsl(250 10% 28%); }
+.dark .bg-neutral-900 { background-color: hsl(250 20% 8%); }
 
-.dark .bg-neutral-100 {
-  background-color: hsl(var(--muted));
-}
+/* --- Text --- */
+.dark .text-neutral-400 { color: hsl(260 10% 60%); }
+.dark .text-neutral-500 { color: hsl(var(--muted-foreground)); }
+.dark .text-neutral-600 { color: hsl(var(--muted-foreground)); }
+.dark .text-neutral-700 { color: hsl(260 10% 75%); }
+.dark .text-neutral-800 { color: hsl(0 0% 88%); }
+.dark .text-neutral-900 { color: hsl(0 0% 93%); }
+.dark .text-dark { color: hsl(var(--foreground)); }
+.dark .text-black { color: hsl(var(--foreground)); }
 
-.dark .border-neutral-200 {
-  border-color: hsl(var(--border));
-}
+/* --- Borders --- */
+.dark .border-neutral-100 { border-color: hsl(var(--border)); }
+.dark .border-neutral-200 { border-color: hsl(var(--border)); }
+.dark .border-neutral-300 { border-color: hsl(250 10% 30%); }
+.dark .divide-neutral-200 > :not([hidden]) ~ :not([hidden]) { border-color: hsl(var(--border)); }
 
-.dark .text-neutral-600 {
-  color: hsl(var(--muted-foreground));
-}
+/* --- Hover / focus state backgrounds --- */
+.dark .hover\:bg-neutral-50:hover { background-color: hsl(var(--muted)); }
+.dark .hover\:bg-neutral-100:hover { background-color: hsl(var(--muted)); }
+.dark .hover\:bg-neutral-200:hover { background-color: hsl(250 10% 25%); }
+.dark .hover\:bg-white:hover { background-color: hsl(var(--card)); }
+.dark .hover\:bg-red-50:hover { background-color: hsl(0 30% 16%); }
+.dark .hover\:bg-green-50:hover { background-color: hsl(140 30% 16%); }
+.dark .hover\:bg-amber-50:hover { background-color: hsl(38 30% 16%); }
+.dark .hover\:text-neutral-900:hover { color: hsl(0 0% 95%); }
+.dark .hover\:text-dark:hover { color: hsl(var(--foreground)); }
 
-.dark .text-neutral-500 {
-  color: hsl(var(--muted-foreground));
-}
+/* --- Colored status backgrounds (light tints → dark tints) --- */
+.dark .bg-green-50 { background-color: hsl(140 30% 14%); }
+.dark .bg-green-100 { background-color: hsl(140 25% 18%); }
+.dark .bg-red-50 { background-color: hsl(0 30% 14%); }
+.dark .bg-red-100 { background-color: hsl(0 25% 18%); }
+.dark .bg-amber-50 { background-color: hsl(38 30% 14%); }
+.dark .bg-amber-100 { background-color: hsl(38 25% 18%); }
+.dark .bg-yellow-50 { background-color: hsl(48 30% 14%); }
+.dark .bg-yellow-100 { background-color: hsl(48 25% 18%); }
+.dark .bg-blue-50 { background-color: hsl(210 30% 14%); }
+.dark .bg-blue-100 { background-color: hsl(210 25% 18%); }
+.dark .bg-purple-50 { background-color: hsl(270 30% 14%); }
+.dark .bg-purple-100 { background-color: hsl(270 25% 18%); }
+.dark .bg-orange-50 { background-color: hsl(24 30% 14%); }
+.dark .bg-pink-50 { background-color: hsl(330 30% 14%); }
+.dark .bg-indigo-50 { background-color: hsl(230 30% 14%); }
+.dark .bg-primary\/10 { background-color: hsl(263 91% 59% / 0.15); }
+.dark .bg-primary\/5 { background-color: hsl(263 91% 59% / 0.08); }
 
-.dark .text-dark {
-  color: hsl(var(--foreground));
+/* --- Colored status borders (light → dark) --- */
+.dark .border-green-200 { border-color: hsl(140 25% 25%); }
+.dark .border-green-300 { border-color: hsl(140 25% 30%); }
+.dark .border-red-200 { border-color: hsl(0 25% 25%); }
+.dark .border-red-300 { border-color: hsl(0 25% 30%); }
+.dark .border-amber-200 { border-color: hsl(38 25% 25%); }
+.dark .border-amber-300 { border-color: hsl(38 25% 30%); }
+.dark .border-yellow-200 { border-color: hsl(48 25% 25%); }
+.dark .border-blue-200 { border-color: hsl(210 25% 25%); }
+.dark .border-blue-300 { border-color: hsl(210 25% 30%); }
+.dark .border-purple-200 { border-color: hsl(270 25% 25%); }
+
+/* --- Colored text (ensure readable on dark tint backgrounds) --- */
+.dark .text-green-700 { color: hsl(140 55% 55%); }
+.dark .text-green-600 { color: hsl(140 55% 60%); }
+.dark .text-green-800 { color: hsl(140 55% 50%); }
+.dark .text-red-700 { color: hsl(0 60% 60%); }
+.dark .text-red-600 { color: hsl(0 60% 65%); }
+.dark .text-red-500 { color: hsl(0 60% 65%); }
+.dark .text-red-800 { color: hsl(0 55% 55%); }
+.dark .text-amber-700 { color: hsl(38 70% 55%); }
+.dark .text-amber-600 { color: hsl(38 70% 60%); }
+.dark .text-amber-500 { color: hsl(38 70% 65%); }
+.dark .text-amber-800 { color: hsl(38 60% 50%); }
+.dark .text-yellow-700 { color: hsl(48 70% 55%); }
+.dark .text-yellow-600 { color: hsl(48 70% 60%); }
+.dark .text-blue-700 { color: hsl(210 70% 60%); }
+.dark .text-blue-600 { color: hsl(210 70% 65%); }
+.dark .text-blue-500 { color: hsl(210 70% 65%); }
+.dark .text-purple-700 { color: hsl(270 60% 65%); }
+.dark .text-purple-600 { color: hsl(270 60% 70%); }
+
+/* --- Gradients --- */
+.dark .bg-gradient-to-br { --tw-gradient-from: hsl(var(--background)); }
+.dark .bg-gradient-to-b { --tw-gradient-from: hsl(var(--background)); }
+.dark .bg-gradient-to-r { --tw-gradient-from: hsl(var(--background)); }
+
+/* --- Semi-transparent white (cards, glass, overlays) --- */
+.dark .bg-white\/80 { background-color: hsl(var(--card) / 0.8); }
+.dark .bg-white\/90 { background-color: hsl(var(--card) / 0.9); }
+.dark .bg-white\/70 { background-color: hsl(var(--card) / 0.7); }
+.dark .bg-white\/60 { background-color: hsl(var(--card) / 0.6); }
+.dark .bg-white\/50 { background-color: hsl(var(--card) / 0.5); }
+.dark .bg-white\/20 { background-color: hsl(var(--card) / 0.2); }
+.dark .border-white\/30 { border-color: hsl(var(--border) / 0.3); }
+.dark .border-white\/50 { border-color: hsl(var(--border) / 0.5); }
+.dark .border-white\/60 { border-color: hsl(var(--border) / 0.6); }
+.dark .border-white\/20 { border-color: hsl(var(--border) / 0.2); }
+
+/* --- Peach / secondary tints --- */
+.dark .bg-peach { background-color: hsl(var(--secondary)); }
+.dark .bg-peach-100 { background-color: hsl(28 30% 15%); }
+.dark .bg-peach-200 { background-color: hsl(28 25% 18%); }
+
+/* --- Gradient stops (via-peach etc) --- */
+.dark .via-peach\/30 { --tw-gradient-via: hsl(28 30% 15% / 0.3); }
+.dark .via-peach\/20 { --tw-gradient-via: hsl(28 30% 15% / 0.2); }
+.dark .from-primary\/5 { --tw-gradient-from: hsl(263 91% 59% / 0.08); }
+.dark .to-primary\/5 { --tw-gradient-to: hsl(263 91% 59% / 0.08); }
+.dark .from-primary\/10 { --tw-gradient-from: hsl(263 91% 59% / 0.15); }
+
+/* --- Component class overrides --- */
+.dark .glass-card { @apply bg-card/80 border-border/20; }
+.dark .feature-card { background-color: hsl(var(--card)); }
+.dark .pricing-card { background-color: hsl(var(--card)); }
+.dark .testimonial-card { background-color: hsl(var(--card)); }
+.dark .nav-link { color: hsl(var(--muted-foreground)); }
+.dark .bg-gradient-hero {
+  background: linear-gradient(135deg, hsl(250 20% 12%) 0%, hsl(250 15% 15%) 50%, hsl(250 20% 12%) 100%);
+}
+.dark .bg-gradient-mesh {
+  background:
+    radial-gradient(ellipse at 20% 20%, rgba(124, 57, 246, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(236, 94, 194, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(60, 40, 100, 0.2) 0%, transparent 70%);
 }
 
 /* Focus styles for accessibility */

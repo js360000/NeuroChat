@@ -16,7 +16,51 @@ export interface ExperimentSettings {
   compassCtaVariant: 'standard' | 'mentor';
 }
 
+export interface PricingPlan {
+  name: string;
+  description: string;
+  monthlyPrice: number;
+  yearlyPrice: number;
+  features: string[];
+  cta: string;
+  featured: boolean;
+}
+
+export interface CrisisResource {
+  name: string;
+  description: string;
+  contact: string;
+}
+
+export interface AppConfig {
+  traitOptions: string[];
+  interestOptions: string[];
+  goalOptions: string[];
+  paceOptions: string[];
+  directnessOptions: string[];
+  pricingPlans: PricingPlan[];
+  crisisResources: Record<string, CrisisResource[]>;
+}
+
+export interface PublicAdSlot {
+  id: string;
+  area: string;
+  format: 'banner' | 'sidebar' | 'in-feed';
+  adSlotId: string;
+}
+
+export interface PublicAdConfig {
+  enabled: boolean;
+  clientId: string;
+  showToFreeOnly: boolean;
+  slots: PublicAdSlot[];
+}
+
 export const pagesApi = {
+  getConfig: async () => {
+    return api.get<{ config: AppConfig }>('/pages/config');
+  },
+
   getPage: async (slug: string) => {
     return api.get<{ page: SitePage }>(`/pages/${slug}`);
   },
@@ -27,5 +71,9 @@ export const pagesApi = {
 
   getExperiments: async () => {
     return api.get<{ experiments: ExperimentSettings }>('/pages/experiments');
+  },
+
+  getAds: async () => {
+    return api.get<PublicAdConfig>('/pages/ads');
   }
 };

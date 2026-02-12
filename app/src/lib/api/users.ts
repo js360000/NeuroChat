@@ -71,5 +71,53 @@ export const usersApi = {
 
   deleteAccount: async (confirm: string) => {
     return api.delete('/users/me', { confirm });
+  },
+
+  getPremiumStatus: async () => {
+    return api.get<{
+      plan: string;
+      limits: {
+        dailyLikes: number;
+        dailySuperLikes: number;
+        monthlyBoosts: number;
+        canSeeWhoLikedYou: boolean;
+        canRewind: boolean;
+        advancedFilters: boolean;
+        priorityInbox: boolean;
+        incognitoMode: boolean;
+        queueSize: number;
+      };
+      usage: { likesToday: number; superLikesToday: number };
+      remaining: { likes: number; superLikes: number };
+    }>('/users/me/premium-status');
+  },
+
+  getLikesReceived: async () => {
+    return api.get<{
+      likes: Array<{
+        id: string;
+        isSuper: boolean;
+        createdAt: string;
+        user: {
+          id: string;
+          name: string;
+          avatar?: string;
+          bio?: string;
+          neurodivergentTraits: string[];
+          specialInterests: string[];
+          isOnline: boolean;
+        } | null;
+      }>;
+      count: number;
+      revealed: boolean;
+    }>('/users/me/likes-received');
+  },
+
+  superLikeUser: async (id: string) => {
+    return api.post<{ message: string; match: boolean; conversationId?: string; isSuper: boolean; remaining: number }>(`/users/${id}/like`, { isSuper: true });
+  },
+
+  rewind: async () => {
+    return api.post<{ message: string; targetUserId: string }>('/users/rewind', {});
   }
 };

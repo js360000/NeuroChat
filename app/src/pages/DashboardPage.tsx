@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { List, Orbit, Wand2, Send, Sparkles, SlidersHorizontal, ShieldCheck, Clock } from 'lucide-react';
+import { List, Orbit, Wand2, Send, Sparkles, SlidersHorizontal, ShieldCheck, Clock, Crown, Heart, Undo2, Lock, Star, Eye } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,7 +16,13 @@ import { useAuthStore } from '@/lib/stores/auth';
 import { usersApi } from '@/lib/api/users';
 import { aiApi } from '@/lib/api/ai';
 import { pagesApi } from '@/lib/api/pages';
+import { useAppConfig } from '@/lib/stores/config';
+import { isQuietHoursActive } from '@/lib/utils';
+import { DiscoverySkeleton } from '@/components/PageSkeleton';
+import { AdBanner } from '@/components/AdBanner';
 import { toast } from 'sonner';
+import { UserProfileModal } from '@/components/UserProfileModal';
+import { messagesApi } from '@/lib/api/messages';
 
 interface PotentialMatch {
   id: string;
@@ -44,36 +51,25 @@ interface PotentialMatch {
   sharedInterests?: string[];
 }
 
-const INTENT_OPTIONS = [
-  'Friendship',
-  'Dating',
-  'Creative collaborators',
-  'Study buddies',
-  'Accountability partners',
-  'Community events',
-  'Co-working',
-  'Local meetups'
-];
-
-const INTENT_CARDS = [
-  {
-    id: 'Friendship',
-    title: 'Friendship',
-    description: 'Low-pressure connections and steady check-ins.'
-  },
-  {
-    id: 'Dating',
-    title: 'Dating',
-    description: 'Intentional dating with clarity on tone and pace.'
-  },
-  {
-    id: 'Community events',
-    title: 'Community',
-    description: 'Groups, events, and shared routines.'
-  }
-];
+const INTENT_CARD_DESCRIPTIONS: Record<string, string> = {
+  'Friendship': 'Low-pressure connections and steady check-ins.',
+  'Dating': 'Intentional dating with clarity on tone and pace.',
+  'Community events': 'Groups, events, and shared routines.',
+  'Creative collaborators': 'Find partners for art, music, and projects.',
+  'Study buddies': 'Co-study sessions with gentle accountability.',
+  'Accountability partners': 'Mutual check-ins and progress tracking.',
+  'Co-working': 'Quiet coworking sessions with friendly faces.',
+  'Local meetups': 'In-person gatherings near you.'
+};
 
 export function DashboardPage() {
+  const appConfig = useAppConfig();
+  const INTENT_OPTIONS = appConfig.goalOptions;
+  const INTENT_CARDS = INTENT_OPTIONS.slice(0, 3).map((goal) => ({
+    id: goal,
+    title: goal,
+    description: INTENT_CARD_DESCRIPTIONS[goal] || goal
+  }));
   const { user, updateProfile } = useAuthStore();
   const [potentialMatches, setPotentialMatches] = useState<PotentialMatch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -90,12 +86,27 @@ export function DashboardPage() {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [hoveredMatch, setHoveredMatch] = useState<PotentialMatch | null>(null);
+  const [profileModalUser, setProfileModalUser] = useState<PotentialMatch | null>(null);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const navigate = useNavigate();
   const [hoveredRect, setHoveredRect] = useState<DOMRect | null>(null);
   const hoverTimeoutRef = useRef<number | null>(null);
   const hoverLockRef = useRef(false);
   const [similarityWeight, setSimilarityWeight] = useState(user?.matchPreferences?.similarityWeight ?? 0.7);
   const complementWeight = 1 - similarityWeight;
   const [intentVariant, setIntentVariant] = useState<'cards' | 'list'>('cards');
+
+  // Premium state
+  const userPlan = user?.subscription?.plan || 'free';
+  const [premiumStatus, setPremiumStatus] = useState<{
+    limits: { dailyLikes: number; dailySuperLikes: number; canSeeWhoLikedYou: boolean; canRewind: boolean; advancedFilters: boolean; queueSize: number };
+    remaining: { likes: number; superLikes: number };
+  } | null>(null);
+  const [likesReceived, setLikesReceived] = useState<{
+    likes: Array<{ id: string; isSuper: boolean; createdAt: string; user: { id: string; name: string; avatar?: string; bio?: string; isOnline: boolean } | null }>;
+    count: number;
+    revealed: boolean;
+  } | null>(null);
 
   const getSimilarityScore = (match: PotentialMatch) => {
     const traitOverlap = (match.sharedTraits?.length || 0) / Math.max(1, match.neurodivergentTraits.length);
@@ -110,24 +121,24 @@ export function DashboardPage() {
     return Math.round(base * 0.6 + similarity * similarityWeight * 0.4 + complement * complementWeight * 0.2);
   };
 
-  const isQuietHoursActive = (quietHours?: { enabled: boolean; start: string; end: string }) => {
-    if (!quietHours?.enabled) return false;
-    const now = new Date();
-    const [startH, startM] = quietHours.start.split(':').map(Number);
-    const [endH, endM] = quietHours.end.split(':').map(Number);
-    if (Number.isNaN(startH) || Number.isNaN(endH)) return false;
-    const start = new Date();
-    start.setHours(startH, startM || 0, 0, 0);
-    const end = new Date();
-    end.setHours(endH, endM || 0, 0, 0);
-    if (start <= end) {
-      return now >= start && now <= end;
-    }
-    return now >= start || now <= end;
+  const loadPremiumStatus = async () => {
+    try {
+      const status = await usersApi.getPremiumStatus();
+      setPremiumStatus({ limits: status.limits, remaining: status.remaining });
+    } catch { /* ignore */ }
+  };
+
+  const loadLikesReceived = async () => {
+    try {
+      const data = await usersApi.getLikesReceived();
+      setLikesReceived(data);
+    } catch { /* ignore */ }
   };
 
   useEffect(() => {
     loadPotentialMatches();
+    loadPremiumStatus();
+    loadLikesReceived();
   }, []);
 
   useEffect(() => {
@@ -321,8 +332,54 @@ export function DashboardPage() {
       } else {
         toast.success('Like sent!');
       }
-    } catch {
-      toast.error('Failed to like');
+      loadPremiumStatus();
+    } catch (err: any) {
+      if (err?.status === 429 || err?.response?.status === 429) {
+        toast.error('Daily like limit reached. Upgrade for more!', {
+          action: { label: 'Upgrade', onClick: () => window.location.assign('/pricing') },
+        });
+      } else {
+        toast.error('Failed to like');
+      }
+    }
+  };
+
+  const handleSuperLike = async (match: PotentialMatch) => {
+    try {
+      const response = await usersApi.superLikeUser(match.id);
+      if (response.match && response.conversationId) {
+        toast.success("Super Like matched!");
+      } else {
+        toast.success('Super Like sent!');
+      }
+      loadPremiumStatus();
+    } catch (err: any) {
+      if (err?.status === 429 || err?.response?.status === 429) {
+        toast.error('Daily Super Like limit reached.', {
+          action: { label: 'Upgrade', onClick: () => window.location.assign('/pricing') },
+        });
+      } else if (err?.status === 403) {
+        toast.error('Super Likes require Premium or Pro.');
+      } else {
+        toast.error('Failed to super like');
+      }
+    }
+  };
+
+  const handleRewind = async () => {
+    try {
+      await usersApi.rewind();
+      toast.success('Rewound last like');
+      loadPotentialMatches();
+      loadPremiumStatus();
+    } catch (err: any) {
+      if (err?.status === 403) {
+        toast.error('Rewind requires Premium or Pro.', {
+          action: { label: 'Upgrade', onClick: () => window.location.assign('/pricing') },
+        });
+      } else {
+        toast.error('Nothing to rewind');
+      }
     }
   };
 
@@ -352,11 +409,7 @@ export function DashboardPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
-      </div>
-    );
+    return <DiscoverySkeleton />;
   }
 
   if (!currentMatch) {
@@ -407,6 +460,23 @@ export function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {premiumStatus && (
+              <div className="flex items-center gap-2 mr-2">
+                <Badge variant={premiumStatus.remaining.likes <= 3 && premiumStatus.remaining.likes !== -1 ? 'destructive' : 'secondary'} className="text-xs">
+                  <Heart className="w-3 h-3 mr-1" />
+                  {premiumStatus.remaining.likes === -1 ? '∞' : premiumStatus.remaining.likes} likes left
+                </Badge>
+                {premiumStatus.limits.dailySuperLikes > 0 && (
+                  <Badge variant="outline" className="text-xs border-amber-300 text-amber-600">
+                    <Star className="w-3 h-3 mr-1" />
+                    {premiumStatus.remaining.superLikes} super
+                  </Badge>
+                )}
+              </div>
+            )}
+            <Button variant="outline" size="sm" onClick={handleRewind} title="Undo last like">
+              <Undo2 className="w-4 h-4" />
+            </Button>
             <Button
               variant={viewMode === 'constellation' ? 'default' : 'outline'}
               onClick={() => setViewMode('constellation')}
@@ -526,7 +596,7 @@ export function DashboardPage() {
                       return (
                         <button
                           key={match.id}
-                          onClick={() => setSelectedMatch(match)}
+                          onClick={() => { setSelectedMatch(match); setProfileModalUser(match); setProfileModalOpen(true); }}
                           onMouseEnter={(event) => handleHover(event, match)}
                           onMouseLeave={clearHover}
                           className="absolute flex flex-col items-center gap-1"
@@ -612,7 +682,7 @@ export function DashboardPage() {
                     </div>
                       {match.bio && <p className="text-sm text-neutral-600">{match.bio}</p>}
                       <div className="flex flex-wrap items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setSelectedMatch(match)}>
+                        <Button variant="outline" size="sm" onClick={() => { setSelectedMatch(match); setProfileModalUser(match); setProfileModalOpen(true); }}>
                           View Profile
                         </Button>
                         <Button size="sm" variant="ghost" onClick={() => toggleQueue(match)}>
@@ -756,6 +826,26 @@ export function DashboardPage() {
                       Pin & Like
                     </Button>
                   </div>
+                  {premiumStatus && premiumStatus.limits.dailySuperLikes > 0 && (
+                    <Button
+                      variant="outline"
+                      className="w-full border-amber-300 text-amber-600 hover:bg-amber-50"
+                      onClick={() => handleSuperLike(selectedMatch)}
+                      disabled={premiumStatus.remaining.superLikes <= 0}
+                    >
+                      <Star className="w-4 h-4 mr-2" />
+                      Super Like ({premiumStatus.remaining.superLikes} left)
+                    </Button>
+                  )}
+                  {premiumStatus && premiumStatus.limits.dailySuperLikes === 0 && (
+                    <Link to="/pricing" className="block">
+                      <Button variant="outline" className="w-full text-muted-foreground">
+                        <Lock className="w-4 h-4 mr-2" />
+                        Unlock Super Likes
+                        <Crown className="w-3.5 h-3.5 ml-2 text-amber-500" />
+                      </Button>
+                    </Link>
+                  )}
                   <Button
                     variant="outline"
                     className="w-full"
@@ -777,6 +867,90 @@ export function DashboardPage() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Who Liked You */}
+            <Card>
+              <CardContent className="p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <Eye className="w-4 h-4 text-primary" />
+                    Who Liked You
+                  </h3>
+                  {likesReceived && <Badge variant="secondary">{likesReceived.count}</Badge>}
+                </div>
+                {!likesReceived || likesReceived.count === 0 ? (
+                  <p className="text-sm text-neutral-500">No pending likes yet.</p>
+                ) : !likesReceived.revealed ? (
+                  <div className="space-y-3">
+                    {likesReceived.likes.slice(0, 3).map((like) => (
+                      <div key={like.id} className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-neutral-200 blur-sm" />
+                        <div className="flex-1">
+                          <div className="h-3 w-20 bg-neutral-200 rounded blur-sm" />
+                          <div className="h-2 w-14 bg-neutral-100 rounded mt-1 blur-sm" />
+                        </div>
+                        {like.isSuper && <Star className="w-4 h-4 text-amber-400" />}
+                      </div>
+                    ))}
+                    <Link to="/pricing">
+                      <Button variant="outline" className="w-full text-sm">
+                        <Crown className="w-4 h-4 mr-2 text-amber-500" />
+                        Upgrade to see who liked you
+                      </Button>
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {likesReceived.likes.slice(0, 5).map((like) => (
+                      <div key={like.id} className="flex items-center gap-3">
+                        <Avatar className="w-10 h-10">
+                          <AvatarImage src={like.user?.avatar} />
+                          <AvatarFallback>{like.user?.name?.[0] || '?'}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{like.user?.name || 'Unknown'}</p>
+                          <p className="text-xs text-neutral-500">{like.user?.isOnline ? 'Online' : 'Offline'}</p>
+                        </div>
+                        {like.isSuper && <Star className="w-4 h-4 text-amber-400" />}
+                        <Button size="sm" variant="outline" onClick={() => {
+                          const match = potentialMatches.find((m) => m.id === like.user?.id);
+                          if (match) handlePin(match);
+                        }}>
+                          Like back
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Upgrade upsell for free users */}
+            {userPlan === 'free' && (
+              <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+                <CardContent className="p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Crown className="w-5 h-5 text-amber-500" />
+                    <h3 className="font-semibold">Unlock Premium</h3>
+                  </div>
+                  <ul className="text-sm text-neutral-600 space-y-1.5">
+                    <li className="flex items-center gap-2"><Heart className="w-3.5 h-3.5 text-primary" /> 50 daily likes (vs 10)</li>
+                    <li className="flex items-center gap-2"><Star className="w-3.5 h-3.5 text-amber-500" /> 3 Super Likes per day</li>
+                    <li className="flex items-center gap-2"><Eye className="w-3.5 h-3.5 text-primary" /> See who liked you</li>
+                    <li className="flex items-center gap-2"><Undo2 className="w-3.5 h-3.5 text-primary" /> Rewind last swipe</li>
+                    <li className="flex items-center gap-2"><SlidersHorizontal className="w-3.5 h-3.5 text-primary" /> Advanced filters</li>
+                  </ul>
+                  <Link to="/pricing">
+                    <Button className="w-full bg-primary hover:bg-primary-600">
+                      <Crown className="w-4 h-4 mr-2" />
+                      View Plans
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            )}
+
+            <AdBanner area="dashboard" />
           </div>
         </div>
 
@@ -873,6 +1047,35 @@ export function DashboardPage() {
             </Card>
           </div>
         )}
+
+        <UserProfileModal
+          user={profileModalUser as any}
+          open={profileModalOpen}
+          onOpenChange={setProfileModalOpen}
+          onLike={() => {
+            if (profileModalUser) handlePin(profileModalUser);
+          }}
+          onSuperLike={() => {
+            if (profileModalUser) handleSuperLike(profileModalUser);
+          }}
+          onMessage={async () => {
+            if (profileModalUser) {
+              try {
+                const { conversationId } = await messagesApi.createConversation(profileModalUser.id);
+                setProfileModalOpen(false);
+                navigate(`/messages/${conversationId}`);
+              } catch {
+                toast.error('Failed to start conversation');
+              }
+            }
+          }}
+          onViewFullPage={() => {
+            if (profileModalUser) {
+              setProfileModalOpen(false);
+              navigate(`/user/${profileModalUser.id}`);
+            }
+          }}
+        />
       </div>
     </div>
   );

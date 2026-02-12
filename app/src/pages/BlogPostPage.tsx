@@ -1,18 +1,25 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, MessageCircle } from 'lucide-react';
+import { ArrowLeft, MessageCircle, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ContentWarningDialog } from '@/components/ContentWarningDialog';
+import { BlogContentRenderer } from '@/components/blog/BlogContentRenderer';
 import { blogApi, type BlogPost, type BlogComment } from '@/lib/api/blog';
+import { useAuthStore } from '@/lib/stores/auth';
 import { scanTextForWarnings } from '@/lib/safety';
 import { applySeo } from '@/lib/seo';
 import { toast } from 'sonner';
+import { PublicNav } from '@/components/PublicNav';
+import { PublicFooter } from '@/components/PublicFooter';
+import { Navigation } from '@/components/Navigation';
 
 export function BlogPostPage() {
   const { slug } = useParams();
+  const { user } = useAuthStore();
+  const isAuthenticated = !!user;
   const [post, setPost] = useState<BlogPost | null>(null);
   const [comments, setComments] = useState<BlogComment[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -42,11 +49,29 @@ export function BlogPostPage() {
 
   useEffect(() => {
     if (!post) return;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const canonical = post.canonicalUrl || (origin ? `${origin}/blog/${post.slug}` : undefined);
+    const seoTitle = post.seoTitle || `${post.title} - NeuroNest Blog`;
+    const seoDescription = post.seoDescription || post.excerpt || 'Read the latest NeuroNest blog post.';
+    const ogImage = post.ogImage || post.coverImage || '/blog_header_neural_pathways_1770055085954.png';
     applySeo({
-      title: `${post.title} — NeuroNest Blog`,
-      description: post.excerpt || 'Read the latest NeuroNest blog post.',
-      canonical: `https://arcane-waters-46868-5bf57db34e8e.herokuapp.com/blog/${post.slug}`,
-      ogImage: '/blog_header_neural_pathways_1770055085954.png'
+      title: seoTitle,
+      description: seoDescription,
+      canonical,
+      ogImage,
+      keywords: post.seoKeywords,
+      structuredData: {
+        '@context': 'https://schema.org',
+        '@type': 'BlogPosting',
+        headline: seoTitle,
+        description: seoDescription,
+        datePublished: post.publishedAt,
+        dateModified: post.updatedAt,
+        author: { '@type': 'Person', name: post.author.name },
+        image: ogImage ? [ogImage] : undefined,
+        mainEntityOfPage: canonical,
+        publisher: { '@type': 'Organization', name: 'NeuroNest' }
+      }
     });
   }, [post]);
 
@@ -85,15 +110,27 @@ export function BlogPostPage() {
   };
 
   if (isLoading) {
-    return <div className="p-6 text-center text-neutral-500">Loading post...</div>;
+    return (
+      <div className="min-h-screen bg-background">
+        {isAuthenticated ? <Navigation /> : <PublicNav />}
+        <div className="p-6 pt-24 text-center text-neutral-500">Loading post...</div>
+      </div>
+    );
   }
 
   if (!post) {
-    return <div className="p-6 text-center text-neutral-500">Post not found.</div>;
+    return (
+      <div className="min-h-screen bg-background">
+        {isAuthenticated ? <Navigation /> : <PublicNav />}
+        <div className="p-6 pt-24 text-center text-neutral-500">Post not found.</div>
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="min-h-screen bg-background">
+      {isAuthenticated ? <Navigation /> : <PublicNav />}
+      <div className={`max-w-4xl mx-auto p-6 space-y-6 ${isAuthenticated ? 'pt-20' : 'pt-24'}`}>
       <Link to="/blog" className="inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-primary">
         <ArrowLeft className="w-4 h-4" />
         Back to blog
@@ -109,9 +146,9 @@ export function BlogPostPage() {
 
       <div className="relative overflow-hidden rounded-2xl border border-neutral-200">
         <img
-          src="/blog_header_neural_pathways_1770055085954.png"
-          alt="Neural pathways"
-          className="h-48 w-full object-cover"
+          src={post.coverImage || post.ogImage || '/blog_header_neural_pathways_1770055085954.png'}
+          alt={post.title}
+          className="w-full aspect-[5/2] object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/10 to-black/60" />
       </div>
@@ -133,8 +170,12 @@ export function BlogPostPage() {
       </div>
 
       <Card>
-        <CardContent className="p-6 whitespace-pre-line text-neutral-700">
-          {post.content}
+        <CardContent className="p-6 text-neutral-700">
+          {post.contentBlocks && post.contentBlocks.length > 0 ? (
+            <BlogContentRenderer blocks={post.contentBlocks} />
+          ) : (
+            <div className="whitespace-pre-line">{post.content}</div>
+          )}
         </CardContent>
       </Card>
 
@@ -150,26 +191,38 @@ export function BlogPostPage() {
               <div key={comment.id} className="border-b border-neutral-100 pb-3">
                 <p className="text-sm text-neutral-700">{comment.content}</p>
                 <p className="text-xs text-neutral-400 mt-1">
-                  {comment.author.name} • {new Date(comment.createdAt).toLocaleDateString()}
+                  {comment.author.name} - {new Date(comment.createdAt).toLocaleDateString()}
                 </p>
               </div>
             ))}
           </div>
 
-          <div className="space-y-2">
-            <Textarea
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Add a comment"
-              rows={3}
-              disabled={isOffline}
-            />
-            <div className="flex justify-end">
-              <Button onClick={handleAddComment} disabled={!newComment.trim() || isOffline}>
-                Post Comment
-              </Button>
+          {isAuthenticated ? (
+            <div className="space-y-2">
+              <Textarea
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Add a comment"
+                rows={3}
+                disabled={isOffline}
+              />
+              <div className="flex justify-end">
+                <Button onClick={handleAddComment} disabled={!newComment.trim() || isOffline}>
+                  Post Comment
+                </Button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="rounded-lg border border-border bg-neutral-50 p-4 text-center space-y-2">
+              <p className="text-sm text-neutral-500">Log in to join the conversation.</p>
+              <Link to="/login">
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <LogIn className="w-3.5 h-3.5" />
+                  Log in to comment
+                </Button>
+              </Link>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -198,6 +251,11 @@ export function BlogPostPage() {
         }}
         confirmLabel="Post anyway"
       />
+      </div>
+      {!isAuthenticated && <PublicFooter />}
     </div>
   );
 }
+
+
+

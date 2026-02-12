@@ -22,8 +22,8 @@ for (const envVar of requiredEnvVars) {
 }
 
 // Warn if optional AI features are disabled
-if (!process.env.OPENAI_API_KEY) {
-  console.warn('OPENAI_API_KEY not provided - AI features will be disabled');
+if (!process.env.GEMINI_API_KEY) {
+  console.warn('GEMINI_API_KEY not provided - AI features will be disabled');
 }
 if (!process.env.STRIPE_SECRET_KEY) {
   console.warn('STRIPE_SECRET_KEY not provided - payments will be disabled');
@@ -65,12 +65,17 @@ app.use(cors({
 app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }), webhooksRouter);
 
 // JSON parsing for all other routes
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 app.use('/api', routes);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Serve uploaded images
+const uploadsDir = path.resolve(__dirname, '../data/uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+app.use('/uploads', express.static(uploadsDir));
 const frontendDist = path.resolve(__dirname, '../../app/dist');
 
 if (fs.existsSync(frontendDist)) {

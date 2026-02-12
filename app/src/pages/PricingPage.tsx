@@ -5,63 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useAuthStore } from '@/lib/stores/auth';
+import { useAppConfig } from '@/lib/stores/config';
 import { paymentsApi } from '@/lib/api/payments';
 import { toast } from 'sonner';
 
-const PLANS = [
-  {
-    name: 'Basic',
-    description: 'Perfect for getting started',
-    monthlyPrice: 0,
-    yearlyPrice: 0,
-    features: [
-      'Create a full profile',
-      'Browse and match',
-      'Basic messaging',
-      'Community access',
-      'Safety features'
-    ],
-    cta: 'Current Plan',
-    featured: false
-  },
-  {
-    name: 'Premium',
-    description: 'Best for active daters',
-    monthlyPrice: 12,
-    yearlyPrice: 8,
-    features: [
-      'Everything in Basic',
-      'AI Message Explanations',
-      'Tone Tags',
-      'See who liked you',
-      'Unlimited likes',
-      'Advanced filters',
-      'Priority support',
-      'Profile boosts (2/month)'
-    ],
-    cta: 'Upgrade to Premium',
-    featured: true
-  },
-  {
-    name: 'Pro',
-    description: 'For serious connections',
-    monthlyPrice: 24,
-    yearlyPrice: 18,
-    features: [
-      'Everything in Premium',
-      'Video messaging',
-      'Incognito mode',
-      'Travel mode',
-      'Weekly boosts (4/month)',
-      'Profile consultation',
-      'Exclusive events'
-    ],
-    cta: 'Go Pro',
-    featured: false
-  }
-];
-
 export function PricingPage() {
+  const PLANS = useAppConfig().pricingPlans;
   const { user } = useAuthStore();
   const [isYearly, setIsYearly] = useState(false);
   const [isLoading, setIsLoading] = useState<string | null>(null);
@@ -111,7 +60,7 @@ export function PricingPage() {
         </div>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-8">
+      <div className="grid md:grid-cols-3 gap-6 items-start">
         {PLANS.map((plan) => {
           const isCurrentPlan = user?.subscription?.plan === plan.name.toLowerCase();
           const price = isYearly ? plan.yearlyPrice : plan.monthlyPrice;
@@ -119,22 +68,29 @@ export function PricingPage() {
           return (
             <Card
               key={plan.name}
-              className={`relative ${plan.featured ? 'border-2 border-primary shadow-glow' : ''}`}
+              className={`relative overflow-hidden transition-all duration-300 hover:shadow-card-hover ${
+                plan.featured
+                  ? 'border-2 border-primary shadow-glow md:scale-105 md:-my-4 z-10'
+                  : 'hover:-translate-y-1'
+              }`}
             >
               {plan.featured && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                  <Badge className="bg-primary text-white">Most Popular</Badge>
-                </div>
+                <>
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-accent-violet to-accent-pink" />
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                    <Badge className="bg-primary text-white shadow-lg px-4 py-1">Most Popular</Badge>
+                  </div>
+                </>
               )}
 
-              <CardHeader>
+              <CardHeader className={plan.featured ? 'pt-8' : ''}>
                 <CardTitle className="text-xl">{plan.name}</CardTitle>
-                <p className="text-sm text-neutral-500">{plan.description}</p>
+                <p className="text-sm text-muted-foreground">{plan.description}</p>
                 <div className="mt-4">
-                  <span className="text-4xl font-bold">${price}</span>
-                  <span className="text-neutral-500">/month</span>
+                  <span className={`text-4xl font-bold ${plan.featured ? 'text-primary' : ''}`}>${price}</span>
+                  <span className="text-muted-foreground">/month</span>
                   {isYearly && price > 0 && (
-                    <p className="text-sm text-green-600 mt-1">
+                    <p className="text-sm text-green-600 mt-1 font-medium">
                       ${price * 12} billed annually
                     </p>
                   )}
@@ -145,17 +101,18 @@ export function PricingPage() {
                 <ul className="space-y-3 mb-6">
                   {plan.features.map((feature) => (
                     <li key={feature} className="flex items-start gap-2">
-                      <Check className={`w-5 h-5 mt-0.5 ${plan.featured ? 'text-primary' : 'text-neutral-400'}`} />
+                      <Check className={`w-4 h-4 mt-0.5 flex-shrink-0 ${plan.featured ? 'text-primary' : 'text-muted-foreground'}`} />
                       <span className="text-sm">{feature}</span>
                     </li>
                   ))}
                 </ul>
 
                 <Button
+                  size="lg"
                   className={`w-full ${
                     plan.featured
-                      ? 'bg-primary hover:bg-primary-600'
-                      : 'bg-neutral-100 hover:bg-neutral-200 text-dark'
+                      ? 'bg-primary hover:bg-primary-600 shadow-glow'
+                      : 'bg-muted hover:bg-muted/80 text-foreground'
                   }`}
                   onClick={() => handleSubscribe(plan.name)}
                   disabled={isCurrentPlan || isLoading === plan.name}
