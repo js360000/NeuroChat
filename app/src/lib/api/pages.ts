@@ -75,5 +75,9 @@ export const pagesApi = {
 
   getAds: async () => {
     return api.get<PublicAdConfig>('/pages/ads');
+  },
+
+  getBranding: async () => {
+    return api.get<{ siteName: string; themeColor: string }>('/pages/branding');
   }
 };

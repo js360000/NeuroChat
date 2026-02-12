@@ -1,12 +1,18 @@
 import { Router } from 'express';
 import { db, findSitePageBySlug } from '../db/index.js';
-import { getExperiments, getAppConfig, getAdConfig } from '../config/settings.js';
+import { getExperiments, getAppConfig, getAdConfig, getSettings } from '../config/settings.js';
 
 const router = Router();
 
 // GET /pages/config - public app config (traits, interests, goals, pricing, crisis resources)
 router.get('/config', (_req, res) => {
   res.json({ config: getAppConfig() });
+});
+
+// GET /pages/branding - public site branding (name + theme color)
+router.get('/branding', (_req, res) => {
+  const { siteName, themeColor } = getSettings();
+  res.json({ siteName, themeColor });
 });
 
 // GET /pages/testimonials - public testimonials

@@ -9,6 +9,7 @@ export interface AdminSettings {
     maxPerUser: number;
     windowMinutes: number;
   };
+  themeColor: string;
 }
 
 export interface ExperimentSettings {
@@ -313,7 +314,8 @@ let settings: AdminSettings = {
   explainLimits: {
     maxPerUser: 20,
     windowMinutes: 60
-  }
+  },
+  themeColor: '#7c3aed'
 };
 
 let experiments: ExperimentSettings = {

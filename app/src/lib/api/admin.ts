@@ -129,6 +129,7 @@ export interface AdminSettings {
     maxPerUser: number;
     windowMinutes: number;
   };
+  themeColor: string;
 }
 
 export interface AdSlot {

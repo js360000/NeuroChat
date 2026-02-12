@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect } from 'react';
+import { useBrandingStore } from '@/lib/stores/branding';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { Loader2 } from 'lucide-react';
@@ -113,12 +114,14 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
   const { fetchUser, user, isAuthenticated } = useAuthStore();
   const fetchUnreadCount = useMessagesStore((s) => s.fetchUnreadCount);
   const fetchConfig = useConfigStore((s) => s.fetchConfig);
+  const fetchBranding = useBrandingStore((s) => s.fetchBranding);
   
   useEffect(() => {
     fetchUser();
     fetchConfig();
+    fetchBranding();
     applyA11ySettings(loadA11ySettings());
-  }, [fetchUser, fetchConfig]);
+  }, [fetchUser, fetchConfig, fetchBranding]);
 
   useEffect(() => {
     if (isAuthenticated) {

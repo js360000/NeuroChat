@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Heart } from 'lucide-react';
+import { useSiteName } from '@/lib/stores/branding';
 
 const PRODUCT_LINKS = [
   { path: '/games', label: 'Games' },
@@ -34,7 +35,7 @@ export function PublicFooter() {
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent-violet flex items-center justify-center">
                 <Heart className="w-4 h-4 text-white fill-white" />
               </div>
-              <span className="text-lg font-bold">NeuroNest</span>
+              <span className="text-lg font-bold">{useSiteName()}</span>
             </Link>
             <p className="text-sm text-neutral-400 leading-relaxed">
               A calmer, clearer space for friendship, dating, and community — built by neurodivergent people, for neurodivergent people.
@@ -87,7 +88,7 @@ export function PublicFooter() {
         {/* Bottom bar */}
         <div className="border-t border-white/10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-neutral-500 text-xs">
-            &copy; {new Date().getFullYear()} NeuroNest. All rights reserved.
+            &copy; {new Date().getFullYear()} {useSiteName()}. All rights reserved.
           </p>
           <p className="text-neutral-500 text-xs">
             Built with care for the neurodivergent community.

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle, XCircle, Loader2, Brain, Key, Clock } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Brain, Key, Clock, Palette, Type } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -7,7 +7,21 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { adminApi, type N8nWorkflow, type AdminSettings as AdminSettingsType } from '@/lib/api/admin';
+import { useBrandingStore } from '@/lib/stores/branding';
 import { toast } from 'sonner';
+
+const COLOR_PRESETS = [
+  { label: 'Purple', hex: '#7c3aed' },
+  { label: 'Blue', hex: '#2563eb' },
+  { label: 'Teal', hex: '#0d9488' },
+  { label: 'Green', hex: '#16a34a' },
+  { label: 'Rose', hex: '#e11d48' },
+  { label: 'Orange', hex: '#ea580c' },
+  { label: 'Amber', hex: '#d97706' },
+  { label: 'Pink', hex: '#db2777' },
+  { label: 'Indigo', hex: '#4f46e5' },
+  { label: 'Slate', hex: '#475569' },
+];
 
 type Integration = N8nWorkflow;
 
@@ -60,6 +74,105 @@ export function AdminSettings() {
       <h1 className="text-2xl font-bold mb-6">Settings</h1>
 
       <div className="space-y-6">
+        {/* Site Branding */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Palette className="w-5 h-5 text-primary" />
+              Site Branding
+            </CardTitle>
+            <CardDescription>Change the site name and primary colour scheme across the entire platform.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <Type className="w-3.5 h-3.5" />
+                Site Title
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  value={settings?.siteName ?? ''}
+                  onChange={(e) => setSettings((prev) => prev ? { ...prev, siteName: e.target.value } : prev)}
+                  placeholder="NeuroNest"
+                  maxLength={40}
+                />
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (settings?.siteName) {
+                      updateSetting({ siteName: settings.siteName });
+                      useBrandingStore.getState().setSiteName(settings.siteName);
+                      toast.success('Site title updated');
+                    }
+                  }}
+                >
+                  Save
+                </Button>
+              </div>
+              <p className="text-xs text-neutral-400">Appears in navigation, footer, login page, and browser tab.</p>
+            </div>
+
+            <div className="border-t border-neutral-100 pt-4 space-y-3">
+              <Label>Primary Colour</Label>
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-10 h-10 rounded-xl border-2 border-neutral-200 shadow-sm cursor-pointer relative overflow-hidden"
+                  style={{ backgroundColor: settings?.themeColor || '#7c3aed' }}
+                >
+                  <input
+                    type="color"
+                    value={settings?.themeColor || '#7c3aed'}
+                    onChange={(e) => {
+                      setSettings((prev) => prev ? { ...prev, themeColor: e.target.value } : prev);
+                      useBrandingStore.getState().setThemeColor(e.target.value);
+                    }}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                </div>
+                <Input
+                  value={settings?.themeColor || '#7c3aed'}
+                  onChange={(e) => {
+                    setSettings((prev) => prev ? { ...prev, themeColor: e.target.value } : prev);
+                    if (/^#[0-9a-fA-F]{6}$/.test(e.target.value)) {
+                      useBrandingStore.getState().setThemeColor(e.target.value);
+                    }
+                  }}
+                  placeholder="#7c3aed"
+                  className="max-w-[140px] font-mono text-sm"
+                />
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (settings?.themeColor) {
+                      updateSetting({ themeColor: settings.themeColor });
+                      toast.success('Theme colour saved');
+                    }
+                  }}
+                >
+                  Save
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {COLOR_PRESETS.map((preset) => (
+                  <button
+                    key={preset.hex}
+                    onClick={() => {
+                      setSettings((prev) => prev ? { ...prev, themeColor: preset.hex } : prev);
+                      useBrandingStore.getState().setThemeColor(preset.hex);
+                    }}
+                    className={`w-8 h-8 rounded-lg border-2 transition-all hover:scale-110 ${
+                      settings?.themeColor === preset.hex ? 'border-foreground ring-2 ring-offset-1 ring-foreground/20' : 'border-transparent'
+                    }`}
+                    style={{ backgroundColor: preset.hex }}
+                    title={preset.label}
+                  />
+                ))}
+              </div>
+              <p className="text-xs text-neutral-400">Applies to buttons, links, badges, and accents in both light and dark mode. Click a preset or use the picker.</p>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Integrations</CardTitle>

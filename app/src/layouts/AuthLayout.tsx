@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import { Heart, Shield, MessageCircle, Sparkles } from 'lucide-react';
+import { useSiteName } from '@/lib/stores/branding';
 
 const TRUST_POINTS = [
   { icon: Shield, text: 'Safe, moderated community' },
@@ -22,7 +23,7 @@ export function AuthLayout() {
             <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
               <Heart className="w-6 h-6 text-white fill-white" />
             </div>
-            <span className="text-2xl font-bold">NeuroNest</span>
+            <span className="text-2xl font-bold">{useSiteName()}</span>
           </a>
 
           <div className="space-y-8 max-w-sm">
@@ -72,7 +73,7 @@ export function AuthLayout() {
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-accent-violet flex items-center justify-center shadow-glow">
                 <Heart className="w-6 h-6 text-white fill-white" />
               </div>
-              <span className="text-2xl font-bold text-dark">NeuroNest</span>
+              <span className="text-2xl font-bold text-dark">{useSiteName()}</span>
             </a>
           </div>
 

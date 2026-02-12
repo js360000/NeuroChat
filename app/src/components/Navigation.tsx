@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useSiteName } from '@/lib/stores/branding';
 import { 
   Heart, 
   MessageCircle, 
@@ -74,7 +75,7 @@ export function Navigation() {
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-accent-violet flex items-center justify-center">
               <Heart className="w-5 h-5 text-white fill-white" />
             </div>
-            <span className="text-xl font-bold text-dark hidden sm:block">NeuroNest</span>
+            <span className="text-xl font-bold text-dark hidden sm:block">{useSiteName()}</span>
           </Link>
 
           {/* Desktop Navigation */}

@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Heart, Menu, X, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AccessibilityControls } from '@/components/AccessibilityControls';
+import { useSiteName } from '@/lib/stores/branding';
 import { cn } from '@/lib/utils';
 
 const NAV_LINKS = [
@@ -35,7 +36,7 @@ export function PublicNav() {
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-accent-violet flex items-center justify-center">
               <Heart className="w-5 h-5 text-white fill-white" />
             </div>
-            <span className="text-xl font-bold text-dark">NeuroNest</span>
+            <span className="text-xl font-bold text-dark">{useSiteName()}</span>
           </Link>
 
           {/* Desktop links */}
