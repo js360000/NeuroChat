@@ -5,6 +5,10 @@ export interface UserProfile {
   name: string;
   avatar?: string;
   bio?: string;
+  age?: number;
+  location?: string;
+  pronouns?: string;
+  gender?: string;
   neurodivergentTraits: string[];
   specialInterests: string[];
   connectionGoals?: string[];

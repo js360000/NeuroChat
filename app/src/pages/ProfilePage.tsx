@@ -1,5 +1,5 @@
 import { useRef, useMemo, useState } from 'react';
-import { Camera, Loader2, Plus, X, Upload, AlertCircle, Trash2 } from 'lucide-react';
+import { Camera, Loader2, Plus, X, Upload, AlertCircle, Trash2, MapPin, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,7 +8,17 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
 import { useAuthStore } from '@/lib/stores/auth';
+
+const PRONOUN_OPTIONS = ['he/him', 'she/her', 'they/them', 'he/they', 'she/they', 'any pronouns', 'ask me'];
+const GENDER_OPTIONS = ['Man', 'Woman', 'Non-binary', 'Genderfluid', 'Agender', 'Prefer not to say'];
 import { useAppConfig } from '@/lib/stores/config';
 import { toast } from 'sonner';
 
@@ -26,6 +36,10 @@ export function ProfilePage() {
   const [formData, setFormData] = useState({
     name: user?.name || '',
     bio: user?.bio || '',
+    dateOfBirth: user?.dateOfBirth || '',
+    location: user?.location || '',
+    pronouns: user?.pronouns || '',
+    gender: user?.gender || '',
     neurodivergentTraits: user?.neurodivergentTraits || [],
     specialInterests: user?.specialInterests || [],
     connectionGoals: user?.connectionGoals || [],
@@ -48,10 +62,23 @@ export function ProfilePage() {
     return Math.max(0, 2 - recent.length);
   }, [user?.nameChanges]);
 
+  const computeAge = (dob: string): number | undefined => {
+    if (!dob) return undefined;
+    const birth = new Date(dob);
+    const now = new Date();
+    let age = now.getFullYear() - birth.getFullYear();
+    const m = now.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
+    return age;
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await updateProfile(formData);
+      await updateProfile({
+        ...formData,
+        age: computeAge(formData.dateOfBirth),
+      } as any);
       toast.success('Profile updated');
     } catch {
       toast.error('Failed to update profile');
@@ -247,6 +274,56 @@ export function ProfilePage() {
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 disabled={nameChangesRemaining === 0 && formData.name !== user?.name}
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5" />
+                  Date of Birth
+                </Label>
+                <Input
+                  type="date"
+                  value={formData.dateOfBirth}
+                  onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                  max={new Date().toISOString().split('T')[0]}
+                />
+                {formData.dateOfBirth && (
+                  <p className="text-xs text-neutral-400 mt-1">Age shown on profile: {computeAge(formData.dateOfBirth)}</p>
+                )}
+              </div>
+              <div>
+                <Label className="flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5" />
+                  Location
+                </Label>
+                <Input
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  placeholder="e.g. London, UK"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Pronouns</Label>
+                <Select value={formData.pronouns} onValueChange={(v) => setFormData({ ...formData, pronouns: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                  <SelectContent>
+                    {PRONOUN_OPTIONS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Gender</Label>
+                <Select value={formData.gender} onValueChange={(v) => setFormData({ ...formData, gender: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                  <SelectContent>
+                    {GENDER_OPTIONS.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div>

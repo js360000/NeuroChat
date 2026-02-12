@@ -7,6 +7,11 @@ export interface User {
   name: string;
   avatar?: string;
   bio?: string;
+  age?: number;
+  dateOfBirth?: string;
+  location?: string;
+  pronouns?: string;
+  gender?: string;
   role: 'user' | 'admin';
   neurodivergentTraits: string[];
   specialInterests: string[];

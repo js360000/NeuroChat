@@ -1,4 +1,4 @@
-import { Clock, ExternalLink, Heart, MessageSquare, ShieldCheck, Star } from 'lucide-react';
+import { Clock, ExternalLink, Heart, MapPin, MessageSquare, ShieldCheck, Star } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,10 @@ export interface ProfileUser {
   name: string;
   avatar?: string;
   bio?: string;
+  age?: number;
+  location?: string;
+  pronouns?: string;
+  gender?: string;
   neurodivergentTraits: string[];
   specialInterests: string[];
   connectionGoals?: string[];
@@ -73,7 +77,17 @@ export function UserProfileView({
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className={compact ? 'text-lg font-bold' : 'text-xl font-bold'}>{user.name}</h2>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className={compact ? 'text-lg font-bold' : 'text-xl font-bold'}>{user.name}</h2>
+            {user.age != null && <span className="text-sm text-neutral-500">{user.age}</span>}
+            {user.pronouns && <Badge variant="outline" className="text-[10px] font-normal">{user.pronouns}</Badge>}
+          </div>
+          {user.location && (
+            <p className="text-xs text-neutral-500 flex items-center gap-1 mt-0.5">
+              <MapPin className="w-3 h-3" />
+              {user.location}
+            </p>
+          )}
           {user.compatibilityScore != null && (
             <p className="text-sm text-primary font-medium">{user.compatibilityScore}% match</p>
           )}
