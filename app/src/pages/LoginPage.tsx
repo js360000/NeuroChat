@@ -1,17 +1,19 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Loader2, Shield } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Shield, Ban, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '@/lib/stores/auth';
+import { ApiError } from '@/lib/api/client';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [banInfo, setBanInfo] = useState<{ reason: string; bannedAt: string | null; appealEmail: string; appealInstructions: string } | null>(null);
   const { login, error, clearError } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
@@ -25,12 +27,67 @@ export function LoginPage() {
     try {
       await login(email, password);
       navigate('/dashboard');
-    } catch (error) {
-      // Error is handled by the store
+    } catch (err: any) {
+      if (err instanceof ApiError && err.data?.banned) {
+        setBanInfo({
+          reason: err.data.banReason || 'Your account has been suspended.',
+          bannedAt: err.data.bannedAt || null,
+          appealEmail: err.data.appealEmail || 'appeals@neuronest.app',
+          appealInstructions: err.data.appealInstructions || 'Contact support to appeal.'
+        });
+      }
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (banInfo) {
+    return (
+      <Card className="max-w-md">
+        <CardHeader className="space-y-3 text-center">
+          <div className="mx-auto w-14 h-14 rounded-full bg-red-100 flex items-center justify-center">
+            <Ban className="w-7 h-7 text-red-600" />
+          </div>
+          <CardTitle className="text-xl text-red-700">Account Banned</CardTitle>
+          <CardDescription>
+            Your access to NeuroNest has been suspended.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-lg bg-red-50 border border-red-200 p-4 space-y-2">
+            <p className="text-sm font-medium text-red-800">Reason:</p>
+            <p className="text-sm text-red-700">{banInfo.reason}</p>
+            {banInfo.bannedAt && (
+              <p className="text-xs text-red-500 mt-2">Banned on: {new Date(banInfo.bannedAt).toLocaleDateString()}</p>
+            )}
+          </div>
+
+          <div className="rounded-lg bg-neutral-50 border border-neutral-200 p-4 space-y-3">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Shield className="w-4 h-4 text-primary" />
+              How to Appeal
+            </h3>
+            <p className="text-sm text-neutral-600">{banInfo.appealInstructions}</p>
+            <a
+              href={`mailto:${banInfo.appealEmail}?subject=Ban Appeal - ${email}&body=I would like to appeal my account ban. My account email is ${email}.`}
+              className="inline-flex items-center gap-2 text-sm text-primary hover:underline font-medium"
+            >
+              <Mail className="w-4 h-4" />
+              {banInfo.appealEmail}
+            </a>
+          </div>
+
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => { setBanInfo(null); clearError(); }}
+          >
+            Back to Login
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>

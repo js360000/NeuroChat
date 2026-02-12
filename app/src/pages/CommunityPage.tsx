@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { MessageCircle, ThumbsUp, Plus, Heart, Sparkles, Calendar, Users } from 'lucide-react';
+import { MessageCircle, ThumbsUp, Plus, Heart, Sparkles, Calendar, Users, Flag, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,6 +11,7 @@ import { AdBanner } from '@/components/AdBanner';
 import { communityApi, type CommunityPost, type CommunityComment, type CommunityRoom, type BuddyThread, type SharedRoutine } from '@/lib/api/community';
 import { scanTextForWarnings } from '@/lib/safety';
 import { applySeo } from '@/lib/seo';
+import { ReportBlockDialog } from '@/components/ReportBlockDialog';
 import { toast } from 'sonner';
 
 const POST_TYPES: Array<'ask' | 'share' | 'resource' | 'event'> = ['ask', 'share', 'resource', 'event'];
@@ -67,6 +68,7 @@ export function CommunityPage() {
   const [newRoutineDesc, setNewRoutineDesc] = useState('');
   const [newRoutineTime, setNewRoutineTime] = useState('');
   const [warningOpen, setWarningOpen] = useState(false);
+  const [communityReportTarget, setCommunityReportTarget] = useState<{ id: string; name: string; mode: 'report' | 'block' | 'report-and-block' } | null>(null);
   const [warningMessages, setWarningMessages] = useState<string[]>([]);
   const [pendingAction, setPendingAction] = useState<
     | { type: 'post'; payload: { type?: 'ask' | 'share' | 'resource' | 'event'; title?: string; content: string; tags?: string[]; toneTag?: string; contentWarning?: string } }
@@ -765,23 +767,17 @@ export function CommunityPage() {
                   </button>
                   <button
                     className="flex items-center gap-1 text-xs text-neutral-400 hover:text-red-500"
-                    onClick={async () => {
-                      const reason = window.prompt('Report reason?');
-                      if (!reason) return;
-                      try {
-                        const response = await communityApi.reportPost(post.id, reason);
-                        if (response.hidden) {
-                          toast.success('Post reported and hidden for review.');
-                          loadFeed();
-                        } else {
-                          toast.success('Report submitted.');
-                        }
-                      } catch {
-                        toast.error('Failed to submit report');
-                      }
-                    }}
+                    onClick={() => setCommunityReportTarget({ id: post.author.id, name: post.author.name, mode: 'report' })}
                   >
+                    <Flag className="w-3.5 h-3.5" />
                     Report
+                  </button>
+                  <button
+                    className="flex items-center gap-1 text-xs text-neutral-400 hover:text-red-500"
+                    onClick={() => setCommunityReportTarget({ id: post.author.id, name: post.author.name, mode: 'block' })}
+                  >
+                    <Ban className="w-3.5 h-3.5" />
+                    Block
                   </button>
                 </div>
 
@@ -900,6 +896,20 @@ export function CommunityPage() {
         }}
         confirmLabel="Post anyway"
       />
+      {communityReportTarget && (
+        <ReportBlockDialog
+          open={!!communityReportTarget}
+          onOpenChange={(open) => !open && setCommunityReportTarget(null)}
+          targetUserId={communityReportTarget.id}
+          targetUserName={communityReportTarget.name}
+          mode={communityReportTarget.mode}
+          onComplete={() => {
+            if (communityReportTarget.mode === 'block' || communityReportTarget.mode === 'report-and-block') {
+              loadFeed();
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

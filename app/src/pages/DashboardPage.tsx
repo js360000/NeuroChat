@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { List, Orbit, Wand2, Send, Sparkles, SlidersHorizontal, ShieldCheck, Clock, Crown, Heart, Undo2, Lock, Star, Eye } from 'lucide-react';
+import { List, Orbit, Wand2, Send, Sparkles, SlidersHorizontal, ShieldCheck, Clock, Crown, Heart, Undo2, Lock, Star, Eye, Flag, Ban } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -23,6 +23,7 @@ import { AdBanner } from '@/components/AdBanner';
 import { toast } from 'sonner';
 import { UserProfileModal } from '@/components/UserProfileModal';
 import { messagesApi } from '@/lib/api/messages';
+import { ReportBlockDialog } from '@/components/ReportBlockDialog';
 
 interface PotentialMatch {
   id: string;
@@ -95,6 +96,7 @@ export function DashboardPage() {
   const [similarityWeight, setSimilarityWeight] = useState(user?.matchPreferences?.similarityWeight ?? 0.7);
   const complementWeight = 1 - similarityWeight;
   const [intentVariant, setIntentVariant] = useState<'cards' | 'list'>('cards');
+  const [discoveryReportTarget, setDiscoveryReportTarget] = useState<{ id: string; name: string; mode: 'report' | 'block' | 'report-and-block' } | null>(null);
 
   // Premium state
   const userPlan = user?.subscription?.plan || 'free';
@@ -864,6 +866,26 @@ export function DashboardPage() {
                       ))}
                     </div>
                   )}
+                  <div className="flex gap-2 pt-1 border-t border-neutral-100">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="flex-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => setDiscoveryReportTarget({ id: selectedMatch.id, name: selectedMatch.name, mode: 'report' })}
+                    >
+                      <Flag className="w-3.5 h-3.5 mr-1" />
+                      Report
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="flex-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => setDiscoveryReportTarget({ id: selectedMatch.id, name: selectedMatch.name, mode: 'block' })}
+                    >
+                      <Ban className="w-3.5 h-3.5 mr-1" />
+                      Block
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             )}
@@ -1076,6 +1098,16 @@ export function DashboardPage() {
             }
           }}
         />
+      {discoveryReportTarget && (
+        <ReportBlockDialog
+          open={!!discoveryReportTarget}
+          onOpenChange={(open) => !open && setDiscoveryReportTarget(null)}
+          targetUserId={discoveryReportTarget.id}
+          targetUserName={discoveryReportTarget.name}
+          mode={discoveryReportTarget.mode}
+          onComplete={loadPotentialMatches}
+        />
+      )}
       </div>
     </div>
   );

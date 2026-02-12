@@ -446,4 +446,37 @@ router.post('/:id/report', authenticateToken, (req: Request, res: Response): voi
   res.json({ message: 'Report submitted successfully' });
 });
 
+router.delete('/:id/block', authenticateToken, (req: Request, res: Response): void => {
+  const currentUserId = req.user!.id;
+  const targetUserId = req.params.id;
+
+  const idx = db.blocks.findIndex(
+    (b) => b.blockerId === currentUserId && b.blockedId === targetUserId
+  );
+  if (idx === -1) {
+    res.status(404).json({ error: 'Block not found' });
+    return;
+  }
+
+  db.blocks.splice(idx, 1);
+  persistDb();
+  res.json({ message: 'User unblocked successfully' });
+});
+
+router.get('/me/blocked', authenticateToken, (req: Request, res: Response): void => {
+  const currentUserId = req.user!.id;
+  const blocked = db.blocks
+    .filter((b) => b.blockerId === currentUserId)
+    .map((b) => {
+      const user = findUserById(b.blockedId);
+      return {
+        id: b.blockedId,
+        name: user?.name || 'Unknown',
+        avatar: user?.avatar,
+        blockedAt: b.createdAt
+      };
+    });
+  res.json({ blocked });
+});
+
 export default router;

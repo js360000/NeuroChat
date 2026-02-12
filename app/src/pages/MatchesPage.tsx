@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, MessageCircle, X, ShieldCheck } from 'lucide-react';
+import { Heart, MessageCircle, X, ShieldCheck, Flag, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -9,12 +9,14 @@ import { usersApi, type Match } from '@/lib/api/users';
 import { messagesApi } from '@/lib/api/messages';
 import { MatchesSkeleton } from '@/components/PageSkeleton';
 import { PassportCard } from '@/components/PassportCard';
+import { ReportBlockDialog } from '@/components/ReportBlockDialog';
 import { toast } from 'sonner';
 
 export function MatchesPage() {
   const navigate = useNavigate();
   const [matches, setMatches] = useState<Match[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [reportTarget, setReportTarget] = useState<{ id: string; name: string; mode: 'report' | 'block' | 'report-and-block' } | null>(null);
 
   useEffect(() => {
     loadMatches();
@@ -152,10 +154,40 @@ export function MatchesPage() {
                   Message
                 </Button>
               </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                  onClick={() => setReportTarget({ id: match.user?.id || '', name: match.user?.name || 'Unknown', mode: 'report' })}
+                >
+                  <Flag className="w-3.5 h-3.5 mr-1" />
+                  Report
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                  onClick={() => setReportTarget({ id: match.user?.id || '', name: match.user?.name || 'Unknown', mode: 'block' })}
+                >
+                  <Ban className="w-3.5 h-3.5 mr-1" />
+                  Block
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
+      {reportTarget && (
+        <ReportBlockDialog
+          open={!!reportTarget}
+          onOpenChange={(open) => !open && setReportTarget(null)}
+          targetUserId={reportTarget.id}
+          targetUserName={reportTarget.name}
+          mode={reportTarget.mode}
+          onComplete={loadMatches}
+        />
+      )}
     </div>
   );
 }

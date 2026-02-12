@@ -34,8 +34,15 @@ router.post('/login', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    if (user.isSuspended) {
-      return res.status(403).json({ error: 'Account suspended. Contact support for assistance.' });
+    if (user.isSuspended || (user as any).isBanned) {
+      return res.status(403).json({
+        error: 'banned',
+        banned: true,
+        banReason: (user as any).banReason || 'Your account has been suspended for violating community guidelines.',
+        bannedAt: (user as any).bannedAt || null,
+        appealEmail: 'appeals@neuronest.app',
+        appealInstructions: 'If you believe this ban was made in error, you can submit an appeal by emailing our moderation team with your account email and a brief explanation. Appeals are typically reviewed within 5 business days.'
+      });
     }
 
     // Update online status

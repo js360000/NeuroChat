@@ -526,6 +526,59 @@ router.post('/reports/:id/review', (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
+// POST /users/:id/ban - Ban a user
+router.post('/users/:id/ban', (req: Request, res: Response) => {
+  const targetUser = findUserById(req.params.id);
+  if (!targetUser) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  const { reason } = req.body;
+  if (!reason) {
+    return res.status(400).json({ error: 'Ban reason is required' });
+  }
+  (targetUser as any).isBanned = true;
+  (targetUser as any).banReason = reason;
+  (targetUser as any).bannedAt = new Date().toISOString();
+  (targetUser as any).bannedBy = req.user!.id;
+  targetUser.isSuspended = true;
+
+  db.auditLogs.push({
+    id: uuidv4(),
+    actorId: req.user!.id,
+    action: 'ban_user',
+    targetType: 'user',
+    targetId: targetUser.id,
+    metadata: { reason },
+    createdAt: new Date()
+  });
+  persistDb();
+  res.json({ success: true, message: `User ${targetUser.name} has been banned` });
+});
+
+// POST /users/:id/unban - Unban a user
+router.post('/users/:id/unban', (req: Request, res: Response) => {
+  const targetUser = findUserById(req.params.id);
+  if (!targetUser) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  (targetUser as any).isBanned = false;
+  (targetUser as any).banReason = undefined;
+  (targetUser as any).bannedAt = undefined;
+  (targetUser as any).bannedBy = undefined;
+  targetUser.isSuspended = false;
+
+  db.auditLogs.push({
+    id: uuidv4(),
+    actorId: req.user!.id,
+    action: 'unban_user',
+    targetType: 'user',
+    targetId: targetUser.id,
+    createdAt: new Date()
+  });
+  persistDb();
+  res.json({ success: true, message: `User ${targetUser.name} has been unbanned` });
+});
+
 // POST /community/posts/:id/hide
 router.post('/community/posts/:id/hide', (req: Request, res: Response) => {
   const post = db.communityPosts.find((p) => p.id === req.params.id);

@@ -119,5 +119,13 @@ export const usersApi = {
 
   rewind: async () => {
     return api.post<{ message: string; targetUserId: string }>('/users/rewind', {});
+  },
+
+  unblockUser: async (id: string) => {
+    return api.delete(`/users/${id}/block`);
+  },
+
+  getBlockedUsers: async () => {
+    return api.get<{ blocked: Array<{ id: string; name: string; avatar?: string; blockedAt: string }> }>('/users/me/blocked');
   }
 };

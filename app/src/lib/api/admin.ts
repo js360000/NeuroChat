@@ -600,6 +600,14 @@ export const adminApi = {
     return api.put<AgeVerificationConfig>('/admin/age-verification', config);
   },
 
+  banUser: async (userId: string, reason: string) => {
+    return api.post<{ success: boolean; message: string }>(`/admin/users/${userId}/ban`, { reason });
+  },
+
+  unbanUser: async (userId: string) => {
+    return api.post<{ success: boolean; message: string }>(`/admin/users/${userId}/unban`, {});
+  },
+
   getAdConfig: async () => {
     return api.get<{ adConfig: AdConfig }>('/admin/ads');
   },

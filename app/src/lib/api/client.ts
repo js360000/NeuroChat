@@ -5,12 +5,14 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 export class ApiError extends Error {
   statusCode: number;
   code?: string;
+  data?: Record<string, any>;
   
-  constructor(message: string, statusCode: number, code?: string) {
+  constructor(message: string, statusCode: number, code?: string, data?: Record<string, any>) {
     super(message);
     this.name = 'ApiError';
     this.statusCode = statusCode;
     this.code = code;
+    this.data = data;
   }
 }
 
@@ -66,7 +68,8 @@ class ApiClient {
         throw new ApiError(
           data.error || 'An error occurred',
           response.status,
-          data.code
+          data.code,
+          data
         );
       }
 

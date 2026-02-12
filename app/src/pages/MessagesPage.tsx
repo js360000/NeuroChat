@@ -20,12 +20,15 @@ import {
   BookOpen,
   X,
   Crown,
-  ChevronDown
+  ChevronDown,
+  Flag,
+  Ban
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrustLevelBadge } from '@/components/TrustLevelBadge';
+import { ReportBlockDialog } from '@/components/ReportBlockDialog';
 import { safetyApi } from '@/lib/api/safety';
 import { GuardianNudge } from '@/components/GuardianNudge';
 import { PassportCard } from '@/components/PassportCard';
@@ -108,6 +111,7 @@ export function MessagesPage() {
   const [markNsfw, setMarkNsfw] = useState(false);
   const [revealedNsfw, setRevealedNsfw] = useState<Set<string>>(new Set());
   const [safetyGuideOpen, setSafetyGuideOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState<{ id: string; name: string; mode: 'report' | 'block' | 'report-and-block' } | null>(null);
   const [safetyOnboardingShown, setSafetyOnboardingShown] = useState(() => {
     return localStorage.getItem('neuronest_msg_safety_seen') === '1';
   });
@@ -700,6 +704,24 @@ export function MessagesPage() {
                     >
                       <Tag className="w-4 h-4 mr-2" />
                       Tags
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => setReportTarget({ id: activeConversation.user?.id || '', name: activeConversation.user?.name || 'Unknown', mode: 'report' })}
+                    >
+                      <Flag className="w-4 h-4 mr-2" />
+                      Report
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => setReportTarget({ id: activeConversation.user?.id || '', name: activeConversation.user?.name || 'Unknown', mode: 'block' })}
+                    >
+                      <Ban className="w-4 h-4 mr-2" />
+                      Block
                     </Button>
                   </div>
                 </div>
@@ -1383,6 +1405,20 @@ export function MessagesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {reportTarget && (
+        <ReportBlockDialog
+          open={!!reportTarget}
+          onOpenChange={(open) => !open && setReportTarget(null)}
+          targetUserId={reportTarget.id}
+          targetUserName={reportTarget.name}
+          mode={reportTarget.mode}
+          onComplete={() => {
+            if (reportTarget.mode === 'block' || reportTarget.mode === 'report-and-block') {
+              loadConversations();
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
