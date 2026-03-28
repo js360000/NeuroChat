@@ -1,0 +1,490 @@
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════
+   NeuroChat — Dark Blue Premium Theme
+   Aligned with NeuroNest's calming, neurodivergent-first aesthetic
+   ═══════════════════════════════════════════════════ */
+
+@layer base {
+  :root {
+    /* ── Light mode (secondary — most users will be in dark) ── */
+    --background: 220 25% 97%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 225 73% 57%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 258 90% 66%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 220 20% 93%;
+    --muted-foreground: 220 10% 46%;
+    --accent: 168 80% 42%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 20% 88%;
+    --input: 220 20% 88%;
+    --ring: 225 73% 57%;
+    --radius: 0.625rem;
+
+    /* ── Extended palette ── */
+    --glow: 225 73% 57%;
+    --surface: 220 25% 95%;
+    --surface-elevated: 0 0% 100%;
+    --success: 152 69% 41%;
+    --warning: 38 92% 50%;
+    --info: 199 89% 48%;
+  }
+
+  .dark {
+    /* ── Dark blue mode (primary) ── */
+    --background: 224 35% 7%;
+    --foreground: 213 31% 91%;
+    --card: 224 30% 10%;
+    --card-foreground: 213 31% 91%;
+    --popover: 224 30% 10%;
+    --popover-foreground: 213 31% 91%;
+    --primary: 225 80% 63%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 258 90% 66%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 224 25% 15%;
+    --muted-foreground: 218 15% 55%;
+    --accent: 168 80% 42%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 224 20% 18%;
+    --input: 224 20% 18%;
+    --ring: 225 80% 63%;
+
+    /* ── Extended dark palette ── */
+    --glow: 225 80% 63%;
+    --surface: 224 28% 12%;
+    --surface-elevated: 224 25% 15%;
+    --success: 152 69% 41%;
+    --warning: 38 92% 50%;
+    --info: 199 89% 48%;
+  }
+
+  /* ── High contrast override ── */
+  .a11y-high-contrast {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 5%;
+    --card-foreground: 0 0% 100%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 80%;
+    --border: 0 0% 30%;
+    --primary: 225 100% 70%;
+    --primary-foreground: 0 0% 0%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-family: 'Lexend', system-ui, -apple-system, sans-serif;
+    font-size: var(--a11y-font-size, 100%);
+    line-height: var(--a11y-line-height, 1.6);
+    letter-spacing: var(--a11y-letter-spacing, 0em);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* ── Dyslexia-friendly font mode ── */
+  .a11y-dyslexic {
+    font-family: 'OpenDyslexic', 'Comic Sans MS', cursive, sans-serif;
+    letter-spacing: 0.05em;
+    word-spacing: 0.15em;
+  }
+
+  /* ── Large text mode ── */
+  .a11y-large-text {
+    font-size: 112.5%;
+    line-height: 1.7;
+  }
+
+  /* ── Reduced motion ── */
+  .a11y-reduce-motion *,
+  .a11y-reduce-motion *::before,
+  .a11y-reduce-motion *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   Custom Scrollbar — matches dark blue theme
+   ═══════════════════════════════════════════════════ */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* ═══════════════════════════════════════════════════
+   Animations
+   ═══════════════════════════════════════════════════ */
+
+@keyframes message-pop {
+  0% { opacity: 0; transform: scale(0.92) translateY(8px); }
+  60% { transform: scale(1.02) translateY(-2px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(1deg); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px hsl(var(--glow) / 0.15); }
+  50% { box-shadow: 0 0 40px hsl(var(--glow) / 0.3); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes typing-bounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-4px); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes mood-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.15); }
+}
+
+@keyframes neural-flow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.05); opacity: 1; }
+}
+
+@keyframes energy-drain {
+  from { width: var(--energy-from); }
+  to { width: var(--energy-to); }
+}
+
+@keyframes ripple {
+  0% { transform: scale(0); opacity: 0.5; }
+  100% { transform: scale(4); opacity: 0; }
+}
+
+@keyframes status-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 currentColor; }
+  50% { box-shadow: 0 0 0 4px transparent; }
+}
+
+/* ═══════════════════════════════════════════════════
+   Glass morphism utilities
+   ═══════════════════════════════════════════════════ */
+
+@layer utilities {
+  .glass {
+    background: hsl(var(--card) / 0.6);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid hsl(var(--border) / 0.5);
+  }
+
+  .glass-heavy {
+    background: hsl(var(--card) / 0.8);
+    backdrop-filter: blur(24px) saturate(200%);
+    -webkit-backdrop-filter: blur(24px) saturate(200%);
+    border: 1px solid hsl(var(--border) / 0.6);
+  }
+
+  .glass-subtle {
+    background: hsl(var(--card) / 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .glow-sm {
+    box-shadow: 0 0 15px hsl(var(--glow) / 0.1);
+  }
+
+  .glow-md {
+    box-shadow: 0 0 30px hsl(var(--glow) / 0.15);
+  }
+
+  .glow-lg {
+    box-shadow: 0 0 50px hsl(var(--glow) / 0.2);
+  }
+
+  .glow-primary {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+  }
+
+  .glow-accent {
+    box-shadow: 0 0 20px hsl(var(--accent) / 0.3);
+  }
+
+  .text-gradient {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .bg-neural {
+    background:
+      radial-gradient(ellipse 30% 30% at 20% 30%, hsl(var(--primary) / 0.06) 0%, transparent 70%),
+      radial-gradient(ellipse 25% 25% at 80% 70%, hsl(var(--secondary) / 0.05) 0%, transparent 70%),
+      radial-gradient(ellipse 20% 20% at 50% 50%, hsl(var(--accent) / 0.03) 0%, transparent 70%);
+  }
+
+  .bg-mesh {
+    background:
+      radial-gradient(ellipse at 20% 50%, hsl(var(--primary) / 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, hsl(var(--secondary) / 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 80%, hsl(var(--accent) / 0.04) 0%, transparent 50%);
+  }
+
+  /* Calm mode progressive override */
+  .calm-1 { filter: saturate(0.9) contrast(0.98) brightness(1.01); }
+  .calm-2 { filter: saturate(0.8) contrast(0.96) brightness(1.02); }
+  .calm-3 { filter: saturate(0.7) contrast(0.94) brightness(1.03); }
+}
+
+/* ═══════════════════════════════════════════════════
+   Custom component styles
+   ═══════════════════════════════════════════════════ */
+
+/* Toggle switch */
+.toggle-switch {
+  @apply relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 cursor-pointer;
+}
+.toggle-switch[data-state="checked"] {
+  @apply bg-primary;
+}
+.toggle-switch[data-state="unchecked"] {
+  @apply bg-muted;
+}
+.toggle-switch-thumb {
+  @apply block h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200;
+}
+.toggle-switch[data-state="checked"] .toggle-switch-thumb {
+  transform: translateX(20px);
+}
+.toggle-switch[data-state="unchecked"] .toggle-switch-thumb {
+  transform: translateX(2px);
+}
+
+/* Energy bar */
+.energy-bar {
+  @apply h-2 rounded-full transition-all duration-700 ease-out;
+  background: linear-gradient(90deg, hsl(var(--accent)), hsl(var(--primary)));
+}
+.energy-bar.low {
+  background: linear-gradient(90deg, hsl(var(--destructive)), hsl(var(--warning)));
+}
+.energy-bar.medium {
+  background: linear-gradient(90deg, hsl(var(--warning)), hsl(var(--accent)));
+}
+
+/* Mood ring effect */
+.mood-ring {
+  position: relative;
+}
+.mood-ring::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  padding: 3px;
+  background: conic-gradient(from 0deg, var(--mood-color-1, hsl(var(--primary))), var(--mood-color-2, hsl(var(--accent))), var(--mood-color-1, hsl(var(--primary))));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: breathe 3s ease-in-out infinite;
+}
+
+/* Selection color */
+::selection {
+  background: hsl(var(--primary) / 0.3);
+  color: hsl(var(--foreground));
+}
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
+/* Placeholder */
+input::placeholder,
+textarea::placeholder {
+  color: hsl(var(--muted-foreground) / 0.6);
+}
+
+/* ═══════════════════════════════════════════════════
+   Stim-Friendly Micro-Interactions
+   ═══════════════════════════════════════════════════ */
+
+@keyframes bubble-pop {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.3); opacity: 0.5; }
+  100% { transform: scale(0); opacity: 0; }
+}
+@keyframes bubble-inflate {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes float-reaction {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-80px) scale(1.4); opacity: 0; }
+}
+@keyframes spin-momentum {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes gentle-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+@keyframes room-glow {
+  0%, 100% { box-shadow: 0 0 15px hsl(var(--primary) / 0.08); }
+  50% { box-shadow: 0 0 25px hsl(var(--primary) / 0.15); }
+}
+@keyframes presence-breathe {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+}
+@keyframes wave-float {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(-60px) rotate(15deg); opacity: 0; }
+}
+@keyframes recovery-gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-bubble-pop { animation: bubble-pop 0.3s ease-out forwards; }
+.animate-bubble-inflate { animation: bubble-inflate 0.4s ease-out forwards; }
+.animate-float-reaction { animation: float-reaction 1.5s ease-out forwards; }
+.animate-gentle-pulse { animation: gentle-pulse 2s ease-in-out infinite; }
+.animate-room-glow { animation: room-glow 3s ease-in-out infinite; }
+.animate-presence-breathe { animation: presence-breathe 4s ease-in-out infinite; }
+.animate-wave-float { animation: wave-float 1.2s ease-out forwards; }
+
+/* Recovery mode overlay */
+.recovery-mode {
+  position: relative;
+}
+.recovery-mode::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg,
+    hsl(258 40% 15% / 0.15),
+    hsl(225 30% 12% / 0.1),
+    hsl(258 40% 15% / 0.15));
+  background-size: 200% 200%;
+  animation: recovery-gradient 8s ease-in-out infinite;
+  z-index: 1;
+}
+
+/* AAC mode large touch targets */
+.aac-grid button {
+  min-height: 56px;
+  min-width: 56px;
+  font-size: 0.875rem;
+}
+.aac-grid-large button {
+  min-height: 72px;
+  min-width: 72px;
+  font-size: 1rem;
+}
+
+/* Sensory radar chart */
+.radar-polygon {
+  transition: all 0.3s ease-out;
+}
+.radar-polygon:hover {
+  filter: brightness(1.2);
+}
+
+/* Energy gauge arcs */
+@keyframes gauge-fill {
+  from { stroke-dashoffset: 283; }
+}
+.energy-gauge-arc {
+  animation: gauge-fill 1s ease-out;
+  transition: stroke-dashoffset 0.5s ease-out;
+}
+
+/* Together room ambient */
+.room-ambient {
+  background: radial-gradient(ellipse at 30% 50%, hsl(var(--primary) / 0.04), transparent 70%),
+              radial-gradient(ellipse at 70% 30%, hsl(var(--accent) / 0.04), transparent 60%),
+              radial-gradient(ellipse at 50% 80%, hsl(var(--secondary) / 0.03), transparent 70%);
+}
+
+/* Stim counter badge */
+.stim-counter {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
