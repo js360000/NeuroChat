@@ -15,6 +15,10 @@ function formatRoom(room: any) {
     id: room.id,
     name: room.name,
     activity: room.activity,
+    roomType: room.room_type || 'together',
+    interestTag: room.interest_tag || null,
+    description: room.description || null,
+    allowChat: Boolean(room.allow_chat),
     createdBy: room.created_by,
     maxParticipants: room.max_participants,
     isActive: Boolean(room.is_active),
@@ -31,21 +35,31 @@ function formatRoom(room: any) {
   }
 }
 
-// GET /api/rooms — list active rooms
-roomsRouter.get('/', (_req, res) => {
-  const rooms = db.prepare('SELECT * FROM together_rooms WHERE is_active = 1 ORDER BY created_at DESC').all()
+// GET /api/rooms — list active rooms (optional ?type=together|interest&tag=...)
+roomsRouter.get('/', (req, res) => {
+  const roomType = (req.query.type as string) || null
+  const tag = (req.query.tag as string) || null
+
+  let sql = 'SELECT * FROM together_rooms WHERE is_active = 1'
+  const params: any[] = []
+  if (roomType) { sql += ' AND room_type = ?'; params.push(roomType) }
+  if (tag) { sql += ' AND interest_tag = ?'; params.push(tag) }
+  sql += ' ORDER BY created_at DESC'
+
+  const rooms = db.prepare(sql).all(...params)
   res.json({ rooms: rooms.map(formatRoom) })
 })
 
 // POST /api/rooms — create room
 roomsRouter.post('/', (req, res) => {
   const userId = (req as any).userId
-  const { name, activity, maxParticipants } = req.body
+  const { name, activity, maxParticipants, roomType, interestTag, description, allowChat } = req.body
   if (!name?.trim()) return res.status(400).json({ error: 'Room name required' })
 
   const id = uuid()
-  db.prepare('INSERT INTO together_rooms (id, name, activity, created_by, max_participants) VALUES (?,?,?,?,?)').run(
-    id, name.trim(), activity || null, userId, maxParticipants || 6
+  db.prepare('INSERT INTO together_rooms (id, name, activity, created_by, max_participants, room_type, interest_tag, description, allow_chat) VALUES (?,?,?,?,?,?,?,?,?)').run(
+    id, name.trim(), activity || null, userId, maxParticipants || 6,
+    roomType || 'together', interestTag || null, description || null, allowChat ? 1 : 0
   )
   // Auto-join creator
   db.prepare('INSERT INTO room_participants (room_id, user_id, status, activity) VALUES (?,?,?,?)').run(id, userId, 'present', activity || null)

@@ -4,6 +4,7 @@ import { Toaster } from 'sonner'
 import { BottomNav } from './components/BottomNav'
 import { SensoryBreakReminder } from './components/SensoryBreakReminder'
 import { StimWidget } from './components/StimWidget'
+import { SafeExit } from './components/SafeExit'
 import { useA11yStore } from './stores/a11yStore'
 import { registerServiceWorker } from './lib/notifications'
 
@@ -36,6 +37,8 @@ const VenueMapPage = lazy(() => import('./pages/VenueMapPage').then(m => ({ defa
 const GuardianAngelPage = lazy(() => import('./pages/GuardianAngelPage').then(m => ({ default: m.GuardianAngelPage })))
 const SupporterDashboardPage = lazy(() => import('./pages/SupporterDashboardPage').then(m => ({ default: m.SupporterDashboardPage })))
 const NewChatPage = lazy(() => import('./pages/NewChatPage').then(m => ({ default: m.NewChatPage })))
+const InterestRoomsPage = lazy(() => import('./pages/InterestRoomsPage').then(m => ({ default: m.InterestRoomsPage })))
+const SpoonBudgetPage = lazy(() => import('./pages/SpoonBudgetPage').then(m => ({ default: m.SpoonBudgetPage })))
 
 // ═══════════════════════════════════════════
 // Error Boundaries
@@ -188,11 +191,14 @@ function App() {
             <Route path="/guardian-angel" element={<LazyRoute element={<GuardianAngelPage />} />} />
             <Route path="/supporters" element={<LazyRoute element={<SupporterDashboardPage />} />} />
             <Route path="/new-chat" element={<LazyRoute element={<NewChatPage />} />} />
+            <Route path="/interest-rooms" element={<LazyRoute element={<InterestRoomsPage />} />} />
+            <Route path="/spoon-budget" element={<LazyRoute element={<SpoonBudgetPage />} />} />
             <Route path="/admin" element={<LazyRoute element={<AdminPage />} />} />
           </Routes>
           <BottomNav />
           <SensoryBreakReminder />
           <StimWidget />
+          <SafeExit />
           <Toaster
             position="top-center"
             toastOptions={{

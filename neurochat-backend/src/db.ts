@@ -343,6 +343,10 @@ try { db.exec(`ALTER TABLE users ADD COLUMN phone_number TEXT`) } catch { /* exi
 try { db.exec(`ALTER TABLE users ADD COLUMN phone_hash TEXT`) } catch { /* exists */ }
 try { db.exec(`CREATE UNIQUE INDEX idx_users_phone_hash ON users(phone_hash) WHERE phone_hash IS NOT NULL`) } catch { /* exists */ }
 try { db.exec(`ALTER TABLE messages ADD COLUMN aac_symbols TEXT`) } catch { /* exists */ }
+try { db.exec(`ALTER TABLE together_rooms ADD COLUMN room_type TEXT DEFAULT 'together'`) } catch { /* exists */ }
+try { db.exec(`ALTER TABLE together_rooms ADD COLUMN interest_tag TEXT`) } catch { /* exists */ }
+try { db.exec(`ALTER TABLE together_rooms ADD COLUMN description TEXT`) } catch { /* exists */ }
+try { db.exec(`ALTER TABLE together_rooms ADD COLUMN allow_chat INTEGER DEFAULT 0`) } catch { /* exists */ }
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS communication_contracts (

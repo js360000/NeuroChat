@@ -63,6 +63,82 @@ energyRouter.patch('/auto-responder', (req, res) => {
   res.json({ autoResponder: config })
 })
 
+// GET /api/energy/budget — spoon budget planner (weekly forecast)
+energyRouter.get('/budget', (req, res) => {
+  const userId = (req as any).userId
+
+  // Get 14 days of energy logs to build patterns
+  const logs = db.prepare(`
+    SELECT social, sensory, cognitive, physical, created_at
+    FROM energy_logs WHERE user_id = ? AND created_at >= datetime('now', '-14 days')
+    ORDER BY created_at ASC
+  `).all(userId) as any[]
+
+  // Get upcoming social interactions (conversations with messages in last 3 days)
+  const activeConversations = (db.prepare(`
+    SELECT COUNT(DISTINCT c.id) as count FROM conversations c
+    JOIN messages m ON m.conversation_id = c.id
+    WHERE (c.user1_id = ? OR c.user2_id = ?) AND m.created_at >= datetime('now', '-3 days')
+  `).get(userId, userId) as any).count
+
+  // Calculate daily averages per dimension
+  const dayMap: Record<string, { social: number[]; sensory: number[]; cognitive: number[]; physical: number[] }> = {}
+  for (const log of logs) {
+    const day = log.created_at.slice(0, 10) // YYYY-MM-DD
+    if (!dayMap[day]) dayMap[day] = { social: [], sensory: [], cognitive: [], physical: [] }
+    dayMap[day].social.push(log.social)
+    dayMap[day].sensory.push(log.sensory)
+    dayMap[day].cognitive.push(log.cognitive)
+    dayMap[day].physical.push(log.physical)
+  }
+
+  const dailyAverages = Object.entries(dayMap).map(([date, dims]) => ({
+    date,
+    social: Math.round(dims.social.reduce((a, b) => a + b, 0) / dims.social.length),
+    sensory: Math.round(dims.sensory.reduce((a, b) => a + b, 0) / dims.sensory.length),
+    cognitive: Math.round(dims.cognitive.reduce((a, b) => a + b, 0) / dims.cognitive.length),
+    physical: Math.round(dims.physical.reduce((a, b) => a + b, 0) / dims.physical.length),
+  }))
+
+  // Calculate overall weekly average
+  const avgEnergy = dailyAverages.length > 0
+    ? Math.round(dailyAverages.reduce((s, d) => s + (d.social + d.sensory + d.cognitive + d.physical) / 4, 0) / dailyAverages.length)
+    : 50
+
+  // Predict crash risk
+  const lowDays = dailyAverages.filter(d => (d.social + d.sensory + d.cognitive + d.physical) / 4 < 30).length
+  const crashRisk = lowDays >= 3 ? 'high' : lowDays >= 1 ? 'moderate' : 'low'
+
+  // Generate recommendations
+  const recommendations: string[] = []
+  const socialAvg = dailyAverages.length > 0 ? Math.round(dailyAverages.reduce((s, d) => s + d.social, 0) / dailyAverages.length) : 50
+  if (activeConversations > 3 && socialAvg < 40) recommendations.push(`You have ${activeConversations} active conversations but your social energy averages ${socialAvg}%. Consider pausing some chats.`)
+  if (crashRisk === 'high') recommendations.push('You crashed 3+ days this week. Pre-set auto-responders for tomorrow to protect your energy.')
+  if (socialAvg < 25) recommendations.push('Your social energy is very low. Consider a Together Room instead of active conversations.')
+  const sensoryAvg = dailyAverages.length > 0 ? Math.round(dailyAverages.reduce((s, d) => s + d.sensory, 0) / dailyAverages.length) : 50
+  if (sensoryAvg < 30) recommendations.push('Sensory energy is consistently low. The Stim Widget and sensory breaks may help.')
+
+  // Estimate spoon capacity (simplified: avg energy / 20 = spoons per day)
+  const spoonsPerDay = Math.max(1, Math.round(avgEnergy / 20))
+  const spoonsThisWeek = spoonsPerDay * 7
+  const spoonsUsedEstimate = activeConversations * 2 + lowDays * 3
+
+  res.json({
+    budget: {
+      spoonsPerDay,
+      spoonsThisWeek,
+      spoonsUsedEstimate,
+      avgEnergy,
+      crashRisk,
+      activeConversations,
+      dailyAverages,
+      recommendations,
+      lowDays,
+      daysTracked: dailyAverages.length,
+    }
+  })
+})
+
 // PATCH /api/energy/visibility — toggle energy visibility
 energyRouter.patch('/visibility', (req, res) => {
   const userId = (req as any).userId

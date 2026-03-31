@@ -80,4 +80,6 @@ export const energyApi = {
     const res = await api.patch<{ visible: boolean }>('/energy/visibility', { visible })
     return res.data
   },
+
+  getBudget: async () => api.get('/energy/budget').then(r => r.data),
 }

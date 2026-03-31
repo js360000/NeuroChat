@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Accessibility, Shield, Bell, User,
-  MessageSquare, Brain, Zap, ChevronRight, LogOut, Heart,
+  MessageSquare, Brain, Zap, ChevronRight, LogOut, Heart, Sparkles,
   Clock, Grid3X3, MapPin, Users, ShieldAlert, Battery,
 } from 'lucide-react'
 import { EnergyMeter } from '@/components/EnergyMeter'
@@ -40,6 +40,8 @@ const SETTINGS_SECTIONS: { title: string; items: SettingItem[] }[] = [
       { icon: Battery, label: 'Energy Dashboard', description: 'Track social, sensory, cognitive energy', path: '/energy', color: 'text-emerald-400 bg-emerald-500/10', badge: 'New' },
       { icon: MapPin, label: 'Sensory Venues', description: 'Crowdsourced venue sensory reviews', path: '/venues', color: 'text-sky-400 bg-sky-500/10', badge: 'New' },
       { icon: Users, label: 'Together Rooms', description: 'Parallel play — be together without talking', path: '/together', color: 'text-rose-400 bg-rose-500/10', badge: 'New' },
+      { icon: Sparkles, label: 'Special Interest Rooms', description: 'Infodump freely — share your passions', path: '/interest-rooms', color: 'text-pink-400 bg-pink-500/10', badge: 'New' },
+      { icon: Battery, label: 'Spoon Budget', description: 'Weekly energy forecast and planning', path: '/spoon-budget', color: 'text-amber-400 bg-amber-500/10', badge: 'New' },
     ],
   },
   {
