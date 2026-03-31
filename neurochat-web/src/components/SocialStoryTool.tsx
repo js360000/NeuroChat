@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
-  BookOpen, ChevronLeft, ChevronRight, Volume2, X, Search,
+  BookOpen, ChevronLeft, ChevronRight, Volume2, X, Search, Settings2,
   MessageCircle, Users, Heart, ShieldCheck, Sparkles, Clock,
   Utensils, Bus, Hospital, ShoppingCart, Plus, Trash2, Edit3,
-  HandHeart, Brain, AlertTriangle, Copy,
+  HandHeart, Brain, AlertTriangle, Copy, Palette, Type, Play,
   Home, GraduationCap, Bath, Sun, Stethoscope,
   Dog, TreePine, Plane, Music, Gamepad2, Scissors, Shirt,
   Bed, Baby, Pill,
@@ -502,13 +502,209 @@ const BUILT_IN_STORIES: SocialStory[] = [
 /*  TTS                                                                */
 /* ------------------------------------------------------------------ */
 
-function speak(text: string) {
-  if (!('speechSynthesis' in window) || !text.trim()) return
-  window.speechSynthesis.cancel()
-  const utterance = new SpeechSynthesisUtterance(text)
-  utterance.rate = 0.8
-  utterance.pitch = 1
-  window.speechSynthesis.speak(utterance)
+// TTS is now handled via speakWithPrefs() inside the component,
+// which respects the user's readingSpeed preference.
+
+/* ------------------------------------------------------------------ */
+/*  Story Display Preferences                                          */
+/* ------------------------------------------------------------------ */
+
+interface StoryDisplayPrefs {
+  emojiSize: 'small' | 'medium' | 'large' | 'xlarge'
+  textSize: 'small' | 'medium' | 'large' | 'xlarge'
+  cardBackground: 'default' | 'warm' | 'cool' | 'nature' | 'calm' | 'high-contrast'
+  showTips: boolean
+  showProgressBar: boolean
+  showStepNumbers: boolean
+  autoAdvance: boolean
+  autoAdvanceDelay: number // seconds
+  autoRead: boolean
+  readingSpeed: number // 0.5 to 1.5
+  layout: 'card' | 'fullscreen' | 'compact'
+  animationsEnabled: boolean
+  highContrast: boolean
+  borderStyle: 'none' | 'subtle' | 'bold'
+}
+
+const DEFAULT_STORY_PREFS: StoryDisplayPrefs = {
+  emojiSize: 'large',
+  textSize: 'medium',
+  cardBackground: 'default',
+  showTips: true,
+  showProgressBar: true,
+  showStepNumbers: true,
+  autoAdvance: false,
+  autoAdvanceDelay: 5,
+  autoRead: false,
+  readingSpeed: 0.8,
+  layout: 'card',
+  animationsEnabled: true,
+  highContrast: false,
+  borderStyle: 'subtle',
+}
+
+const STORY_PREFS_KEY = 'neurochat_story_prefs'
+
+function loadStoryPrefs(): StoryDisplayPrefs {
+  try {
+    const stored = localStorage.getItem(STORY_PREFS_KEY)
+    return stored ? { ...DEFAULT_STORY_PREFS, ...JSON.parse(stored) } : DEFAULT_STORY_PREFS
+  } catch { return DEFAULT_STORY_PREFS }
+}
+
+function saveStoryPrefs(prefs: StoryDisplayPrefs) {
+  localStorage.setItem(STORY_PREFS_KEY, JSON.stringify(prefs))
+}
+
+const EMOJI_SIZES = { small: 'text-2xl', medium: 'text-4xl', large: 'text-5xl', xlarge: 'text-7xl' }
+const TEXT_SIZES = { small: 'text-xs', medium: 'text-sm', large: 'text-base', xlarge: 'text-lg' }
+const CARD_BG = {
+  default: 'glass',
+  warm: 'bg-orange-500/5 border border-orange-500/10',
+  cool: 'bg-blue-500/5 border border-blue-500/10',
+  nature: 'bg-emerald-500/5 border border-emerald-500/10',
+  calm: 'bg-violet-500/5 border border-violet-500/10',
+  'high-contrast': 'bg-white dark:bg-zinc-900 border-2 border-foreground/20',
+}
+const BORDER_STYLES = { none: '', subtle: 'border border-border/20', bold: 'border-2 border-border/50' }
+
+/* ------------------------------------------------------------------ */
+/*  Story Preferences Panel                                            */
+/* ------------------------------------------------------------------ */
+
+function StoryPrefsPanel({ prefs, onChange }: { prefs: StoryDisplayPrefs; onChange: (p: StoryDisplayPrefs) => void }) {
+  function update(patch: Partial<StoryDisplayPrefs>) {
+    const updated = { ...prefs, ...patch }
+    onChange(updated)
+    saveStoryPrefs(updated)
+  }
+
+  function OptionRow({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+      <div className="flex items-center justify-between py-2.5">
+        <span className="text-xs font-medium">{label}</span>
+        <div className="flex items-center gap-1">{children}</div>
+      </div>
+    )
+  }
+
+  function SizeButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
+    return (
+      <button onClick={onClick} className={cn('px-2 py-1 rounded-lg text-[10px] font-medium transition-all',
+        active ? 'bg-primary text-primary-foreground' : 'bg-muted/30 text-muted-foreground hover:text-foreground')}>{label}</button>
+    )
+  }
+
+  function Toggle({ checked, onChange: onToggle }: { checked: boolean; onChange: (v: boolean) => void }) {
+    return (
+      <button role="switch" aria-checked={checked} onClick={() => onToggle(!checked)}
+        className={cn('relative w-9 h-5 rounded-full transition-colors', checked ? 'bg-primary' : 'bg-muted')}>
+        <span className={cn('block w-4 h-4 rounded-full bg-white shadow transition-transform', checked ? 'translate-x-[18px]' : 'translate-x-[2px]')} />
+      </button>
+    )
+  }
+
+  return (
+    <div className="p-4 space-y-1 divide-y divide-border/20">
+      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pb-2 flex items-center gap-1.5">
+        <Palette className="w-3.5 h-3.5" /> Appearance
+      </h3>
+
+      <OptionRow label="Emoji size">
+        {(['small', 'medium', 'large', 'xlarge'] as const).map(s => (
+          <SizeButton key={s} active={prefs.emojiSize === s} label={s === 'xlarge' ? 'XL' : s[0].toUpperCase() + s.slice(1)} onClick={() => update({ emojiSize: s })} />
+        ))}
+      </OptionRow>
+
+      <OptionRow label="Text size">
+        {(['small', 'medium', 'large', 'xlarge'] as const).map(s => (
+          <SizeButton key={s} active={prefs.textSize === s} label={s === 'xlarge' ? 'XL' : s[0].toUpperCase() + s.slice(1)} onClick={() => update({ textSize: s })} />
+        ))}
+      </OptionRow>
+
+      <OptionRow label="Card theme">
+        {(Object.keys(CARD_BG) as Array<keyof typeof CARD_BG>).map(k => (
+          <SizeButton key={k} active={prefs.cardBackground === k} label={k === 'high-contrast' ? 'Hi-Con' : k[0].toUpperCase() + k.slice(1)} onClick={() => update({ cardBackground: k })} />
+        ))}
+      </OptionRow>
+
+      <OptionRow label="Border">
+        {(['none', 'subtle', 'bold'] as const).map(b => (
+          <SizeButton key={b} active={prefs.borderStyle === b} label={b[0].toUpperCase() + b.slice(1)} onClick={() => update({ borderStyle: b })} />
+        ))}
+      </OptionRow>
+
+      <OptionRow label="Layout">
+        {(['card', 'compact', 'fullscreen'] as const).map(l => (
+          <SizeButton key={l} active={prefs.layout === l} label={l[0].toUpperCase() + l.slice(1)} onClick={() => update({ layout: l })} />
+        ))}
+      </OptionRow>
+
+      <OptionRow label="Animations">
+        <Toggle checked={prefs.animationsEnabled} onChange={v => update({ animationsEnabled: v })} />
+      </OptionRow>
+
+      <OptionRow label="High contrast">
+        <Toggle checked={prefs.highContrast} onChange={v => update({ highContrast: v })} />
+      </OptionRow>
+
+      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider py-2 flex items-center gap-1.5 pt-3">
+        <Type className="w-3.5 h-3.5" /> Content
+      </h3>
+
+      <OptionRow label="Show tips">
+        <Toggle checked={prefs.showTips} onChange={v => update({ showTips: v })} />
+      </OptionRow>
+
+      <OptionRow label="Show progress bar">
+        <Toggle checked={prefs.showProgressBar} onChange={v => update({ showProgressBar: v })} />
+      </OptionRow>
+
+      <OptionRow label="Show step numbers">
+        <Toggle checked={prefs.showStepNumbers} onChange={v => update({ showStepNumbers: v })} />
+      </OptionRow>
+
+      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider py-2 flex items-center gap-1.5 pt-3">
+        <Play className="w-3.5 h-3.5" /> Playback
+      </h3>
+
+      <OptionRow label="Auto-read steps aloud">
+        <Toggle checked={prefs.autoRead} onChange={v => update({ autoRead: v })} />
+      </OptionRow>
+
+      <OptionRow label="Reading speed">
+        <div className="flex items-center gap-2">
+          <input type="range" min={0.5} max={1.5} step={0.1} value={prefs.readingSpeed}
+            onChange={e => update({ readingSpeed: parseFloat(e.target.value) })}
+            className="w-20 h-1 rounded-full accent-primary" />
+          <span className="text-[10px] text-muted-foreground w-6 text-right">{prefs.readingSpeed}x</span>
+        </div>
+      </OptionRow>
+
+      <OptionRow label="Auto-advance steps">
+        <Toggle checked={prefs.autoAdvance} onChange={v => update({ autoAdvance: v })} />
+      </OptionRow>
+
+      {prefs.autoAdvance && (
+        <OptionRow label="Seconds per step">
+          <div className="flex items-center gap-2">
+            <input type="range" min={3} max={15} step={1} value={prefs.autoAdvanceDelay}
+              onChange={e => update({ autoAdvanceDelay: parseInt(e.target.value) })}
+              className="w-20 h-1 rounded-full accent-primary" />
+            <span className="text-[10px] text-muted-foreground w-6 text-right">{prefs.autoAdvanceDelay}s</span>
+          </div>
+        </OptionRow>
+      )}
+
+      {/* Reset */}
+      <div className="pt-3">
+        <button onClick={() => { onChange(DEFAULT_STORY_PREFS); saveStoryPrefs(DEFAULT_STORY_PREFS); toast.success('Reset to defaults') }}
+          className="w-full py-2 rounded-xl glass text-xs text-muted-foreground hover:text-foreground transition-colors">
+          Reset to defaults
+        </button>
+      </div>
+    </div>
+  )
 }
 
 /* ------------------------------------------------------------------ */
@@ -661,9 +857,28 @@ export function SocialStoryTool({ open, onClose }: SocialStoryToolProps) {
   const [customStories, setCustomStories] = useState<CustomStoryData[]>([])
   const [editorMode, setEditorMode] = useState<'create' | 'edit' | null>(null)
   const [editingStory, setEditingStory] = useState<CustomStoryData | undefined>(undefined)
+  const [showPrefs, setShowPrefs] = useState(false)
+  const [prefs, setPrefs] = useState<StoryDisplayPrefs>(loadStoryPrefs)
 
   // Load custom stories on mount
   useEffect(() => { setCustomStories(loadCustomStories()) }, [])
+
+  // Auto-advance timer
+  useEffect(() => {
+    if (!prefs.autoAdvance || !selectedStory) return
+    if (currentStep >= selectedStory.steps.length - 1) return
+    const timer = setTimeout(() => nextStep(), prefs.autoAdvanceDelay * 1000)
+    return () => clearTimeout(timer)
+  }, [prefs.autoAdvance, prefs.autoAdvanceDelay, currentStep, selectedStory])
+
+  // Auto-read step aloud
+  useEffect(() => {
+    if (!prefs.autoRead || !selectedStory) return
+    const utterance = new SpeechSynthesisUtterance(selectedStory.steps[currentStep].text)
+    utterance.rate = prefs.readingSpeed
+    window.speechSynthesis?.cancel()
+    window.speechSynthesis?.speak(utterance)
+  }, [prefs.autoRead, prefs.readingSpeed, currentStep, selectedStory])
 
   // Merge built-in + custom
   const allStories = useMemo(() => {
@@ -699,13 +914,21 @@ export function SocialStoryTool({ open, onClose }: SocialStoryToolProps) {
     if (currentStep > 0) setCurrentStep(prev => prev - 1)
   }
 
+  function speakWithPrefs(text: string) {
+    if (!('speechSynthesis' in window) || !text.trim()) return
+    window.speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.rate = prefs.readingSpeed
+    utterance.pitch = 1
+    window.speechSynthesis.speak(utterance)
+  }
   function speakStep() {
     if (!selectedStory) return
-    speak(selectedStory.steps[currentStep].text)
+    speakWithPrefs(selectedStory.steps[currentStep].text)
   }
   function speakAll() {
     if (!selectedStory) return
-    speak(selectedStory.steps.map(s => s.text).join('. '))
+    speakWithPrefs(selectedStory.steps.map(s => s.text).join('. '))
   }
 
   function handleSaveCustom(story: CustomStoryData) {
@@ -754,23 +977,33 @@ export function SocialStoryTool({ open, onClose }: SocialStoryToolProps) {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border/30">
           <div className="flex items-center gap-2">
-            {(selectedStory || editorMode) ? (
-              <button onClick={() => { closeStory(); setEditorMode(null); setEditingStory(undefined) }} className="p-1 rounded-lg hover:bg-muted/50">
+            {(selectedStory || editorMode || showPrefs) ? (
+              <button onClick={() => { closeStory(); setEditorMode(null); setEditingStory(undefined); setShowPrefs(false) }} className="p-1 rounded-lg hover:bg-muted/50">
                 <ChevronLeft className="w-5 h-5" />
               </button>
             ) : (
               <BookOpen className="w-5 h-5 text-primary" />
             )}
             <h2 className="font-semibold text-sm">
-              {editorMode === 'create' ? 'Create Story' : editorMode === 'edit' ? 'Edit Story' : selectedStory ? selectedStory.title : 'Social Stories'}
+              {showPrefs ? 'Display Settings' : editorMode === 'create' ? 'Create Story' : editorMode === 'edit' ? 'Edit Story' : selectedStory ? selectedStory.title : 'Social Stories'}
             </h2>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted/50"><X className="w-4 h-4" /></button>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setShowPrefs(!showPrefs)}
+              className={cn('p-1.5 rounded-lg hover:bg-muted/50 transition-colors', showPrefs && 'bg-primary/10 text-primary')}
+              title="Display settings">
+              <Settings2 className="w-4 h-4" />
+            </button>
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted/50"><X className="w-4 h-4" /></button>
+          </div>
         </div>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
-          {editorMode ? (
+          {showPrefs ? (
+            /* ─── Display preferences ─── */
+            <StoryPrefsPanel prefs={prefs} onChange={setPrefs} />
+          ) : editorMode ? (
             /* ─── Story editor ─── */
             <StoryEditor
               initial={editingStory}
@@ -844,25 +1077,34 @@ export function SocialStoryTool({ open, onClose }: SocialStoryToolProps) {
             /* ─── Story reader ─── */
             <div className="p-5 space-y-5">
               {/* Progress bar */}
-              <div className="flex gap-1">
-                {selectedStory.steps.map((_, i) => (
-                  <button key={i} onClick={() => setCurrentStep(i)}
-                    className={cn('flex-1 h-1.5 rounded-full transition-all',
-                      i <= currentStep ? 'bg-primary' : 'bg-muted/40',
-                      i === currentStep && 'glow-sm')} />
-                ))}
-              </div>
+              {prefs.showProgressBar && (
+                <div className="flex gap-1">
+                  {selectedStory.steps.map((_, i) => (
+                    <button key={i} onClick={() => setCurrentStep(i)}
+                      className={cn('flex-1 h-1.5 rounded-full transition-all',
+                        i <= currentStep ? 'bg-primary' : 'bg-muted/40',
+                        i === currentStep && 'glow-sm')} />
+                  ))}
+                </div>
+              )}
 
-              {/* Step card */}
-              <div className="glass rounded-2xl p-6 text-center space-y-4 min-h-[200px] flex flex-col items-center justify-center animate-fade-in" key={currentStep}>
-                <span className="text-5xl" role="img">{selectedStory.steps[currentStep].emoji}</span>
-                <p className="text-base leading-relaxed font-medium max-w-xs">
+              {/* Step card — uses display prefs */}
+              <div className={cn(
+                'rounded-2xl text-center space-y-4 flex flex-col items-center justify-center',
+                CARD_BG[prefs.cardBackground],
+                BORDER_STYLES[prefs.borderStyle],
+                prefs.layout === 'compact' ? 'p-4 min-h-[140px]' : prefs.layout === 'fullscreen' ? 'p-8 min-h-[300px]' : 'p-6 min-h-[200px]',
+                prefs.animationsEnabled && 'animate-fade-in',
+                prefs.highContrast && 'border-2 border-foreground/30',
+              )} key={currentStep}>
+                <span className={cn(EMOJI_SIZES[prefs.emojiSize])} role="img">{selectedStory.steps[currentStep].emoji}</span>
+                <p className={cn('leading-relaxed font-medium max-w-xs', TEXT_SIZES[prefs.textSize], prefs.highContrast && 'font-bold')}>
                   {selectedStory.steps[currentStep].text}
                 </p>
-                {selectedStory.steps[currentStep].tip && (
+                {prefs.showTips && selectedStory.steps[currentStep].tip && (
                   <div className="flex items-start gap-2 p-2.5 rounded-xl bg-primary/5 border border-primary/10 max-w-xs">
                     <Sparkles className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-                    <p className="text-[11px] text-muted-foreground leading-relaxed text-left">
+                    <p className={cn('text-muted-foreground leading-relaxed text-left', prefs.textSize === 'xlarge' ? 'text-sm' : 'text-[11px]')}>
                       {selectedStory.steps[currentStep].tip}
                     </p>
                   </div>
@@ -870,7 +1112,12 @@ export function SocialStoryTool({ open, onClose }: SocialStoryToolProps) {
               </div>
 
               {/* Step counter */}
-              <p className="text-center text-[11px] text-muted-foreground">Step {currentStep + 1} of {selectedStory.steps.length}</p>
+              {prefs.showStepNumbers && (
+                <p className={cn('text-center text-muted-foreground', prefs.textSize === 'xlarge' ? 'text-sm' : 'text-[11px]')}>
+                  Step {currentStep + 1} of {selectedStory.steps.length}
+                  {prefs.autoAdvance && <span className="ml-1 text-primary/60">(auto-advancing in {prefs.autoAdvanceDelay}s)</span>}
+                </p>
+              )}
 
               {/* Navigation */}
               <div className="flex items-center gap-2">
