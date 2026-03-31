@@ -17,6 +17,7 @@ import { safetyAlertsRouter } from './routes/safety-alerts.js'
 import { supportersRouter } from './routes/supporters.js'
 import { authRouter, JWT_SECRET } from './routes/auth.js'
 import { moderationRouter } from './routes/moderation.js'
+import { uploadsRouter } from './routes/uploads.js'
 import { isUserBanned } from './moderation.js'
 import { initSignalling } from './signalling.js'
 import jwt from 'jsonwebtoken'
@@ -76,6 +77,7 @@ app.use('/api/venues', venuesRouter)
 app.use('/api/safety', safetyAlertsRouter)
 app.use('/api/supporters', supportersRouter)
 app.use('/api/users', moderationRouter)
+app.use('/api/uploads', uploadsRouter)
 
 // Health check
 app.get('/api/health', (_req, res) => {

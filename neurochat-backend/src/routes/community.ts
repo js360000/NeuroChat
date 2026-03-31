@@ -41,7 +41,8 @@ function formatPost(row: any, userId: string) {
       count: reactionMap[type]?.count || 0,
       reacted: reactionMap[type]?.reacted || false,
     })),
-    replyCount: 0, // TODO: implement replies
+    replyCount: (db.prepare('SELECT COUNT(*) as c FROM community_posts WHERE parent_id = ?').get(postId) as any).c,
+    parentId: row.parent_id || null,
   }
 }
 
@@ -58,7 +59,8 @@ communityRouter.get('/posts', (req, res) => {
       u.verified as author_verified, u.comm_style as author_comm_style
     FROM community_posts p
     JOIN users u ON p.author_id = u.id
-    WHERE p.author_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = ?)
+    WHERE p.parent_id IS NULL
+      AND p.author_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = ?)
       AND p.author_id NOT IN (SELECT blocker_id FROM user_blocks WHERE blocked_id = ?)
   `
   const params: any[] = [userId, userId]
@@ -152,6 +154,54 @@ communityRouter.post('/posts/:id/react', (req, res) => {
 
   if (!row) return res.status(404).json({ error: 'Post not found' })
   res.json({ post: formatPost(row, userId) })
+})
+
+// GET /api/community/posts/:id/replies
+communityRouter.get('/posts/:id/replies', (req, res) => {
+  const userId = (req as any).userId
+  const parentId = req.params.id
+
+  const rows = db.prepare(`
+    SELECT p.*, u.name as author_name, u.pronouns as author_pronouns,
+      u.avatar as author_avatar, u.is_online as author_online,
+      u.verified as author_verified, u.comm_style as author_comm_style
+    FROM community_posts p
+    JOIN users u ON p.author_id = u.id
+    WHERE p.parent_id = ?
+    ORDER BY p.created_at ASC
+  `).all(parentId) as any[]
+
+  res.json({ replies: rows.map(row => formatPost(row, userId)) })
+})
+
+// POST /api/community/posts/:id/reply
+communityRouter.post('/posts/:id/reply', (req, res) => {
+  const userId = (req as any).userId
+  const parentId = req.params.id
+  const { content, toneTag } = req.body
+
+  if (!content?.trim()) return res.status(400).json({ error: 'content required' })
+
+  const modResult = scanContent(userId, content, 'post')
+  if (modResult.banned) {
+    return res.status(403).json({ error: 'Account suspended', violations: modResult.violations })
+  }
+
+  const replyId = uuid()
+  const now = new Date().toISOString()
+
+  db.prepare(`INSERT INTO community_posts (id, author_id, content, tone_tag, parent_id, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)`)
+    .run(replyId, userId, content.trim(), toneTag || null, parentId, now)
+
+  const row = db.prepare(`
+    SELECT p.*, u.name as author_name, u.pronouns as author_pronouns,
+      u.avatar as author_avatar, u.is_online as author_online,
+      u.verified as author_verified, u.comm_style as author_comm_style
+    FROM community_posts p JOIN users u ON p.author_id = u.id WHERE p.id = ?
+  `).get(replyId) as any
+
+  res.json({ reply: formatPost(row, userId) })
 })
 
 // GET /api/community/tags

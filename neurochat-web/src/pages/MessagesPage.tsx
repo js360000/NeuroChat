@@ -24,6 +24,8 @@ import { scanTextForWarnings, type SafetyWarning } from '@/lib/safety'
 import { AACInput } from '@/components/AACInput'
 import { SocialCoach } from '@/components/SocialCoach'
 import { getSocket } from '@/lib/socket'
+import { showLocalNotification, showFallbackNotification } from '@/lib/notifications'
+import { uploadsApi } from '@/lib/api/uploads'
 import { toast } from 'sonner'
 import type { Conversation, Message, AIExplanation } from '@/types'
 
@@ -104,8 +106,13 @@ export function MessagesPage() {
     const onNewMessage = (data: { conversationId: string; message: Message }) => {
       if (data.conversationId === conversationId) {
         setMessages((prev) => [...prev, data.message])
+      } else if (document.hidden || data.conversationId !== conversationId) {
+        // Show push notification for messages in other conversations
+        const senderName = data.message?.sender?.name || 'Someone'
+        const preview = (data.message?.content || '').slice(0, 60)
+        showLocalNotification(senderName, preview, `/messages/${data.conversationId}`)
+        if (!('serviceWorker' in navigator)) showFallbackNotification(senderName, preview, `/messages/${data.conversationId}`)
       }
-      // Refresh conversation list for unread counts
       loadConversations()
     }
     const onUserOnline = (data: { userId: string }) => {
@@ -226,17 +233,24 @@ export function MessagesPage() {
     }
   }
 
-  function handleImageCapture(dataUrl: string) {
-    // Send as a special image message (base64 inline for demo; production would use blob storage)
+  async function handleImageCapture(dataUrl: string) {
     if (!conversationId) return
-    messagesApi.sendMessage({
-      conversationId,
-      content: `[image:${dataUrl.slice(0, 50)}...]`, // Truncated placeholder — real impl would upload
-      toneTag: undefined,
-    }).then((data) => {
-      setMessages((prev) => [...prev, data.message])
-    }).catch(() => toast.error('Failed to send image'))
     setShowCamera(false)
+    try {
+      // Convert data URL to Blob and upload
+      const res = await fetch(dataUrl)
+      const blob = await res.blob()
+      const upload = await uploadsApi.upload(blob, `photo-${Date.now()}.jpg`)
+      // Send as image message with the uploaded URL
+      const data = await messagesApi.sendMessage({
+        conversationId,
+        content: `[image:${upload.url}]`,
+        toneTag: undefined,
+      })
+      setMessages((prev) => [...prev, data.message])
+    } catch {
+      toast.error('Failed to send image')
+    }
   }
 
   async function explainMessage(message: Message) {

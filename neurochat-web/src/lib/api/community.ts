@@ -21,6 +21,16 @@ export const communityApi = {
     return res.data
   },
 
+  getReplies: async (postId: string) => {
+    const res = await api.get<{ replies: CommunityPost[] }>(`/community/posts/${postId}/replies`)
+    return res.data
+  },
+
+  reply: async (postId: string, data: { content: string; toneTag?: string }) => {
+    const res = await api.post<{ reply: CommunityPost }>(`/community/posts/${postId}/reply`, data)
+    return res.data
+  },
+
   getTags: async () => {
     const res = await api.get<{ tags: string[] }>('/community/tags')
     return res.data

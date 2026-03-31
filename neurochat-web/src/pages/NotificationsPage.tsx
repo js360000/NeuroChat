@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Bell, MessageCircle, Users, Volume2, Vibrate, Moon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { requestNotificationPermission, getNotificationPermission } from '@/lib/notifications'
+import { toast } from 'sonner'
 
 function Toggle({ checked, onChange, label, description, icon: Icon }: {
   checked: boolean
@@ -43,7 +45,23 @@ function Toggle({ checked, onChange, label, description, icon: Icon }: {
 
 export function NotificationsPage() {
   const navigate = useNavigate()
-  const [pushEnabled, setPushEnabled] = useState(true)
+  const [permissionState, setPermissionState] = useState<string>(getNotificationPermission())
+  const [pushEnabled, setPushEnabled] = useState(getNotificationPermission() === 'granted')
+
+  useEffect(() => { setPermissionState(getNotificationPermission()) }, [pushEnabled])
+
+  async function handleTogglePush(value: boolean) {
+    if (value) {
+      const granted = await requestNotificationPermission()
+      setPushEnabled(granted)
+      setPermissionState(getNotificationPermission())
+      if (!granted) toast.error('Notification permission denied. Enable in browser settings.')
+      else toast.success('Push notifications enabled!')
+    } else {
+      setPushEnabled(false)
+      toast('Push notifications paused for this session')
+    }
+  }
   const [messageNotifs, setMessageNotifs] = useState(true)
   const [mentionNotifs, setMentionNotifs] = useState(true)
   const [soundEnabled, setSoundEnabled] = useState(true)
@@ -73,9 +91,9 @@ export function NotificationsPage() {
           <div className="rounded-2xl glass p-4 divide-y divide-border/30">
             <Toggle
               checked={pushEnabled}
-              onChange={setPushEnabled}
+              onChange={handleTogglePush}
               label="Push notifications"
-              description="Receive notifications on this device"
+              description={permissionState === 'denied' ? 'Blocked — enable in browser settings' : 'Receive notifications on this device'}
               icon={Bell}
             />
             <Toggle

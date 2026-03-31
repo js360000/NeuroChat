@@ -335,6 +335,8 @@ db.exec(`
   );
 `)
 
+try { db.exec(`ALTER TABLE community_posts ADD COLUMN parent_id TEXT REFERENCES community_posts(id)`) } catch { /* exists */ }
+
 try { db.exec(`ALTER TABLE users ADD COLUMN email TEXT UNIQUE`) } catch { /* exists */ }
 try { db.exec(`ALTER TABLE users ADD COLUMN password_hash TEXT`) } catch { /* exists */ }
 

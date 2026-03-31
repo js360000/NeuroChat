@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Hash, Send, AlertTriangle, ChevronDown, ChevronUp,
-  Pin, Shield, Sparkles, Loader2, Filter, BadgeCheck,
+  Pin, Shield, Sparkles, Loader2, Filter, BadgeCheck, MessageCircle,
 } from 'lucide-react'
 import { communityApi } from '@/lib/api/community'
 import { cn, formatTime, getInitials } from '@/lib/utils'
@@ -14,6 +14,36 @@ import { TONE_TAGS, REACTION_CONFIG, type CommunityPost, type ReactionType } fro
 
 function PostCard({ post, onReact }: { post: CommunityPost; onReact: (postId: string, type: ReactionType) => void }) {
   const [cwExpanded, setCwExpanded] = useState(false)
+  const [showReplies, setShowReplies] = useState(false)
+  const [replies, setReplies] = useState<CommunityPost[]>([])
+  const [repliesLoading, setRepliesLoading] = useState(false)
+  const [replyText, setReplyText] = useState('')
+  const [replyLoading, setReplyLoading] = useState(false)
+
+  const loadReplies = useCallback(async () => {
+    setRepliesLoading(true)
+    try {
+      const data = await communityApi.getReplies(post.id)
+      setReplies(data.replies)
+    } catch { /* ignore */ }
+    finally { setRepliesLoading(false) }
+  }, [post.id])
+
+  useEffect(() => {
+    if (showReplies) loadReplies()
+  }, [showReplies, loadReplies])
+
+  async function handleReply() {
+    if (!replyText.trim() || replyLoading) return
+    setReplyLoading(true)
+    try {
+      const data = await communityApi.reply(post.id, { content: replyText.trim() })
+      setReplies(prev => [...prev, data.reply])
+      setReplyText('')
+      post.replyCount = (post.replyCount || 0) + 1
+    } catch { /* ignore */ }
+    finally { setReplyLoading(false) }
+  }
   const toneConfig = TONE_TAGS.find((t) => t.tag === post.toneTag)
 
   return (
@@ -84,7 +114,7 @@ function PostCard({ post, onReact }: { post: CommunityPost; onReact: (postId: st
             </div>
           )}
 
-          {/* Reactions bar */}
+          {/* Reactions + reply toggle bar */}
           <div className="flex items-center gap-1 mt-3 flex-wrap">
             {post.reactions.filter((r) => r.count > 0 || true).map((reaction) => {
               const config = REACTION_CONFIG[reaction.type]
@@ -106,7 +136,70 @@ function PostCard({ post, onReact }: { post: CommunityPost; onReact: (postId: st
                 </button>
               )
             })}
+            {/* Reply button */}
+            <button
+              onClick={() => setShowReplies(!showReplies)}
+              className={cn(
+                'flex items-center gap-1 px-2 py-1 rounded-lg text-xs transition-all ml-auto',
+                'hover:scale-105 active:scale-95',
+                showReplies ? 'bg-primary/10 text-primary ring-1 ring-primary/20' : 'bg-muted/30 text-muted-foreground hover:bg-muted/50'
+              )}
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+              {post.replyCount > 0 && <span className="font-medium tabular-nums">{post.replyCount}</span>}
+              <span>{post.replyCount === 0 ? 'Reply' : post.replyCount === 1 ? 'Reply' : 'Replies'}</span>
+            </button>
           </div>
+
+          {/* Replies section */}
+          {showReplies && (
+            <div className="mt-3 pt-3 border-t border-border/20 space-y-3 animate-fade-in">
+              {/* Reply input */}
+              <div className="flex gap-2">
+                <input
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleReply()}
+                  placeholder="Write a reply..."
+                  className="flex-1 px-3 py-2 rounded-xl bg-muted/30 text-xs placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                />
+                <button
+                  onClick={handleReply}
+                  disabled={!replyText.trim() || replyLoading}
+                  className={cn(
+                    'p-2 rounded-xl transition-all',
+                    replyText.trim() ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                  )}
+                >
+                  {replyLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+
+              {/* Replies list */}
+              {repliesLoading ? (
+                <div className="flex justify-center py-2"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
+              ) : replies.length > 0 ? (
+                <div className="space-y-2 pl-3 border-l-2 border-primary/10">
+                  {replies.map((reply) => (
+                    <div key={reply.id} className="flex gap-2 animate-fade-in">
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary/60 to-secondary/60 flex items-center justify-center text-white text-[8px] font-medium shrink-0 mt-0.5">
+                        {getInitials(reply.author.name)}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] font-semibold">{reply.author.name}</span>
+                          <span className="text-[9px] text-muted-foreground">{formatTime(reply.createdAt)}</span>
+                        </div>
+                        <p className="text-xs text-foreground/80 leading-relaxed">{reply.content}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-muted-foreground/60 text-center py-1">No replies yet — be the first!</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </article>
