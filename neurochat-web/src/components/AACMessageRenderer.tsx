@@ -39,6 +39,20 @@ export function saveAACPrefs(prefs: AACDisplayPrefs) {
 /* ------------------------------------------------------------------ */
 
 const SYMBOL_MAP: { emoji: string; label: string; keywords: string[] }[] = [
+  // Intent markers (matched first — multi-word phrases take priority)
+  { emoji: '🙋', label: 'I want', keywords: ['i want', 'want', 'can i have', 'please give', 'could i have', 'i\'d like'] },
+  { emoji: '🚫', label: "I don't want", keywords: ['i don\'t want', 'don\'t want', 'no more', 'not want', 'i do not want'] },
+  { emoji: '❤️', label: 'I like', keywords: ['i like', 'like', 'i enjoy', 'enjoy', 'i love'] },
+  { emoji: '💔', label: "I don't like", keywords: ['i don\'t like', 'don\'t like', 'dislike', 'hate', 'i don\'t enjoy'] },
+  { emoji: '🙏', label: 'I need', keywords: ['i need', 'need', 'require', 'must have'] },
+  { emoji: '✋', label: "I don't need", keywords: ['i don\'t need', 'don\'t need', 'no need'] },
+  { emoji: '✅', label: 'I have', keywords: ['i have', 'i\'ve got', 'i got'] },
+  { emoji: '❌', label: "I don't have", keywords: ['i don\'t have', 'don\'t have', 'haven\'t got'] },
+  { emoji: '💪', label: 'I can', keywords: ['i can', 'able to'] },
+  { emoji: '🤷', label: "I can't", keywords: ['i can\'t', 'can\'t', 'cannot', 'unable'] },
+  { emoji: '🎯', label: 'I will', keywords: ['i will', 'i\'ll', 'going to'] },
+  { emoji: '⭐', label: 'My favourite', keywords: ['my favourite', 'my favorite', 'favourite', 'favorite'] },
+  { emoji: '😣', label: "I don't feel good", keywords: ['i don\'t feel good', 'not feeling well', 'feel bad', 'feeling bad'] },
   // Greetings
   { emoji: '👋', label: 'Hello', keywords: ['hello', 'hi', 'hey', 'hiya'] },
   { emoji: '😊', label: 'Good morning', keywords: ['good morning', 'morning'] },
@@ -195,6 +209,45 @@ function speak(text: string) {
 /*  Renderer props                                                     */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/*  Symbol-to-natural-sentence converter                               */
+/* ------------------------------------------------------------------ */
+
+const INTENT_LABELS = new Set([
+  'I want', "I don't want", 'I like', "I don't like",
+  'I need', "I don't need", 'I have', "I don't have",
+  'I can', "I can't", 'I will', 'I am going to',
+  'My favourite', "I don't feel good",
+])
+
+/** Convert a sequence of symbol labels into a readable sentence */
+export function symbolsToSentence(symbols: AACSymbol[]): string {
+  if (!symbols || symbols.length === 0) return ''
+  const labels = symbols.map(s => s.label)
+
+  // Group: intent markers connect to the next symbol(s)
+  const parts: string[] = []
+  let i = 0
+  while (i < labels.length) {
+    const label = labels[i]
+    if (INTENT_LABELS.has(label) && i + 1 < labels.length) {
+      // Intent + object(s): "I want" + "Water" → "I want water"
+      const objects: string[] = []
+      i++
+      while (i < labels.length && !INTENT_LABELS.has(labels[i])) {
+        objects.push(labels[i].toLowerCase())
+        i++
+      }
+      parts.push(`${label} ${objects.join(' and ')}`)
+    } else {
+      parts.push(label)
+      i++
+    }
+  }
+
+  return parts.join('. ').replace(/\.\s*$/, '') + (parts.length > 0 ? '.' : '')
+}
+
 interface AACMessageRendererProps {
   content: string
   aacSymbols?: AACSymbol[]
@@ -269,14 +322,20 @@ export function AACMessageRenderer({
   }, [content, viewerHasAAC, hasSymbols, prefs.customMappings])
 
   const handleSpeak = useCallback(() => {
-    speak(content)
-  }, [content])
+    speak(hasSymbols ? symbolsToSentence(aacSymbols!) : content)
+  }, [content, hasSymbols, aacSymbols])
+
+  // Generate natural sentence from symbols (for non-AAC viewers)
+  const naturalSentence = useMemo(() => {
+    if (!hasSymbols) return content
+    return symbolsToSentence(aacSymbols)
+  }, [hasSymbols, aacSymbols, content])
 
   // Mode A: Symbol-to-Text (message has symbols, viewer doesn't have AAC)
   if (hasSymbols && !viewerHasAAC) {
     return (
       <div className="space-y-1.5">
-        <p className="text-sm leading-relaxed">{content}</p>
+        <p className="text-sm leading-relaxed">{naturalSentence}</p>
         <div className="flex items-center gap-1 pt-1 border-t border-white/10">
           <Sparkles className="w-3 h-3 text-primary/50" />
           <span className="text-[10px] text-primary/60 font-medium">Sent via AAC</span>

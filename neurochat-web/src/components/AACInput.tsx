@@ -12,6 +12,7 @@ import {
   Zap,
   Users,
   ShieldAlert,
+  Target,
   ChevronLeft,
   Keyboard,
   Grid3X3,
@@ -41,6 +42,7 @@ interface Symbol {
 }
 
 type CategoryId =
+  | 'intent'
   | 'greetings'
   | 'feelings'
   | 'needs'
@@ -62,6 +64,27 @@ interface Category {
 /* ------------------------------------------------------------------ */
 
 const CATEGORIES: Category[] = [
+  {
+    id: 'intent',
+    label: 'I want...',
+    icon: <Target className="w-5 h-5" />,
+    symbols: [
+      { emoji: '🙋', label: 'I want' },
+      { emoji: '🚫', label: "I don't want" },
+      { emoji: '❤️', label: 'I like' },
+      { emoji: '💔', label: "I don't like" },
+      { emoji: '🙏', label: 'I need' },
+      { emoji: '✋', label: "I don't need" },
+      { emoji: '✅', label: 'I have' },
+      { emoji: '❌', label: "I don't have" },
+      { emoji: '💪', label: 'I can' },
+      { emoji: '🤷', label: "I can't" },
+      { emoji: '🎯', label: 'I will' },
+      { emoji: '🔜', label: 'I am going to' },
+      { emoji: '⭐', label: 'My favourite' },
+      { emoji: '😣', label: "I don't feel good" },
+    ],
+  },
   {
     id: 'greetings',
     label: 'Greetings',
@@ -732,7 +755,7 @@ function ModeIndicator({ level }: { level: AACInputProps['level'] }) {
 export function AACInput({ level, onSend, className }: AACInputProps) {
   const [message, setMessage] = useState('')
   const [symbolSequence, setSymbolSequence] = useState<AACSymbolData[]>([])
-  const [activeCategory, setActiveCategory] = useState<CategoryId>('greetings')
+  const [activeCategory, setActiveCategory] = useState<CategoryId>('intent')
   const [textInput, setTextInput] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
