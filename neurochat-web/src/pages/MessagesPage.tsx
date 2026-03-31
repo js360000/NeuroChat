@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  Search, Send, Sparkles, Lightbulb, ArrowLeft, Settings2, BookOpen, Handshake, Shield,
+  Search, Send, Sparkles, Lightbulb, ArrowLeft, Settings2, BookOpen, Handshake, Shield, Image,
   Settings, Hash, GraduationCap, Accessibility, MessageSquarePlus,
   Brain, MessageCircle, Camera, Phone, Video, Flag,
 } from 'lucide-react'
@@ -30,6 +30,8 @@ import { ForecastBadge, ForecastCard } from '@/components/ConversationForecast'
 import { ShieldBanner, ShieldSettingsPanel, useAutoShield } from '@/components/MaskingAutoShield'
 import { ContractPanel, ContractBadge } from '@/components/CommunicationContract'
 import { ToneTranslator } from '@/components/ToneTranslator'
+import { AACLiteInput } from '@/components/AACLiteInput'
+import { GifPicker, GifMessage, isGifMessage, extractGifUrl } from '@/components/GifPicker'
 import { getSocket } from '@/lib/socket'
 import { showLocalNotification, showFallbackNotification } from '@/lib/notifications'
 import { uploadsApi } from '@/lib/api/uploads'
@@ -82,10 +84,11 @@ export function MessagesPage() {
   const [showShieldSettings, setShowShieldSettings] = useState(false)
   const [showContract, setShowContract] = useState(false)
   const shieldActive = useAutoShield()
+  const [showGifPicker, setShowGifPicker] = useState(false)
   const [aacEnabled, setAacEnabled] = useState(() => {
     try { const u = JSON.parse(localStorage.getItem('neurochat_user') || '{}'); return !!u.aacMode } catch { return false }
   })
-  const [aacLevel] = useState<'symbol' | 'hybrid' | 'text-assisted'>(() => {
+  const [aacLevel] = useState<'lite' | 'symbol' | 'hybrid' | 'text-assisted'>(() => {
     try { const u = JSON.parse(localStorage.getItem('neurochat_user') || '{}'); return u.aacLevel || 'hybrid' } catch { return 'hybrid' }
   })
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -636,7 +639,9 @@ export function MessagesPage() {
                             {message.toneTag}
                           </span>
                         )}
-                        {(aacEnabled || message.aacSymbols) ? (
+                        {isGifMessage(message.content) ? (
+                          <GifMessage url={extractGifUrl(message.content)} />
+                        ) : (aacEnabled || message.aacSymbols) ? (
                           <AACMessageRenderer
                             content={message.content}
                             aacSymbols={message.aacSymbols}
@@ -791,6 +796,25 @@ export function MessagesPage() {
           </div>
         )}
 
+        {/* AAC Lite panel — communication scaffolding above keyboard */}
+        {aacEnabled && aacLevel === 'lite' && (
+          <div className="px-3 pt-2">
+            <AACLiteInput
+              currentDraft={messageDraft}
+              onSend={(text) => {
+                if (!conversationId) return
+                messagesApi.sendMessage({ conversationId, content: text }).then(data => {
+                  setMessages(prev => [...prev, data.message])
+                }).catch(() => toast.error('Failed to send'))
+              }}
+              onInsert={(text) => {
+                setMessageDraft(prev => prev ? prev + text : text)
+                inputRef.current?.focus()
+              }}
+            />
+          </div>
+        )}
+
         {/* Tone translator — preview before sending */}
         {!aacEnabled && messageDraft.trim().length >= 5 && (
           <div className="px-3 pt-2">
@@ -805,7 +829,7 @@ export function MessagesPage() {
         {/* Input area */}
         <div className="p-3 border-t border-border/50 glass-heavy">
           {/* AAC mode — replaces standard input */}
-          {aacEnabled ? (
+          {aacEnabled && aacLevel !== 'lite' ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-medium text-primary flex items-center gap-1">
@@ -815,7 +839,7 @@ export function MessagesPage() {
                   Switch to keyboard
                 </button>
               </div>
-              <AACInput level={aacLevel} onSend={handleAacSend} />
+              <AACInput level={aacLevel as 'symbol' | 'hybrid' | 'text-assisted'} onSend={handleAacSend} />
             </div>
           ) : (
             <>
@@ -889,6 +913,13 @@ export function MessagesPage() {
                     title="Send photo"
                   >
                     <Camera className="w-4.5 h-4.5" />
+                  </button>
+                  <button
+                    onClick={() => setShowGifPicker(true)}
+                    className="p-2.5 rounded-xl transition-colors text-muted-foreground hover:text-primary hover:bg-primary/10"
+                    title="Send GIF"
+                  >
+                    <Image className="w-4.5 h-4.5" />
                   </button>
                   <button
                     onClick={() => setAacEnabled(true)}
@@ -990,6 +1021,19 @@ export function MessagesPage() {
       <SocialStoryTool
         open={showSocialStories}
         onClose={() => setShowSocialStories(false)}
+      />
+
+      {/* GIF picker */}
+      <GifPicker
+        open={showGifPicker}
+        onClose={() => setShowGifPicker(false)}
+        onSelect={async (gifUrl) => {
+          if (!conversationId) return
+          try {
+            const data = await messagesApi.sendMessage({ conversationId, content: `[gif:${gifUrl}]` })
+            setMessages(prev => [...prev, data.message])
+          } catch { toast.error('Failed to send GIF') }
+        }}
       />
 
       {/* Shield settings */}

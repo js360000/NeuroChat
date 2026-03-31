@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, MessageSquare, Grid3X3, Type, Keyboard,
+  ArrowLeft, MessageSquare, Grid3X3, Type, Keyboard, Zap,
   Volume2, CheckCircle, Loader2, Shield, Accessibility,
   AlertTriangle, Info,
 } from 'lucide-react'
@@ -10,6 +10,15 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
 const AAC_LEVELS = [
+  {
+    id: 'lite' as const,
+    label: 'Lite',
+    icon: Zap,
+    desc: 'Communication scaffolding — quick replies, sentence starters, and feeling check-ins. For when you have the words but not the energy.',
+    features: ['Quick reply chips', 'Sentence starters', 'Feeling check-in grid', 'Energy-aware suggestions', 'Still have full keyboard'],
+    touchSize: 'Standard (44px+)',
+    best: 'Higher-functioning users at low capacity, or anyone who needs scaffolding',
+  },
   {
     id: 'symbol' as const,
     label: 'Symbol-only',
@@ -44,7 +53,7 @@ export function AACSettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [aacMode, setAacMode] = useState<'off' | 'on'>('off')
-  const [aacLevel, setAacLevel] = useState<'symbol' | 'hybrid' | 'text-assisted'>('hybrid')
+  const [aacLevel, setAacLevel] = useState<'lite' | 'symbol' | 'hybrid' | 'text-assisted'>('hybrid')
   const [ttsVoice, setTtsVoice] = useState('')
   const [ttsRate, setTtsRate] = useState(0.9)
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([])
