@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  Search, Send, Sparkles, Lightbulb, ArrowLeft, Settings2,
+  Search, Send, Sparkles, Lightbulb, ArrowLeft, Settings2, BookOpen,
   Settings, Hash, GraduationCap, Accessibility, MessageSquarePlus,
   Brain, MessageCircle, Camera, Phone, Video, Flag,
 } from 'lucide-react'
@@ -25,6 +25,7 @@ import { AACInput } from '@/components/AACInput'
 import { AACMessageRenderer } from '@/components/AACMessageRenderer'
 import { AACPreferencesPanel } from '@/components/AACPreferencesPanel'
 import { SocialCoach } from '@/components/SocialCoach'
+import { SocialStoryTool } from '@/components/SocialStoryTool'
 import { getSocket } from '@/lib/socket'
 import { showLocalNotification, showFallbackNotification } from '@/lib/notifications'
 import { uploadsApi } from '@/lib/api/uploads'
@@ -73,6 +74,7 @@ export function MessagesPage() {
   const [showSafetyDialog, setShowSafetyDialog] = useState(false)
   const [showSocialCoach, setShowSocialCoach] = useState(false)
   const [showAacPrefs, setShowAacPrefs] = useState(false)
+  const [showSocialStories, setShowSocialStories] = useState(false)
   const [aacEnabled, setAacEnabled] = useState(() => {
     try { const u = JSON.parse(localStorage.getItem('neurochat_user') || '{}'); return !!u.aacMode } catch { return false }
   })
@@ -523,9 +525,14 @@ export function MessagesPage() {
               <GraduationCap className="w-4 h-4" />
             </button>
             {aacEnabled && (
-              <button onClick={() => setShowAacPrefs(true)} className="p-2 rounded-xl hover:bg-muted/50 transition-colors text-muted-foreground" title="AAC Display Settings">
-                <Settings2 className="w-4 h-4" />
-              </button>
+              <>
+                <button onClick={() => setShowSocialStories(true)} className="p-2 rounded-xl hover:bg-muted/50 transition-colors text-muted-foreground" title="Social Stories">
+                  <BookOpen className="w-4 h-4" />
+                </button>
+                <button onClick={() => setShowAacPrefs(true)} className="p-2 rounded-xl hover:bg-muted/50 transition-colors text-muted-foreground" title="AAC Display Settings">
+                  <Settings2 className="w-4 h-4" />
+                </button>
+              </>
             )}
             <button onClick={() => setShowReport(true)} className="p-2 rounded-xl hover:bg-muted/50 transition-colors" title="Report / Block">
               <Flag className="w-4 h-4 text-muted-foreground" />
@@ -946,6 +953,13 @@ export function MessagesPage() {
 
       {/* AAC Display Preferences */}
       <AACPreferencesPanel open={showAacPrefs} onClose={() => setShowAacPrefs(false)} />
+
+      {/* Social Stories */}
+      <SocialStoryTool
+        open={showSocialStories}
+        onClose={() => setShowSocialStories(false)}
+        onSendSymbols={handleAacSend}
+      />
     </div>
   )
 }
