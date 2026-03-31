@@ -33,6 +33,9 @@ export const messagesApi = {
     return res.data as { conversation: { id: string; user: any; updatedAt: string } }
   },
 
+  getForecast: async (conversationId: string) =>
+    api.get(`/messages/conversations/${conversationId}/forecast`).then(r => r.data),
+
   markAsRead: async (conversationId: string): Promise<void> => {
     await api.post(`/messages/conversations/${conversationId}/read`)
   },

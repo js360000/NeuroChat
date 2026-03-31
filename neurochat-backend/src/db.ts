@@ -344,6 +344,18 @@ try { db.exec(`ALTER TABLE users ADD COLUMN phone_hash TEXT`) } catch { /* exist
 try { db.exec(`CREATE UNIQUE INDEX idx_users_phone_hash ON users(phone_hash) WHERE phone_hash IS NOT NULL`) } catch { /* exists */ }
 try { db.exec(`ALTER TABLE messages ADD COLUMN aac_symbols TEXT`) } catch { /* exists */ }
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS communication_contracts (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    created_by TEXT NOT NULL REFERENCES users(id),
+    rules TEXT NOT NULL DEFAULT '[]',
+    accepted_by TEXT DEFAULT '[]',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`)
+
 // Seed default site config if empty
 const configCount = (db.prepare('SELECT COUNT(*) as c FROM site_config').get() as any).c
 if (configCount === 0) {

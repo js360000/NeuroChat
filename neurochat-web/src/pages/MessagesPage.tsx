@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  Search, Send, Sparkles, Lightbulb, ArrowLeft, Settings2, BookOpen,
+  Search, Send, Sparkles, Lightbulb, ArrowLeft, Settings2, BookOpen, Handshake, Shield,
   Settings, Hash, GraduationCap, Accessibility, MessageSquarePlus,
   Brain, MessageCircle, Camera, Phone, Video, Flag,
 } from 'lucide-react'
@@ -26,6 +26,10 @@ import { AACMessageRenderer } from '@/components/AACMessageRenderer'
 import { AACPreferencesPanel } from '@/components/AACPreferencesPanel'
 import { SocialCoach } from '@/components/SocialCoach'
 import { SocialStoryTool } from '@/components/SocialStoryTool'
+import { ForecastBadge, ForecastCard } from '@/components/ConversationForecast'
+import { ShieldBanner, ShieldSettingsPanel, useAutoShield } from '@/components/MaskingAutoShield'
+import { ContractPanel, ContractBadge } from '@/components/CommunicationContract'
+import { ToneTranslator } from '@/components/ToneTranslator'
 import { getSocket } from '@/lib/socket'
 import { showLocalNotification, showFallbackNotification } from '@/lib/notifications'
 import { uploadsApi } from '@/lib/api/uploads'
@@ -75,6 +79,9 @@ export function MessagesPage() {
   const [showSocialCoach, setShowSocialCoach] = useState(false)
   const [showAacPrefs, setShowAacPrefs] = useState(false)
   const [showSocialStories, setShowSocialStories] = useState(false)
+  const [showShieldSettings, setShowShieldSettings] = useState(false)
+  const [showContract, setShowContract] = useState(false)
+  const shieldActive = useAutoShield()
   const [aacEnabled, setAacEnabled] = useState(() => {
     try { const u = JSON.parse(localStorage.getItem('neurochat_user') || '{}'); return !!u.aacMode } catch { return false }
   })
@@ -384,11 +391,14 @@ export function MessagesPage() {
                       <p className="text-xs text-muted-foreground truncate pr-2">
                         {conv.lastMessage?.content || 'Start a conversation'}
                       </p>
-                      {conv.unreadCount > 0 && (
-                        <span className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
-                          {conv.unreadCount}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <ForecastBadge conversationId={conv.id} />
+                        {conv.unreadCount > 0 && (
+                          <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                            {conv.unreadCount}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </button>
@@ -514,7 +524,15 @@ export function MessagesPage() {
             </div>
           </div>
           <div className="flex items-center gap-1">
+            {conversationId && <ForecastCard conversationId={conversationId} />}
+            {conversationId && <ContractBadge conversationId={conversationId} />}
             <ConversationSummary messages={messages} />
+            <button onClick={() => setShowContract(true)} className="p-2 rounded-xl hover:bg-muted/50 transition-colors" title="Communication Contract">
+              <Handshake className="w-4 h-4 text-muted-foreground" />
+            </button>
+            <button onClick={() => setShowShieldSettings(true)} className={cn("p-2 rounded-xl hover:bg-muted/50 transition-colors", shieldActive && "bg-violet-500/10 text-violet-400")} title="Auto-Shield">
+              <Shield className="w-4 h-4" />
+            </button>
             <button onClick={() => setActiveCall({ type: 'voice', userName: currentConversation?.user.name || 'User' })} className="p-2 rounded-xl hover:bg-muted/50 transition-colors" title="Voice call">
               <Phone className="w-4 h-4 text-muted-foreground" />
             </button>
@@ -539,6 +557,9 @@ export function MessagesPage() {
             </button>
           </div>
         </div>
+
+        {/* Shield banner */}
+        {shieldActive && <ShieldBanner />}
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-neural">
@@ -770,6 +791,17 @@ export function MessagesPage() {
           </div>
         )}
 
+        {/* Tone translator — preview before sending */}
+        {!aacEnabled && messageDraft.trim().length >= 5 && (
+          <div className="px-3 pt-2">
+            <ToneTranslator
+              message={messageDraft}
+              recipientStyle={currentConversation?.user.commStyle}
+              onUseTranslation={(text) => setMessageDraft(text)}
+            />
+          </div>
+        )}
+
         {/* Input area */}
         <div className="p-3 border-t border-border/50 glass-heavy">
           {/* AAC mode — replaces standard input */}
@@ -959,6 +991,20 @@ export function MessagesPage() {
         open={showSocialStories}
         onClose={() => setShowSocialStories(false)}
       />
+
+      {/* Shield settings */}
+      <ShieldSettingsPanel open={showShieldSettings} onClose={() => setShowShieldSettings(false)} />
+
+      {/* Communication contract */}
+      {conversationId && currentConversation && (
+        <ContractPanel
+          open={showContract}
+          onClose={() => setShowContract(false)}
+          conversationId={conversationId}
+          myUserId={(() => { try { return JSON.parse(localStorage.getItem('neurochat_user') || '{}').id || 'me' } catch { return 'me' } })()}
+          otherUserName={currentConversation.user.name}
+        />
+      )}
     </div>
   )
 }

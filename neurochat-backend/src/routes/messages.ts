@@ -111,6 +111,68 @@ messagesRouter.get('/conversations/:id', (req, res) => {
   res.json({ messages })
 })
 
+// GET /api/messages/conversations/:id/forecast — sensory weather forecast for a conversation
+messagesRouter.get('/conversations/:id/forecast', (req, res) => {
+  const userId = (req as any).userId
+  const convId = req.params.id
+
+  // Get last 50 messages from this conversation
+  const msgs = db.prepare(`
+    SELECT content, tone_tag, sender_id, created_at FROM messages
+    WHERE conversation_id = ? ORDER BY created_at DESC LIMIT 50
+  `).all(convId) as any[]
+
+  if (msgs.length === 0) return res.json({ forecast: { intensity: 'calm', score: 20, factors: [] } })
+
+  const factors: string[] = []
+  let score = 30 // baseline
+
+  // Message velocity (messages per hour in last 24h)
+  const recent = msgs.filter(m => new Date(m.created_at).getTime() > Date.now() - 86400000)
+  const hoursSpan = recent.length > 1
+    ? (new Date(recent[0].created_at).getTime() - new Date(recent[recent.length - 1].created_at).getTime()) / 3600000
+    : 24
+  const velocity = hoursSpan > 0 ? recent.length / hoursSpan : 0
+  if (velocity > 10) { score += 30; factors.push('Very fast-paced conversation') }
+  else if (velocity > 5) { score += 15; factors.push('Active conversation') }
+  else if (velocity < 1) { score -= 10; factors.push('Relaxed pace') }
+
+  // Emotional content detection
+  const emotionalWords = /angry|upset|frustrated|anxious|worried|scared|crying|hurt|hate|furious|panic/i
+  const emotionalCount = msgs.filter(m => emotionalWords.test(m.content)).length
+  if (emotionalCount > 5) { score += 25; factors.push('High emotional content') }
+  else if (emotionalCount > 2) { score += 10; factors.push('Some emotional topics') }
+
+  // Message length (long messages = more processing needed)
+  const avgLen = msgs.reduce((s, m) => s + m.content.length, 0) / msgs.length
+  if (avgLen > 200) { score += 10; factors.push('Long messages') }
+
+  // Balance check — one-sided conversation is draining
+  const otherMsgs = msgs.filter(m => m.sender_id !== userId)
+  const myMsgs = msgs.filter(m => m.sender_id === userId)
+  if (otherMsgs.length > myMsgs.length * 3) { score += 15; factors.push('One-sided — they send much more') }
+
+  // Tone tags present (positive signal — easier to read)
+  const tonedMsgs = msgs.filter(m => m.tone_tag).length
+  if (tonedMsgs > msgs.length * 0.3) { score -= 10; factors.push('Tone tags used — easier to read') }
+
+  // Get user energy if available
+  const user = db.prepare('SELECT energy_status FROM users WHERE id = ?').get(userId) as any
+  let energyWarning = false
+  if (user?.energy_status) {
+    try {
+      const energy = JSON.parse(user.energy_status)
+      const avg = (energy.social + energy.sensory + energy.cognitive + energy.physical) / 4
+      if (avg < 30) { score += 20; factors.push('Your energy is low'); energyWarning = true }
+    } catch { /* ignore */ }
+  }
+
+  score = Math.max(0, Math.min(100, score))
+  const intensity = score < 30 ? 'calm' : score < 50 ? 'moderate' : score < 70 ? 'active' : 'intense'
+
+  res.json({ forecast: { intensity, score, factors, energyWarning, messageCount: msgs.length, velocity: Math.round(velocity * 10) / 10 } })
+})
+
 // POST /api/messages/conversations — get or create a conversation with a user
 messagesRouter.post('/conversations', (req, res) => {
   const userId = (req as any).userId
