@@ -958,7 +958,6 @@ export function MessagesPage() {
       <SocialStoryTool
         open={showSocialStories}
         onClose={() => setShowSocialStories(false)}
-        onSendSymbols={handleAacSend}
       />
     </div>
   )
