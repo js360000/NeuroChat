@@ -315,6 +315,28 @@ try { db.exec(`ALTER TABLE users ADD COLUMN auto_responder TEXT DEFAULT '{}'`) }
 try { db.exec(`ALTER TABLE users ADD COLUMN async_prefs TEXT DEFAULT '{"readReceipts":false,"typingIndicator":false,"maxMessagesPerHour":0,"draftAndHold":false}'`) } catch { /* exists */ }
 try { db.exec(`ALTER TABLE users ADD COLUMN masking_tracking INTEGER DEFAULT 0`) } catch { /* exists */ }
 try { db.exec(`ALTER TABLE users ADD COLUMN recovery_mode INTEGER DEFAULT 0`) } catch { /* exists */ }
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_blocks (
+    id TEXT PRIMARY KEY,
+    blocker_id TEXT NOT NULL REFERENCES users(id),
+    blocked_id TEXT NOT NULL REFERENCES users(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(blocker_id, blocked_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS user_reports (
+    id TEXT PRIMARY KEY,
+    reporter_id TEXT NOT NULL REFERENCES users(id),
+    reported_id TEXT NOT NULL REFERENCES users(id),
+    reason TEXT NOT NULL,
+    details TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`)
+
+try { db.exec(`ALTER TABLE users ADD COLUMN email TEXT UNIQUE`) } catch { /* exists */ }
+try { db.exec(`ALTER TABLE users ADD COLUMN password_hash TEXT`) } catch { /* exists */ }
 
 // Seed default site config if empty
 const configCount = (db.prepare('SELECT COUNT(*) as c FROM site_config').get() as any).c

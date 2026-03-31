@@ -2,6 +2,7 @@ import { Router } from 'express'
 import db from '../db.js'
 import { v4 as uuid } from 'uuid'
 import { scanContent } from '../moderation.js'
+import { isBlocked } from './moderation.js'
 
 export const messagesRouter = Router()
 
@@ -41,9 +42,11 @@ messagesRouter.get('/conversations', (req, res) => {
     LEFT JOIN messages m ON m.id = (
       SELECT id FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1
     )
-    WHERE c.user1_id = ? OR c.user2_id = ?
+    WHERE (c.user1_id = ? OR c.user2_id = ?)
+      AND u.id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = ?)
+      AND u.id NOT IN (SELECT blocker_id FROM user_blocks WHERE blocked_id = ?)
     ORDER BY c.updated_at DESC
-  `).all(userId, userId, userId, userId, userId) as any[]
+  `).all(userId, userId, userId, userId, userId, userId, userId) as any[]
 
   const conversations = rows.map((row) => {
     const sender = row.msg_sender === userId
@@ -114,6 +117,15 @@ messagesRouter.post('/', (req, res) => {
 
   if (!conversationId || !content?.trim()) {
     return res.status(400).json({ error: 'conversationId and content required' })
+  }
+
+  // Block check — find other user in conversation
+  const conv = db.prepare('SELECT user1_id, user2_id FROM conversations WHERE id = ?').get(conversationId) as any
+  if (conv) {
+    const otherId = conv.user1_id === userId ? conv.user2_id : conv.user1_id
+    if (isBlocked(userId, otherId)) {
+      return res.status(403).json({ error: 'Cannot send messages to this user' })
+    }
   }
 
   // Keyword moderation scan

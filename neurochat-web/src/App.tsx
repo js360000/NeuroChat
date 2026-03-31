@@ -18,6 +18,7 @@ import { ChatPrefsPage } from './pages/ChatPrefsPage'
 import { AISettingsPage } from './pages/AISettingsPage'
 import { AdminPage } from './pages/AdminPage'
 import { OnboardingPage } from './pages/OnboardingPage'
+import { LoginPage } from './pages/LoginPage'
 import { AsyncSettingsPage } from './pages/AsyncSettingsPage'
 import { AACSettingsPage } from './pages/AACSettingsPage'
 import { TogetherRoomsPage } from './pages/TogetherRoomsPage'
@@ -27,6 +28,7 @@ import { GuardianAngelPage } from './pages/GuardianAngelPage'
 import { SupporterDashboardPage } from './pages/SupporterDashboardPage'
 import { BottomNav } from './components/BottomNav'
 import { SensoryBreakReminder } from './components/SensoryBreakReminder'
+import { StimWidget } from './components/StimWidget'
 import { useA11yStore } from './stores/a11yStore'
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -80,6 +82,7 @@ function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/safety" element={<SafetyPage />} />
+            <Route path="/login" element={<LoginPage />} />
             <Route path="/onboarding" element={<OnboardingPage />} />
             {/* App pages */}
             <Route path="/messages" element={<MessagesPage />} />
@@ -106,6 +109,7 @@ function App() {
           </Routes>
           <BottomNav />
           <SensoryBreakReminder />
+          <StimWidget />
           <Toaster
             position="top-center"
             toastOptions={{

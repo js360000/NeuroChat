@@ -8,8 +8,10 @@ discoverRouter.get('/profiles', (req, res) => {
   const userId = (req as any).userId
   const query = (req.query.q as string || '').trim().toLowerCase()
 
-  let sql = `SELECT * FROM users WHERE id != ?`
-  const params: any[] = [userId]
+  let sql = `SELECT * FROM users WHERE id != ?
+    AND id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = ?)
+    AND id NOT IN (SELECT blocker_id FROM user_blocks WHERE blocked_id = ?)`
+  const params: any[] = [userId, userId, userId]
 
   if (query) {
     sql += ` AND (LOWER(name) LIKE ? OR LOWER(bio) LIKE ? OR LOWER(interests) LIKE ?)`

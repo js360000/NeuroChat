@@ -82,6 +82,31 @@ export function initSignalling(httpServer: HTTPServer) {
     })
 
     // ═══════════════════════════════════════════
+    // Messages — real-time delivery
+    // ═══════════════════════════════════════════
+
+    socket.on('message:new', (data: { conversationId: string; message: any; recipientId: string }) => {
+      const recipientSocketId = onlineUsers.get(data.recipientId)
+      if (recipientSocketId) {
+        io.to(recipientSocketId).emit('message:new', {
+          conversationId: data.conversationId,
+          message: data.message,
+        })
+      }
+    })
+
+    socket.on('message:read', ({ conversationId, userId, readAt }: { conversationId: string; userId: string; readAt: string }) => {
+      // Notify the other participant that messages were read
+      const conv = db.prepare('SELECT user1_id, user2_id FROM conversations WHERE id = ?').get(conversationId) as any
+      if (!conv) return
+      const otherId = conv.user1_id === userId ? conv.user2_id : conv.user1_id
+      const otherSocketId = onlineUsers.get(otherId)
+      if (otherSocketId) {
+        io.to(otherSocketId).emit('message:read', { conversationId, userId, readAt })
+      }
+    })
+
+    // ═══════════════════════════════════════════
     // Call signalling
     // ═══════════════════════════════════════════
 

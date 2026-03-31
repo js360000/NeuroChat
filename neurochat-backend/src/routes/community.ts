@@ -58,11 +58,13 @@ communityRouter.get('/posts', (req, res) => {
       u.verified as author_verified, u.comm_style as author_comm_style
     FROM community_posts p
     JOIN users u ON p.author_id = u.id
+    WHERE p.author_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = ?)
+      AND p.author_id NOT IN (SELECT blocker_id FROM user_blocks WHERE blocked_id = ?)
   `
-  const params: any[] = []
+  const params: any[] = [userId, userId]
 
   if (tag) {
-    sql += ` WHERE p.tags LIKE ?`
+    sql += ` AND p.tags LIKE ?`
     params.push(`%"${tag}"%`)
   }
 

@@ -15,8 +15,11 @@ import { roomsRouter } from './routes/rooms.js'
 import { venuesRouter } from './routes/venues.js'
 import { safetyAlertsRouter } from './routes/safety-alerts.js'
 import { supportersRouter } from './routes/supporters.js'
+import { authRouter, JWT_SECRET } from './routes/auth.js'
+import { moderationRouter } from './routes/moderation.js'
 import { isUserBanned } from './moderation.js'
 import { initSignalling } from './signalling.js'
+import jwt from 'jsonwebtoken'
 
 const app = express()
 const httpServer = createServer(app)
@@ -25,11 +28,25 @@ const PORT = process.env.PORT || 3001
 app.use(cors())
 app.use(express.json({ limit: '10mb' })) // Increased for base64 image payloads
 
-// Inject current user ID into request (simulates auth middleware)
-// In production this would come from JWT/session
-app.use((req, _res, next) => {
-  (req as any).userId = 'me'
-  next()
+// Auth routes (no token required)
+app.use('/api/auth', authRouter)
+
+// JWT auth middleware — skip for public routes
+const PUBLIC_PATHS = ['/api/auth', '/api/health']
+app.use('/api', (req, res, next) => {
+  if (PUBLIC_PATHS.some(p => req.path.startsWith(p.replace('/api', '')))) return next()
+
+  const authHeader = req.headers.authorization
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Authentication required' })
+  }
+  try {
+    const payload = jwt.verify(authHeader.slice(7), JWT_SECRET) as { userId: string }
+    ;(req as any).userId = payload.userId
+    next()
+  } catch {
+    return res.status(401).json({ error: 'Invalid or expired token' })
+  }
 })
 
 // Ban check middleware — blocks banned users from non-admin routes
@@ -58,6 +75,7 @@ app.use('/api/rooms', roomsRouter)
 app.use('/api/venues', venuesRouter)
 app.use('/api/safety', safetyAlertsRouter)
 app.use('/api/supporters', supportersRouter)
+app.use('/api/users', moderationRouter)
 
 // Health check
 app.get('/api/health', (_req, res) => {

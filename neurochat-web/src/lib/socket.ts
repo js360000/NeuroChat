@@ -12,8 +12,13 @@ export function getSocket(): Socket {
 
     socket.on('connect', () => {
       console.log('[WS] Connected:', socket?.id)
-      // Register current user
-      socket?.emit('register', 'me')
+      // Register current user from stored auth
+      try {
+        const user = JSON.parse(localStorage.getItem('neurochat_user') || '{}')
+        socket?.emit('register', user.id || 'anonymous')
+      } catch {
+        socket?.emit('register', 'anonymous')
+      }
     })
 
     socket.on('disconnect', () => {

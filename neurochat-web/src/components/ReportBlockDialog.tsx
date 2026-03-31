@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Flag, Ban, X, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { api } from '@/lib/api/client'
 import { toast } from 'sonner'
 
 const REPORT_REASONS = [
@@ -31,20 +32,17 @@ export function ReportBlockDialog({ open, onClose, targetUserId, targetUserName,
 
   const showReport = mode === 'report' || mode === 'report-and-block'
   const showBlock = mode === 'block' || mode === 'report-and-block'
-  // targetUserId will be used when API endpoints are wired
-  void targetUserId
 
   async function handleSubmit() {
     if (showReport && !reason) { toast.error('Please select a reason'); return }
     setSubmitting(true)
     try {
-      // In production, these would hit real API endpoints
       if (showReport) {
-        // await api.post(`/user/${targetUserId}/report`, { reason, details })
+        await api.post(`/users/${targetUserId}/report`, { reason, details })
         toast.success('Report submitted — our moderation team will review it.')
       }
       if (showBlock) {
-        // await api.post(`/user/${targetUserId}/block`)
+        await api.post(`/users/${targetUserId}/block`)
         toast.success(`${targetUserName} has been blocked.`)
       }
       onClose()

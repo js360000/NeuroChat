@@ -1,5 +1,8 @@
 import db from './db.js'
 import { v4 as uuid } from 'uuid'
+import bcrypt from 'bcryptjs'
+
+const DEFAULT_HASH = bcrypt.hashSync('password123', 10)
 
 // ═══════════════════════════════════════════
 // Clear existing data
@@ -18,23 +21,23 @@ db.exec(`
 // ═══════════════════════════════════════════
 
 const insertUser = db.prepare(`
-  INSERT INTO users (id, name, pronouns, bio, location, comm_style, interests, is_online, joined_at, verified)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  INSERT INTO users (id, name, pronouns, bio, location, comm_style, interests, is_online, joined_at, verified, email, password_hash)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `)
 
 const users = [
-  { id: 'me', name: 'Alex Morgan', pronouns: 'they/them', bio: "Neurodivergent and proud. Love deep conversations about space, music, and why cats are better than dogs. /gen", location: 'London, UK', commStyle: 'gentle', interests: ['Music','Coding','Space','Gaming','Pets'], isOnline: 1, joinedAt: '2025-09-15T00:00:00Z', verified: 1 },
-  { id: 'u1', name: 'Jordan Lee', pronouns: 'they/them', bio: 'Autistic creative who loves deep dives into music theory and pixel art.', location: 'Manchester, UK', commStyle: 'direct', interests: ['Music','Art','Gaming','Coding'], isOnline: 1, joinedAt: '2025-10-01T00:00:00Z', verified: 1 },
-  { id: 'u2', name: 'Sam Rivera', pronouns: 'she/her', bio: 'ADHD brain with too many hobbies. Currently hyperfixating on astrophotography.', location: 'Brighton, UK', commStyle: 'playful', interests: ['Space','Photography','Science','Pets'], isOnline: 1, joinedAt: '2025-08-20T00:00:00Z', verified: 1 },
-  { id: 'u3', name: 'Kai Chen', pronouns: 'he/him', bio: 'Quiet introvert who writes code by day and fantasy novels by night.', location: 'Edinburgh, UK', commStyle: 'gentle', interests: ['Coding','Writing','Reading','Nature'], isOnline: 0, joinedAt: '2025-11-05T00:00:00Z', verified: 0 },
-  { id: 'u4', name: 'Riley Brooks', pronouns: 'they/she', bio: 'Neurodivergent advocate. Big fan of cosy games and tea ceremonies.', location: 'Bristol, UK', commStyle: 'emotional', interests: ['Gaming','Cooking','Psychology','Crafts'], isOnline: 0, joinedAt: '2025-12-10T00:00:00Z', verified: 1 },
-  { id: 'u5', name: 'Mika Tanaka', pronouns: 'she/they', bio: 'Disabled artist making accessible zines. Lover of film scores and rainy days.', location: 'Glasgow, UK', commStyle: 'gentle', interests: ['Art','Film','Music','Writing'], isOnline: 1, joinedAt: '2025-07-22T00:00:00Z', verified: 1 },
-  { id: 'u6', name: 'Dex Okafor', pronouns: 'he/they', bio: 'Queer Black nerd. Building community through tabletop RPGs and mutual aid.', location: 'Birmingham, UK', commStyle: 'playful', interests: ['Gaming','Psychology','Cooking','Reading'], isOnline: 1, joinedAt: '2025-06-18T00:00:00Z', verified: 1 },
+  { id: 'me', name: 'Alex Morgan', pronouns: 'they/them', bio: "Neurodivergent and proud. Love deep conversations about space, music, and why cats are better than dogs. /gen", location: 'London, UK', commStyle: 'gentle', interests: ['Music','Coding','Space','Gaming','Pets'], isOnline: 1, joinedAt: '2025-09-15T00:00:00Z', verified: 1, email: 'alex@neurochat.dev' },
+  { id: 'u1', name: 'Jordan Lee', pronouns: 'they/them', bio: 'Autistic creative who loves deep dives into music theory and pixel art.', location: 'Manchester, UK', commStyle: 'direct', interests: ['Music','Art','Gaming','Coding'], isOnline: 1, joinedAt: '2025-10-01T00:00:00Z', verified: 1, email: 'jordan@neurochat.dev' },
+  { id: 'u2', name: 'Sam Rivera', pronouns: 'she/her', bio: 'ADHD brain with too many hobbies. Currently hyperfixating on astrophotography.', location: 'Brighton, UK', commStyle: 'playful', interests: ['Space','Photography','Science','Pets'], isOnline: 1, joinedAt: '2025-08-20T00:00:00Z', verified: 1, email: 'sam@neurochat.dev' },
+  { id: 'u3', name: 'Kai Chen', pronouns: 'he/him', bio: 'Quiet introvert who writes code by day and fantasy novels by night.', location: 'Edinburgh, UK', commStyle: 'gentle', interests: ['Coding','Writing','Reading','Nature'], isOnline: 0, joinedAt: '2025-11-05T00:00:00Z', verified: 0, email: 'kai@neurochat.dev' },
+  { id: 'u4', name: 'Riley Brooks', pronouns: 'they/she', bio: 'Neurodivergent advocate. Big fan of cosy games and tea ceremonies.', location: 'Bristol, UK', commStyle: 'emotional', interests: ['Gaming','Cooking','Psychology','Crafts'], isOnline: 0, joinedAt: '2025-12-10T00:00:00Z', verified: 1, email: 'riley@neurochat.dev' },
+  { id: 'u5', name: 'Mika Tanaka', pronouns: 'she/they', bio: 'Disabled artist making accessible zines. Lover of film scores and rainy days.', location: 'Glasgow, UK', commStyle: 'gentle', interests: ['Art','Film','Music','Writing'], isOnline: 1, joinedAt: '2025-07-22T00:00:00Z', verified: 1, email: 'mika@neurochat.dev' },
+  { id: 'u6', name: 'Dex Okafor', pronouns: 'he/they', bio: 'Queer Black nerd. Building community through tabletop RPGs and mutual aid.', location: 'Birmingham, UK', commStyle: 'playful', interests: ['Gaming','Psychology','Cooking','Reading'], isOnline: 1, joinedAt: '2025-06-18T00:00:00Z', verified: 1, email: 'dex@neurochat.dev' },
 ]
 
 const insertUsers = db.transaction(() => {
   for (const u of users) {
-    insertUser.run(u.id, u.name, u.pronouns, u.bio, u.location, u.commStyle, JSON.stringify(u.interests), u.isOnline, u.joinedAt, u.verified)
+    insertUser.run(u.id, u.name, u.pronouns, u.bio, u.location, u.commStyle, JSON.stringify(u.interests), u.isOnline, u.joinedAt, u.verified, u.email, DEFAULT_HASH)
   }
 })
 insertUsers()

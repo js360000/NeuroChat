@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Search, Send, Sparkles, Lightbulb, ArrowLeft,
-  Settings, Hash,
+  Settings, Hash, GraduationCap, Accessibility,
   Brain, MessageCircle, Camera, Phone, Video, Flag,
 } from 'lucide-react'
 import { messagesApi } from '@/lib/api/messages'
@@ -21,6 +21,9 @@ import { CallUI } from '@/components/CallUI'
 import { ReportBlockDialog } from '@/components/ReportBlockDialog'
 import { SafetyWarningDialog } from '@/components/SafetyWarningDialog'
 import { scanTextForWarnings, type SafetyWarning } from '@/lib/safety'
+import { AACInput } from '@/components/AACInput'
+import { SocialCoach } from '@/components/SocialCoach'
+import { getSocket } from '@/lib/socket'
 import { toast } from 'sonner'
 import type { Conversation, Message, AIExplanation } from '@/types'
 
@@ -64,6 +67,13 @@ export function MessagesPage() {
   const [showReport, setShowReport] = useState(false)
   const [safetyWarnings, setSafetyWarnings] = useState<SafetyWarning[]>([])
   const [showSafetyDialog, setShowSafetyDialog] = useState(false)
+  const [showSocialCoach, setShowSocialCoach] = useState(false)
+  const [aacEnabled, setAacEnabled] = useState(() => {
+    try { const u = JSON.parse(localStorage.getItem('neurochat_user') || '{}'); return !!u.aacMode } catch { return false }
+  })
+  const [aacLevel] = useState<'symbol' | 'hybrid' | 'text-assisted'>(() => {
+    try { const u = JSON.parse(localStorage.getItem('neurochat_user') || '{}'); return u.aacLevel || 'hybrid' } catch { return 'hybrid' }
+  })
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const { smartReplies: showSmartReplies, messageAnimations, showTimestamps } = useChatStore()
@@ -82,13 +92,43 @@ export function MessagesPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Simulate typing indicator after sending
+  // Socket.io: listen for typing, new messages, read receipts
   useEffect(() => {
-    if (isTyping) {
-      const timeout = setTimeout(() => setIsTyping(false), 2500)
-      return () => clearTimeout(timeout)
+    const socket = getSocket()
+    const onTypingStart = (data: { conversationId: string }) => {
+      if (data.conversationId === conversationId) setIsTyping(true)
     }
-  }, [isTyping])
+    const onTypingStop = (data: { conversationId: string }) => {
+      if (data.conversationId === conversationId) setIsTyping(false)
+    }
+    const onNewMessage = (data: { conversationId: string; message: Message }) => {
+      if (data.conversationId === conversationId) {
+        setMessages((prev) => [...prev, data.message])
+      }
+      // Refresh conversation list for unread counts
+      loadConversations()
+    }
+    const onUserOnline = (data: { userId: string }) => {
+      setConversations(prev => prev.map(c => c.user.id === data.userId ? { ...c, user: { ...c.user, isOnline: true } } : c))
+    }
+    const onUserOffline = (data: { userId: string }) => {
+      setConversations(prev => prev.map(c => c.user.id === data.userId ? { ...c, user: { ...c.user, isOnline: false } } : c))
+    }
+
+    socket.on('typing:start', onTypingStart)
+    socket.on('typing:stop', onTypingStop)
+    socket.on('message:new', onNewMessage)
+    socket.on('user:online', onUserOnline)
+    socket.on('user:offline', onUserOffline)
+
+    return () => {
+      socket.off('typing:start', onTypingStart)
+      socket.off('typing:stop', onTypingStop)
+      socket.off('message:new', onNewMessage)
+      socket.off('user:online', onUserOnline)
+      socket.off('user:offline', onUserOffline)
+    }
+  }, [conversationId])
 
   async function loadConversations() {
     try {
@@ -125,6 +165,28 @@ export function MessagesPage() {
     doSendMessage()
   }
 
+  // Emit typing events on input change
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  function handleInputChange(value: string) {
+    setMessageDraft(value)
+    if (!conversationId) return
+    const socket = getSocket()
+    const userId = (() => { try { return JSON.parse(localStorage.getItem('neurochat_user') || '{}').id } catch { return 'me' } })()
+    socket.emit('typing:start', { conversationId, userId })
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+    typingTimeoutRef.current = setTimeout(() => {
+      socket.emit('typing:stop', { conversationId, userId })
+    }, 1500)
+  }
+
+  // Emit read receipt when opening a conversation
+  useEffect(() => {
+    if (!conversationId) return
+    const socket = getSocket()
+    const userId = (() => { try { return JSON.parse(localStorage.getItem('neurochat_user') || '{}').id } catch { return 'me' } })()
+    socket.emit('message:read', { conversationId, userId, readAt: new Date().toISOString() })
+  }, [conversationId, messages.length])
+
   async function doSendMessage() {
     if (!messageDraft.trim() || !conversationId) return
     try {
@@ -137,13 +199,30 @@ export function MessagesPage() {
       setMessageDraft('')
       setSelectedToneTag('')
       setShowTonePicker(false)
-      setIsTyping(true)
+      // Notify recipient via socket
+      const socket = getSocket()
+      const recipientId = currentConversation?.user.id
+      if (recipientId) {
+        socket.emit('message:new', { conversationId, message: data.message, recipientId })
+      }
     } catch (error: any) {
       if (error.response?.status === 403) {
         toast.error(error.response.data?.error || 'Message blocked by moderation')
       } else {
         toast.error('Failed to send message')
       }
+    }
+  }
+
+  async function handleAacSend(text: string) {
+    if (!text.trim() || !conversationId) return
+    try {
+      const data = await messagesApi.sendMessage({ conversationId, content: text, toneTag: undefined })
+      setMessages((prev) => [...prev, data.message])
+      setIsTyping(true)
+    } catch (error: any) {
+      if (error.response?.status === 403) toast.error(error.response.data?.error || 'Message blocked')
+      else toast.error('Failed to send message')
     }
   }
 
@@ -410,6 +489,9 @@ export function MessagesPage() {
             <button onClick={() => setActiveCall({ type: 'video', userName: currentConversation?.user.name || 'User' })} className="p-2 rounded-xl hover:bg-muted/50 transition-colors" title="Video call">
               <Video className="w-4 h-4 text-muted-foreground" />
             </button>
+            <button onClick={() => setShowSocialCoach(!showSocialCoach)} className={cn("p-2 rounded-xl hover:bg-muted/50 transition-colors", showSocialCoach && "bg-primary/10 text-primary")} title="Social Coach">
+              <GraduationCap className="w-4 h-4" />
+            </button>
             <button onClick={() => setShowReport(true)} className="p-2 rounded-xl hover:bg-muted/50 transition-colors" title="Report / Block">
               <Flag className="w-4 h-4 text-muted-foreground" />
             </button>
@@ -639,107 +721,143 @@ export function MessagesPage() {
 
         {/* Input area */}
         <div className="p-3 border-t border-border/50 glass-heavy">
-          {/* Tone tag picker */}
-          {showTonePicker && (
-            <div className="flex gap-1.5 mb-2 flex-wrap animate-slide-up">
-              {TONE_TAGS.map((t) => (
+          {/* AAC mode — replaces standard input */}
+          {aacEnabled ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-medium text-primary flex items-center gap-1">
+                  <Accessibility className="w-3 h-3" /> AAC Mode
+                </span>
+                <button onClick={() => setAacEnabled(false)} className="text-[10px] text-muted-foreground hover:text-foreground">
+                  Switch to keyboard
+                </button>
+              </div>
+              <AACInput level={aacLevel} onSend={handleAacSend} />
+            </div>
+          ) : (
+            <>
+              {/* Tone tag picker */}
+              {showTonePicker && (
+                <div className="flex gap-1.5 mb-2 flex-wrap animate-slide-up">
+                  {TONE_TAGS.map((t) => (
+                    <button
+                      key={t.tag}
+                      onClick={() => {
+                        setSelectedToneTag(selectedToneTag === t.tag ? '' : t.tag)
+                        setShowTonePicker(false)
+                      }}
+                      className={cn(
+                        'flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all',
+                        selectedToneTag === t.tag
+                          ? 'bg-primary text-primary-foreground glow-sm'
+                          : t.color,
+                        'hover:scale-105 active:scale-95'
+                      )}
+                    >
+                      <span>{t.emoji}</span>
+                      <span>{t.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Selected tone indicator */}
+              {selectedToneTag && !showTonePicker && (
+                <div className="flex items-center gap-1.5 mb-2 animate-fade-in">
+                  <span className="text-[10px] text-muted-foreground">Tone:</span>
+                  <span className={cn(
+                    'inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-lg',
+                    TONE_TAGS.find((t) => t.tag === selectedToneTag)?.color
+                  )}>
+                    {TONE_TAGS.find((t) => t.tag === selectedToneTag)?.emoji}
+                    {TONE_TAGS.find((t) => t.tag === selectedToneTag)?.label}
+                  </span>
+                  <button
+                    onClick={() => setSelectedToneTag('')}
+                    className="text-[10px] text-muted-foreground hover:text-destructive"
+                  >
+                    &#x2715;
+                  </button>
+                </div>
+              )}
+
+              {/* Input row */}
+              <div className="flex items-end gap-2">
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setShowTonePicker(!showTonePicker)}
+                    className={cn(
+                      'p-2.5 rounded-xl transition-all',
+                      'hover:bg-muted/50',
+                      showTonePicker && 'bg-primary/10 text-primary',
+                      selectedToneTag && 'text-primary'
+                    )}
+                    title="Add tone tag"
+                  >
+                    <Hash className="w-4.5 h-4.5" />
+                  </button>
+                  <RephrasePanel
+                    text={messageDraft}
+                    onSelect={(text) => setMessageDraft(text)}
+                  />
+                  <button
+                    onClick={() => setShowCamera(true)}
+                    className="p-2.5 rounded-xl transition-colors text-muted-foreground hover:text-primary hover:bg-primary/10"
+                    title="Send photo"
+                  >
+                    <Camera className="w-4.5 h-4.5" />
+                  </button>
+                  <button
+                    onClick={() => setAacEnabled(true)}
+                    className="p-2.5 rounded-xl transition-colors text-muted-foreground hover:text-primary hover:bg-primary/10"
+                    title="Switch to AAC input"
+                  >
+                    <Accessibility className="w-4.5 h-4.5" />
+                  </button>
+                </div>
+                <div className="flex-1 relative">
+                  <input
+                    ref={inputRef}
+                    value={messageDraft}
+                    onChange={(e) => handleInputChange(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && trySendMessage()}
+                    placeholder="Type a message..."
+                    className={cn(
+                      'w-full px-4 py-2.5 rounded-2xl text-sm transition-all',
+                      'bg-muted/40 glass',
+                      'placeholder:text-muted-foreground/50',
+                      'focus:outline-none focus:ring-1 focus:ring-primary/30 focus:bg-muted/60',
+                    )}
+                  />
+                </div>
                 <button
-                  key={t.tag}
-                  onClick={() => {
-                    setSelectedToneTag(selectedToneTag === t.tag ? '' : t.tag)
-                    setShowTonePicker(false)
-                  }}
+                  onClick={trySendMessage}
+                  disabled={!messageDraft.trim()}
                   className={cn(
-                    'flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all',
-                    selectedToneTag === t.tag
-                      ? 'bg-primary text-primary-foreground glow-sm'
-                      : t.color,
-                    'hover:scale-105 active:scale-95'
+                    'p-2.5 rounded-xl transition-all',
+                    messageDraft.trim()
+                      ? 'bg-primary text-primary-foreground glow-primary hover:brightness-110 active:scale-95'
+                      : 'bg-muted text-muted-foreground'
                   )}
                 >
-                  <span>{t.emoji}</span>
-                  <span>{t.label}</span>
+                  <Send className="w-4.5 h-4.5" />
                 </button>
-              ))}
-            </div>
+              </div>
+            </>
           )}
-
-          {/* Selected tone indicator */}
-          {selectedToneTag && !showTonePicker && (
-            <div className="flex items-center gap-1.5 mb-2 animate-fade-in">
-              <span className="text-[10px] text-muted-foreground">Tone:</span>
-              <span className={cn(
-                'inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-lg',
-                TONE_TAGS.find((t) => t.tag === selectedToneTag)?.color
-              )}>
-                {TONE_TAGS.find((t) => t.tag === selectedToneTag)?.emoji}
-                {TONE_TAGS.find((t) => t.tag === selectedToneTag)?.label}
-              </span>
-              <button
-                onClick={() => setSelectedToneTag('')}
-                className="text-[10px] text-muted-foreground hover:text-destructive"
-              >
-                &#x2715;
-              </button>
-            </div>
-          )}
-
-          {/* Input row */}
-          <div className="flex items-end gap-2">
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setShowTonePicker(!showTonePicker)}
-                className={cn(
-                  'p-2.5 rounded-xl transition-all',
-                  'hover:bg-muted/50',
-                  showTonePicker && 'bg-primary/10 text-primary',
-                  selectedToneTag && 'text-primary'
-                )}
-                title="Add tone tag"
-              >
-                <Hash className="w-4.5 h-4.5" />
-              </button>
-              <RephrasePanel
-                text={messageDraft}
-                onSelect={(text) => setMessageDraft(text)}
-              />
-              <button
-                onClick={() => setShowCamera(true)}
-                className="p-2.5 rounded-xl transition-colors text-muted-foreground hover:text-primary hover:bg-primary/10"
-                title="Send photo"
-              >
-                <Camera className="w-4.5 h-4.5" />
-              </button>
-            </div>
-            <div className="flex-1 relative">
-              <input
-                ref={inputRef}
-                value={messageDraft}
-                onChange={(e) => setMessageDraft(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && trySendMessage()}
-                placeholder="Type a message..."
-                className={cn(
-                  'w-full px-4 py-2.5 rounded-2xl text-sm transition-all',
-                  'bg-muted/40 glass',
-                  'placeholder:text-muted-foreground/50',
-                  'focus:outline-none focus:ring-1 focus:ring-primary/30 focus:bg-muted/60',
-                )}
-              />
-            </div>
-            <button
-              onClick={trySendMessage}
-              disabled={!messageDraft.trim()}
-              className={cn(
-                'p-2.5 rounded-xl transition-all',
-                messageDraft.trim()
-                  ? 'bg-primary text-primary-foreground glow-primary hover:brightness-110 active:scale-95'
-                  : 'bg-muted text-muted-foreground'
-              )}
-            >
-              <Send className="w-4.5 h-4.5" />
-            </button>
-          </div>
         </div>
+
+        {/* Social Coach panel */}
+        {showSocialCoach && (
+          <SocialCoach
+            message={messageDraft}
+            conversationContext={messages.slice(-10).map(m => `${m.sender.name}: ${m.content}`)}
+            onSuggestion={(text) => {
+              setMessageDraft(text)
+              inputRef.current?.focus()
+            }}
+          />
+        )}
       </div>
 
       {/* ═══ Overlays ═══ */}
