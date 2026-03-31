@@ -22,6 +22,7 @@ export const messagesApi = {
     conversationId: string
     content: string
     toneTag?: string
+    aacSymbols?: { emoji: string; label: string }[]
   }) => {
     const res = await api.post<{ message: Message }>('/messages', params)
     return res.data

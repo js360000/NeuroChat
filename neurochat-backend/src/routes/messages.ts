@@ -96,6 +96,7 @@ messagesRouter.get('/conversations/:id', (req, res) => {
     id: row.id,
     content: row.content,
     toneTag: row.tone_tag,
+    aacSymbols: row.aac_symbols ? JSON.parse(row.aac_symbols) : undefined,
     sender: {
       id: row.sender_id,
       name: row.sender_name,
@@ -151,7 +152,7 @@ messagesRouter.post('/conversations', (req, res) => {
 // POST /api/messages
 messagesRouter.post('/', (req, res) => {
   const userId = (req as any).userId
-  const { conversationId, content, toneTag } = req.body
+  const { conversationId, content, toneTag, aacSymbols } = req.body
 
   if (!conversationId || !content?.trim()) {
     return res.status(400).json({ error: 'conversationId and content required' })
@@ -175,8 +176,9 @@ messagesRouter.post('/', (req, res) => {
   const msgId = uuid()
   const now = new Date().toISOString()
 
-  db.prepare(`INSERT INTO messages (id, conversation_id, sender_id, content, tone_tag, created_at) VALUES (?, ?, ?, ?, ?, ?)`)
-    .run(msgId, conversationId, userId, content.trim(), toneTag || null, now)
+  const symbolsJson = aacSymbols ? JSON.stringify(aacSymbols) : null
+  db.prepare(`INSERT INTO messages (id, conversation_id, sender_id, content, tone_tag, aac_symbols, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+    .run(msgId, conversationId, userId, content.trim(), toneTag || null, symbolsJson, now)
 
   db.prepare(`UPDATE conversations SET updated_at = ? WHERE id = ?`)
     .run(now, conversationId)
@@ -188,6 +190,7 @@ messagesRouter.post('/', (req, res) => {
       id: msgId,
       content: content.trim(),
       toneTag: toneTag || undefined,
+      aacSymbols: aacSymbols || undefined,
       sender: formatUser(user),
       createdAt: now,
       isMe: true,

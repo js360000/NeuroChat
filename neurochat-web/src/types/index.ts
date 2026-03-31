@@ -17,10 +17,16 @@ export interface User {
   phoneNumber?: string
 }
 
+export interface AACSymbol {
+  emoji: string
+  label: string
+}
+
 export interface Message {
   id: string
   content: string
   toneTag?: string
+  aacSymbols?: AACSymbol[]
   sender: User
   createdAt: string
   isMe: boolean

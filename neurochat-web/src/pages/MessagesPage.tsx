@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  Search, Send, Sparkles, Lightbulb, ArrowLeft,
+  Search, Send, Sparkles, Lightbulb, ArrowLeft, Settings2,
   Settings, Hash, GraduationCap, Accessibility, MessageSquarePlus,
   Brain, MessageCircle, Camera, Phone, Video, Flag,
 } from 'lucide-react'
@@ -22,6 +22,8 @@ import { ReportBlockDialog } from '@/components/ReportBlockDialog'
 import { SafetyWarningDialog } from '@/components/SafetyWarningDialog'
 import { scanTextForWarnings, type SafetyWarning } from '@/lib/safety'
 import { AACInput } from '@/components/AACInput'
+import { AACMessageRenderer } from '@/components/AACMessageRenderer'
+import { AACPreferencesPanel } from '@/components/AACPreferencesPanel'
 import { SocialCoach } from '@/components/SocialCoach'
 import { getSocket } from '@/lib/socket'
 import { showLocalNotification, showFallbackNotification } from '@/lib/notifications'
@@ -70,6 +72,7 @@ export function MessagesPage() {
   const [safetyWarnings, setSafetyWarnings] = useState<SafetyWarning[]>([])
   const [showSafetyDialog, setShowSafetyDialog] = useState(false)
   const [showSocialCoach, setShowSocialCoach] = useState(false)
+  const [showAacPrefs, setShowAacPrefs] = useState(false)
   const [aacEnabled, setAacEnabled] = useState(() => {
     try { const u = JSON.parse(localStorage.getItem('neurochat_user') || '{}'); return !!u.aacMode } catch { return false }
   })
@@ -221,12 +224,16 @@ export function MessagesPage() {
     }
   }
 
-  async function handleAacSend(text: string) {
+  async function handleAacSend(text: string, symbols?: { emoji: string; label: string }[]) {
     if (!text.trim() || !conversationId) return
     try {
-      const data = await messagesApi.sendMessage({ conversationId, content: text, toneTag: undefined })
+      const data = await messagesApi.sendMessage({
+        conversationId,
+        content: text,
+        toneTag: undefined,
+        aacSymbols: symbols,
+      })
       setMessages((prev) => [...prev, data.message])
-      setIsTyping(true)
     } catch (error: any) {
       if (error.response?.status === 403) toast.error(error.response.data?.error || 'Message blocked')
       else toast.error('Failed to send message')
@@ -515,6 +522,11 @@ export function MessagesPage() {
             <button onClick={() => setShowSocialCoach(!showSocialCoach)} className={cn("p-2 rounded-xl hover:bg-muted/50 transition-colors", showSocialCoach && "bg-primary/10 text-primary")} title="Social Coach">
               <GraduationCap className="w-4 h-4" />
             </button>
+            {aacEnabled && (
+              <button onClick={() => setShowAacPrefs(true)} className="p-2 rounded-xl hover:bg-muted/50 transition-colors text-muted-foreground" title="AAC Display Settings">
+                <Settings2 className="w-4 h-4" />
+              </button>
+            )}
             <button onClick={() => setShowReport(true)} className="p-2 rounded-xl hover:bg-muted/50 transition-colors" title="Report / Block">
               <Flag className="w-4 h-4 text-muted-foreground" />
             </button>
@@ -596,7 +608,16 @@ export function MessagesPage() {
                             {message.toneTag}
                           </span>
                         )}
-                        <p className="text-sm leading-relaxed">{message.content}</p>
+                        {(aacEnabled || message.aacSymbols) ? (
+                          <AACMessageRenderer
+                            content={message.content}
+                            aacSymbols={message.aacSymbols}
+                            viewerHasAAC={aacEnabled}
+                            isMe={message.isMe}
+                          />
+                        ) : (
+                          <p className="text-sm leading-relaxed">{message.content}</p>
+                        )}
                         {showTimestamps && isLastInGroup && (
                           <span className={cn(
                             'text-[10px] mt-1 block',
@@ -922,6 +943,9 @@ export function MessagesPage() {
         onConfirm={() => { setShowSafetyDialog(false); doSendMessage() }}
         onCancel={() => setShowSafetyDialog(false)}
       />
+
+      {/* AAC Display Preferences */}
+      <AACPreferencesPanel open={showAacPrefs} onClose={() => setShowAacPrefs(false)} />
     </div>
   )
 }

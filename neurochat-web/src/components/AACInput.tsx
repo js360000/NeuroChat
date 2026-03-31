@@ -24,9 +24,14 @@ import { cn } from '@/lib/utils'
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
+interface AACSymbolData {
+  emoji: string
+  label: string
+}
+
 interface AACInputProps {
   level: 'symbol' | 'hybrid' | 'text-assisted'
-  onSend: (message: string) => void
+  onSend: (message: string, symbols?: AACSymbolData[]) => void
   className?: string
 }
 
@@ -726,6 +731,7 @@ function ModeIndicator({ level }: { level: AACInputProps['level'] }) {
 
 export function AACInput({ level, onSend, className }: AACInputProps) {
   const [message, setMessage] = useState('')
+  const [symbolSequence, setSymbolSequence] = useState<AACSymbolData[]>([])
   const [activeCategory, setActiveCategory] = useState<CategoryId>('greetings')
   const [textInput, setTextInput] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -752,6 +758,12 @@ export function AACInput({ level, onSend, className }: AACInputProps) {
   const handleSymbolSelect = useCallback(
     (label: string) => {
       appendToMessage(label)
+      // Find the matching symbol to track its emoji
+      const allSymbols = CATEGORIES.flatMap(c => c.symbols)
+      const match = allSymbols.find(s => s.label === label)
+      if (match) {
+        setSymbolSequence(prev => [...prev, { emoji: match.emoji, label: match.label }])
+      }
     },
     [appendToMessage]
   )
@@ -770,14 +782,16 @@ export function AACInput({ level, onSend, className }: AACInputProps) {
   const handleSend = useCallback(() => {
     const trimmed = message.trim()
     if (!trimmed) return
-    onSend(trimmed)
+    onSend(trimmed, symbolSequence.length > 0 ? symbolSequence : undefined)
     setMessage('')
     setTextInput('')
-  }, [message, onSend])
+    setSymbolSequence([])
+  }, [message, symbolSequence, onSend])
 
   const handleClear = useCallback(() => {
     setMessage('')
     setTextInput('')
+    setSymbolSequence([])
   }, [])
 
   const handleSpeak = useCallback(() => {
@@ -786,10 +800,12 @@ export function AACInput({ level, onSend, className }: AACInputProps) {
 
   const handleDistress = useCallback(() => {
     const distressMessage = 'I need help right now'
+    const distressSymbols: AACSymbolData[] = [{ emoji: '🆘', label: 'Help me' }]
     setMessage(distressMessage)
     speakText(distressMessage)
-    onSend(distressMessage)
+    onSend(distressMessage, distressSymbols)
     setMessage('')
+    setSymbolSequence([])
   }, [onSend])
 
   // Keyboard handlers for hybrid mode
