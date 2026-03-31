@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Search, Send, Sparkles, Lightbulb, ArrowLeft,
-  Settings, Hash, GraduationCap, Accessibility,
+  Settings, Hash, GraduationCap, Accessibility, MessageSquarePlus,
   Brain, MessageCircle, Camera, Phone, Video, Flag,
 } from 'lucide-react'
 import { messagesApi } from '@/lib/api/messages'
@@ -398,6 +398,15 @@ export function MessagesPage() {
             Choose someone to chat with, or start a new conversation
           </p>
         </div>
+
+        {/* New Chat FAB */}
+        <button
+          onClick={() => navigate('/new-chat')}
+          className="fixed bottom-20 right-4 md:bottom-6 md:right-6 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg glow-primary flex items-center justify-center hover:brightness-110 active:scale-95 transition-all z-20"
+          title="New chat"
+        >
+          <MessageSquarePlus className="w-6 h-6" />
+        </button>
       </div>
     )
   }

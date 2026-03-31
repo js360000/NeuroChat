@@ -27,6 +27,11 @@ export const messagesApi = {
     return res.data
   },
 
+  createConversation: async (userId: string) => {
+    const res = await api.post('/messages/conversations', { userId })
+    return res.data as { conversation: { id: string; user: any; updatedAt: string } }
+  },
+
   markAsRead: async (conversationId: string): Promise<void> => {
     await api.post(`/messages/conversations/${conversationId}/read`)
   },

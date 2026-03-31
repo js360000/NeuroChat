@@ -14,6 +14,7 @@ export interface User {
   interests?: string[]
   joinedAt?: string
   verified?: boolean
+  phoneNumber?: string
 }
 
 export interface Message {

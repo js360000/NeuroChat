@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { createHash } from 'crypto'
 import db from '../db.js'
 
 export const profileRouter = Router()
@@ -43,7 +44,14 @@ function formatUser(row: any) {
     asyncPrefs: safeJsonParse(row.async_prefs, { readReceipts: false, typingIndicator: false, maxMessagesPerHour: 0, draftAndHold: false }),
     maskingTracking: Boolean(row.masking_tracking),
     recoveryMode: Boolean(row.recovery_mode),
+    phoneNumber: row.phone_number || null,
   }
+}
+
+function formatPublicUser(row: any) {
+  const user = formatUser(row)
+  const { phoneNumber: _, ...publicUser } = user
+  return publicUser
 }
 
 // Mapping of camelCase field → DB column, with JSON serialisation flag
@@ -91,7 +99,24 @@ profileRouter.patch('/profile', (req, res) => {
   const updates: string[] = []
   const params: any[] = []
 
+  // Handle phoneNumber specially — validate E.164 and compute hash
+  if ('phoneNumber' in req.body) {
+    const phone = req.body.phoneNumber
+    if (phone === null || phone === '') {
+      updates.push('phone_number = ?', 'phone_hash = ?')
+      params.push(null, null)
+    } else {
+      if (!/^\+[1-9]\d{1,14}$/.test(phone)) {
+        return res.status(400).json({ error: 'Invalid phone number. Use E.164 format (e.g. +447700900000)' })
+      }
+      const hash = createHash('sha256').update(phone).digest('hex')
+      updates.push('phone_number = ?', 'phone_hash = ?')
+      params.push(phone, hash)
+    }
+  }
+
   for (const [key, value] of Object.entries(req.body)) {
+    if (key === 'phoneNumber') continue // already handled above
     const mapping = FIELD_MAP[key]
     if (!mapping || value === undefined) continue
     updates.push(`${mapping.col} = ?`)
@@ -107,9 +132,9 @@ profileRouter.patch('/profile', (req, res) => {
   res.json({ profile: formatUser(row) })
 })
 
-// GET /api/user/:id (view another user's profile)
+// GET /api/user/:id (view another user's public profile — phone number redacted)
 profileRouter.get('/:id', (req, res) => {
   const row = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id) as any
   if (!row) return res.status(404).json({ error: 'User not found' })
-  res.json({ profile: formatUser(row) })
+  res.json({ profile: formatPublicUser(row) })
 })

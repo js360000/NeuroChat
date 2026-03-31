@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, Camera, Pencil, MapPin,
+  ArrowLeft, Camera, Pencil, MapPin, Phone,
   Sparkles, Heart, Brain, Check, X, Loader2,
   Shield, Zap, Volume2, Sun, AlertTriangle, MessageCircle,
 } from 'lucide-react'
 import { profileApi } from '@/lib/api/profile'
+import { PhoneInput } from '@/components/PhoneInput'
+import { formatPhoneDisplay } from '@/lib/phone'
 import { MoodRing } from '@/components/MoodRing'
 import { EnergyMeter } from '@/components/EnergyMeter'
 import { cn, getInitials } from '@/lib/utils'
@@ -73,6 +75,7 @@ export function ProfilePage() {
   const [accommodations, setAccommodations] = useState<string[]>([])
   const [goals, setGoals] = useState<string[]>([])
   const [sensory, setSensory] = useState<Record<string, number>>({ noise: 3, light: 3, crowds: 3, touch: 3, scents: 3 })
+  const [phoneNumber, setPhoneNumber] = useState('')
 
   useEffect(() => { loadProfile() }, [])
 
@@ -93,6 +96,7 @@ export function ProfilePage() {
       if (p.sensoryProfile && typeof p.sensoryProfile === 'object' && Object.keys(p.sensoryProfile).length > 0) {
         setSensory(p.sensoryProfile)
       }
+      setPhoneNumber(p.phoneNumber || '')
     } catch (err) {
       console.error('Failed to load profile:', err)
     } finally {
@@ -106,6 +110,7 @@ export function ProfilePage() {
       await profileApi.update({
         name, bio, location, commStyle, interests: selectedInterests, pronouns,
         neurotype, triggers, accommodations, connectionGoals: goals, sensoryProfile: sensory,
+        phoneNumber: phoneNumber || null,
       } as any)
       setIsEditing(false)
       toast.success('Profile saved')
@@ -176,6 +181,21 @@ export function ProfilePage() {
           {isEditing ? <textarea value={bio} onChange={e => setBio(e.target.value)} rows={3} maxLength={500} className="w-full text-sm bg-muted/30 rounded-xl p-3 focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none" />
            : <p className="text-sm text-foreground/80 leading-relaxed">{bio || <span className="text-muted-foreground/50 italic">No bio yet</span>}</p>}
           {isEditing && <p className="text-[10px] text-muted-foreground mt-1 text-right">{bio.length}/500</p>}
+        </div>
+
+        {/* Phone number */}
+        <div className="rounded-2xl glass p-4 animate-slide-up" style={{ animationDelay: '100ms' }}>
+          <div className="flex items-center gap-2 mb-2"><Phone className="w-4 h-4 text-emerald-400" /><h3 className="text-sm font-medium">Phone number</h3></div>
+          {isEditing ? (
+            <PhoneInput value={phoneNumber} onChange={setPhoneNumber} />
+          ) : (
+            <p className="text-sm text-foreground/80">
+              {phoneNumber ? formatPhoneDisplay(phoneNumber) : <span className="text-muted-foreground/50 italic">Not set</span>}
+            </p>
+          )}
+          <p className="text-[10px] text-muted-foreground/60 mt-2 leading-relaxed">
+            Your number is never shown to others. It only lets people who already have your number find you on NeuroChat.
+          </p>
         </div>
 
         {/* Neurotype */}

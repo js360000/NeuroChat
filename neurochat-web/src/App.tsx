@@ -35,6 +35,7 @@ const EnergyDashboardPage = lazy(() => import('./pages/EnergyDashboardPage').the
 const VenueMapPage = lazy(() => import('./pages/VenueMapPage').then(m => ({ default: m.VenueMapPage })))
 const GuardianAngelPage = lazy(() => import('./pages/GuardianAngelPage').then(m => ({ default: m.GuardianAngelPage })))
 const SupporterDashboardPage = lazy(() => import('./pages/SupporterDashboardPage').then(m => ({ default: m.SupporterDashboardPage })))
+const NewChatPage = lazy(() => import('./pages/NewChatPage').then(m => ({ default: m.NewChatPage })))
 
 // ═══════════════════════════════════════════
 // Error Boundaries
@@ -186,6 +187,7 @@ function App() {
             <Route path="/energy" element={<LazyRoute element={<EnergyDashboardPage />} />} />
             <Route path="/guardian-angel" element={<LazyRoute element={<GuardianAngelPage />} />} />
             <Route path="/supporters" element={<LazyRoute element={<SupporterDashboardPage />} />} />
+            <Route path="/new-chat" element={<LazyRoute element={<NewChatPage />} />} />
             <Route path="/admin" element={<LazyRoute element={<AdminPage />} />} />
           </Routes>
           <BottomNav />

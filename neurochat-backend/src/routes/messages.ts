@@ -110,6 +110,44 @@ messagesRouter.get('/conversations/:id', (req, res) => {
   res.json({ messages })
 })
 
+// POST /api/messages/conversations — get or create a conversation with a user
+messagesRouter.post('/conversations', (req, res) => {
+  const userId = (req as any).userId
+  const { userId: targetId } = req.body
+
+  if (!targetId) return res.status(400).json({ error: 'userId required' })
+  if (targetId === userId) return res.status(400).json({ error: 'Cannot start a conversation with yourself' })
+
+  // Verify target user exists
+  const targetUser = db.prepare('SELECT * FROM users WHERE id = ?').get(targetId) as any
+  if (!targetUser) return res.status(404).json({ error: 'User not found' })
+
+  // Block check
+  if (isBlocked(userId, targetId)) {
+    return res.status(403).json({ error: 'Cannot message this user' })
+  }
+
+  // Check for existing conversation (either direction)
+  let conv = db.prepare(
+    'SELECT * FROM conversations WHERE (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)'
+  ).get(userId, targetId, targetId, userId) as any
+
+  if (!conv) {
+    const convId = uuid()
+    const now = new Date().toISOString()
+    db.prepare('INSERT INTO conversations (id, user1_id, user2_id, updated_at) VALUES (?, ?, ?, ?)').run(convId, userId, targetId, now)
+    conv = { id: convId, user1_id: userId, user2_id: targetId, updated_at: now }
+  }
+
+  res.json({
+    conversation: {
+      id: conv.id,
+      user: formatUser(targetUser),
+      updatedAt: conv.updated_at,
+    },
+  })
+})
+
 // POST /api/messages
 messagesRouter.post('/', (req, res) => {
   const userId = (req as any).userId

@@ -339,6 +339,9 @@ try { db.exec(`ALTER TABLE community_posts ADD COLUMN parent_id TEXT REFERENCES 
 
 try { db.exec(`ALTER TABLE users ADD COLUMN email TEXT UNIQUE`) } catch { /* exists */ }
 try { db.exec(`ALTER TABLE users ADD COLUMN password_hash TEXT`) } catch { /* exists */ }
+try { db.exec(`ALTER TABLE users ADD COLUMN phone_number TEXT`) } catch { /* exists */ }
+try { db.exec(`ALTER TABLE users ADD COLUMN phone_hash TEXT`) } catch { /* exists */ }
+try { db.exec(`CREATE UNIQUE INDEX idx_users_phone_hash ON users(phone_hash) WHERE phone_hash IS NOT NULL`) } catch { /* exists */ }
 
 // Seed default site config if empty
 const configCount = (db.prepare('SELECT COUNT(*) as c FROM site_config').get() as any).c

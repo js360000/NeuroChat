@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Sparkles, Heart, MessageCircle, Filter } from 'lucide-react'
+import { Search, Sparkles, Heart, MessageCircle, Filter, Loader2 } from 'lucide-react'
 import { discoverApi } from '@/lib/api/discover'
+import { messagesApi } from '@/lib/api/messages'
 import { MoodRing } from '@/components/MoodRing'
 import { getInitials } from '@/lib/utils'
 import { ConversationSkeleton } from '@/components/MessageSkeleton'
+import { toast } from 'sonner'
 import type { DiscoverProfile } from '@/types'
 
 export function DiscoverPage() {
@@ -12,6 +14,19 @@ export function DiscoverPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [profiles, setProfiles] = useState<DiscoverProfile[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [startingChat, setStartingChat] = useState<string | null>(null)
+
+  async function handleSayHi(profileId: string) {
+    setStartingChat(profileId)
+    try {
+      const data = await messagesApi.createConversation(profileId)
+      navigate(`/messages/${data.conversation.id}`)
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Could not start conversation')
+    } finally {
+      setStartingChat(null)
+    }
+  }
 
   useEffect(() => {
     loadProfiles()
@@ -131,10 +146,11 @@ export function DiscoverPage() {
 
                     <div className="flex gap-2 mt-3">
                       <button
-                        onClick={() => navigate(`/messages/${profile.id}`)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-medium hover:brightness-110 active:scale-95 transition-all"
+                        onClick={() => handleSayHi(profile.id)}
+                        disabled={startingChat === profile.id}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-medium hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
                       >
-                        <MessageCircle className="w-3.5 h-3.5" />
+                        {startingChat === profile.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageCircle className="w-3.5 h-3.5" />}
                         Say hi
                       </button>
                       <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-muted/50 text-muted-foreground text-xs hover:bg-muted transition-all">
