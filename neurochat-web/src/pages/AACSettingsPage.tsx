@@ -12,12 +12,12 @@ import { toast } from 'sonner'
 const AAC_LEVELS = [
   {
     id: 'lite' as const,
-    label: 'Lite',
+    label: 'Communication Assist',
     icon: Zap,
-    desc: 'Communication scaffolding — quick replies, sentence starters, and feeling check-ins. For when you have the words but not the energy.',
-    features: ['Quick reply chips', 'Sentence starters', 'Feeling check-in grid', 'Energy-aware suggestions', 'Still have full keyboard'],
+    desc: 'Quick replies, sentence starters, and feeling check-ins alongside your normal keyboard. For when you have the words but not the energy.',
+    features: ['Quick reply chips', 'Sentence starters', 'Feeling check-in grid', 'Energy-aware suggestions', 'Full keyboard still available'],
     touchSize: 'Standard (44px+)',
-    best: 'Higher-functioning users at low capacity, or anyone who needs scaffolding',
+    best: 'Anyone who needs a helping hand with words — low energy days, social fatigue, or just prefers shortcuts',
   },
   {
     id: 'symbol' as const,

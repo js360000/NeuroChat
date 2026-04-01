@@ -796,7 +796,7 @@ export function MessagesPage() {
           </div>
         )}
 
-        {/* AAC Lite panel — communication scaffolding above keyboard */}
+        {/* Communication Assist panel — scaffolding above keyboard */}
         {aacEnabled && aacLevel === 'lite' && (
           <div className="px-3 pt-2">
             <AACLiteInput

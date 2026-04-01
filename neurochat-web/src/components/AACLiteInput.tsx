@@ -6,7 +6,7 @@ import {
 import { cn } from '@/lib/utils'
 
 /* ------------------------------------------------------------------ */
-/*  AAC Lite — communication scaffolding for higher-functioning users  */
+/*  Communication Assist — scaffolding for when you have words but not energy */
 /*  who are at low capacity or have unique communication styles        */
 /* ------------------------------------------------------------------ */
 
