@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NeuroChat Brandkit</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap");
+      :root { --background: 224 35% 7%; --foreground: 213 31% 91%; --card: 224 30% 10%; --surface: 224 28% 12%; --surface-elevated: 224 25% 15%; --muted: 224 25% 15%; --muted-foreground: 218 15% 55%; --primary: 225 80% 63%; --secondary: 258 90% 66%; --accent: 168 80% 42%; --warning: 38 92% 50%; --danger: 0 72% 51%; --info: 199 89% 48%; --border: 224 20% 18%; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; }
+      body { font-family: "Lexend", system-ui, sans-serif; color: hsl(var(--foreground)); background: radial-gradient(circle at top left, hsl(var(--primary) / 0.16), transparent 30%), radial-gradient(circle at top right, hsl(var(--secondary) / 0.14), transparent 28%), radial-gradient(circle at bottom center, hsl(var(--accent) / 0.08), transparent 34%), hsl(var(--background)); padding: 32px 20px 72px; }
+      .wrap { max-width: 1180px; margin: 0 auto; }
+      .panel { background: hsl(var(--card) / 0.8); border: 1px solid hsl(var(--border) / 0.9); border-radius: 28px; backdrop-filter: blur(18px) saturate(180%); box-shadow: 0 22px 80px hsl(224 40% 4% / 0.48); }
+      .hero { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 24px; padding: 34px; margin-bottom: 24px; }
+      .eyebrow, .tag { display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid hsl(var(--border)); background: hsl(var(--surface) / 0.88); color: hsl(var(--muted-foreground)); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+      .eyebrow { background: hsl(var(--primary) / 0.12); color: hsl(var(--primary)); border-color: hsl(var(--primary) / 0.22); }
+      h1 { margin: 18px 0 14px; font-size: clamp(2.8rem, 6vw, 4.9rem); line-height: 0.92; letter-spacing: -0.06em; max-width: 11ch; }
+      p { margin: 0; color: hsl(var(--muted-foreground)); line-height: 1.7; }
+      .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-bottom: 24px; }
+      .section { padding: 28px; }
+      .section h2 { margin: 0 0 10px; font-size: 1.3rem; letter-spacing: -0.03em; }
+      .section-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+      .palette { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+      .swatch { min-height: 160px; border-radius: 22px; border: 1px solid hsl(var(--border)); padding: 18px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.03); }
+      .swatch strong { font-size: 1.05rem; }
+      .swatch span { color: hsl(0 0% 100% / 0.75); font-size: 13px; }
+      .swatch small { color: hsl(0 0% 100% / 0.7); }
+      .font-card, .principles, .atoms, .logo-card { display: grid; gap: 14px; }
+      .font-sample { border: 1px solid hsl(var(--border)); border-radius: 22px; padding: 20px; background: hsl(var(--surface) / 0.85); }
+      .font-sample .xl { font-size: clamp(2rem, 4vw, 3rem); line-height: 1; letter-spacing: -0.05em; margin-bottom: 8px; }
+      .font-sample .md { font-size: 1rem; line-height: 1.7; }
+      .principle, .atom, .spec { border: 1px solid hsl(var(--border)); border-radius: 20px; padding: 18px; background: hsl(var(--surface) / 0.72); }
+      .principle strong, .atom strong, .spec strong { display: block; margin-bottom: 6px; }
+      .controls { display: flex; flex-wrap: wrap; gap: 12px; }
+      .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 20px; border-radius: 16px; border: 1px solid hsl(var(--border)); background: hsl(var(--surface-elevated)); color: hsl(var(--foreground)); font-weight: 600; }
+      .btn.primary { border-color: transparent; background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary))); box-shadow: 0 0 26px hsl(var(--primary) / 0.22); }
+      .btn.accent { background: hsl(var(--accent) / 0.16); color: hsl(var(--accent)); border-color: hsl(var(--accent) / 0.25); }
+      .field { min-height: 52px; border-radius: 16px; border: 1px solid hsl(var(--border)); background: hsl(var(--surface) / 0.92); display: flex; align-items: center; padding: 0 16px; color: hsl(var(--muted-foreground)); }
+      .logo-box { min-height: 220px; display: grid; place-items: center; border-radius: 24px; border: 1px solid hsl(var(--border)); background: linear-gradient(160deg, hsl(var(--surface-elevated)), hsl(var(--card))); }
+      .logo-mark { width: 128px; height: 128px; border-radius: 36px; display: grid; place-items: center; background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary))); box-shadow: 0 0 40px hsl(var(--primary) / 0.28); }
+      .specs { display: grid; gap: 12px; }
+      .back { display: inline-flex; margin-bottom: 16px; color: hsl(var(--foreground)); text-decoration: none; font-weight: 600; }
+      code { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; color: hsl(var(--foreground)); }
+      @media (max-width: 960px) { .hero, .row, .palette { grid-template-columns: 1fr; } .hero { padding: 26px; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <a class="back" href="./index.html">&#8592; Back to asset pack</a>
+      <section class="panel hero">
+        <div>
+          <div class="eyebrow">NeuroChat brandkit</div>
+          <h1>Calm interface. Premium dark palette. Low-friction communication.</h1>
+          <p>This external brand reference stays aligned to the actual visual system in <code>neurochat-web/src/index.css</code> and the product surfaces used across landing, discover, messaging, and energy tracking. The goal is to let growth, partnerships, and content teams build material that looks like NeuroChat rather than generic mental-health tech.</p>
+        </div>
+        <div class="logo-card">
+          <div class="logo-box">
+            <div class="logo-mark" aria-hidden="true">
+              <svg width="64" height="64" viewBox="0 0 36 36" fill="none">
+                <path d="M11 11.5c0-2.5 2-4.5 4.5-4.5 1.8 0 3.3.9 4.1 2.4A4.8 4.8 0 0 1 28 13c0 1.6-.8 3-2 3.9a4.5 4.5 0 0 1-4 6.5h-6.2A4.8 4.8 0 0 1 11 18v-6.5Z" fill="white" fill-opacity=".92"/>
+                <circle cx="14" cy="14" r="1.4" fill="#4D74ED"/>
+                <circle cx="22" cy="11.5" r="1.4" fill="#8E60F7"/>
+                <circle cx="24" cy="18.5" r="1.4" fill="#20C39B"/>
+                <path d="M14 14l8-2.5 2 7" stroke="#18233E" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+          </div>
+          <div class="specs">
+            <div class="spec"><strong>Brand posture</strong>Supportive but not childish. Futuristic but not cold. Accessible without losing polish.</div>
+            <div class="spec"><strong>Primary usage</strong>Dark-first layouts, glass surfaces, soft glows, rounded geometry, restrained contrast spikes.</div>
+            <div class="spec"><strong>Typography</strong>Lexend throughout. No secondary display family in the current frontend.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="row">
+        <article class="panel section">
+          <div class="section-head">
+            <h2>Core palette</h2>
+            <span class="tag">Exact frontend tokens</span>
+          </div>
+          <div class="palette">
+            <div class="swatch" style="background:hsl(224 35% 7%)"><strong>Background</strong><span>hsl(224 35% 7%)</span><small>Base canvas</small></div>
+            <div class="swatch" style="background:hsl(224 30% 10%)"><strong>Card</strong><span>hsl(224 30% 10%)</span><small>Glass panels</small></div>
+            <div class="swatch" style="background:hsl(224 25% 15%)"><strong>Muted surface</strong><span>hsl(224 25% 15%)</span><small>Secondary containers</small></div>
+            <div class="swatch" style="background:hsl(225 80% 63%)"><strong>Primary</strong><span>hsl(225 80% 63%)</span><small>CTA, links, glow</small></div>
+            <div class="swatch" style="background:hsl(258 90% 66%)"><strong>Secondary</strong><span>hsl(258 90% 66%)</span><small>Gradient depth</small></div>
+            <div class="swatch" style="background:hsl(168 80% 42%)"><strong>Accent</strong><span>hsl(168 80% 42%)</span><small>Safety and positive action</small></div>
+          </div>
+        </article>
+
+        <article class="panel section">
+          <div class="section-head">
+            <h2>Typography</h2>
+            <span class="tag">Lexend system</span>
+          </div>
+          <div class="font-card">
+            <div class="font-sample">
+              <div class="xl">Lower stimulation, clearer intent, easier reading.</div>
+              <div class="md">NeuroChat uses Lexend across headlines, support copy, and interface labels. The frontend relies on spacing, weight, and card depth rather than introducing a second expressive type family.</div>
+            </div>
+            <div class="principle"><strong>Headline rule</strong>Use tight tracking and short line lengths. Major messages should feel decisive, not noisy.</div>
+            <div class="principle"><strong>Body rule</strong>Keep line height generous and default copy in muted foreground tones to avoid glare.</div>
+          </div>
+        </article>
+      </section>
+
+      <section class="row">
+        <article class="panel section">
+          <div class="section-head">
+            <h2>Brand principles</h2>
+            <span class="tag">From live product UI</span>
+          </div>
+          <div class="principles">
+            <div class="principle"><strong>Calm contrast</strong>Contrast is strong enough for readability but rarely pure black-on-white or neon-on-black.</div>
+            <div class="principle"><strong>Soft futurism</strong>Use gradients, glass, and subtle glow to imply intelligence without going full cyberpunk.</div>
+            <div class="principle"><strong>Emotional precision</strong>Tone tags, status states, and safety cues should read as useful controls, not decorative stickers.</div>
+            <div class="principle"><strong>Rounded trust</strong>Interface corners are consistently soft and generous, which helps the product feel less punitive and more adaptive.</div>
+          </div>
+        </article>
+
+        <article class="panel section">
+          <div class="section-head">
+            <h2>UI atoms</h2>
+            <span class="tag">Marketing-safe primitives</span>
+          </div>
+          <div class="atoms">
+            <div class="atom">
+              <strong>Buttons</strong>
+              <div class="controls">
+                <div class="btn primary">Start calmer chats</div>
+                <div class="btn">See how it works</div>
+                <div class="btn accent">Safety on</div>
+              </div>
+            </div>
+            <div class="atom">
+              <strong>Input surface</strong>
+              <div class="field">Describe your communication style...</div>
+            </div>
+            <div class="atom">
+              <strong>Status cues</strong>
+              <div class="controls">
+                <div class="tag" style="color:hsl(var(--accent)); border-color:hsl(var(--accent) / .25); background:hsl(var(--accent) / .12)">Grounded</div>
+                <div class="tag" style="color:hsl(var(--info)); border-color:hsl(var(--info) / .25); background:hsl(var(--info) / .12)">AI explain ready</div>
+                <div class="tag" style="color:hsl(var(--warning)); border-color:hsl(var(--warning) / .25); background:hsl(var(--warning) / .12)">Energy low</div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+    </div>
+  </body>
+</html>

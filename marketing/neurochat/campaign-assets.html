@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NeuroChat Campaign Assets</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap");
+      :root { --background: 224 35% 7%; --foreground: 213 31% 91%; --card: 224 30% 10%; --surface: 224 28% 12%; --surface-elevated: 224 25% 15%; --muted: 224 25% 15%; --muted-foreground: 218 15% 55%; --primary: 225 80% 63%; --secondary: 258 90% 66%; --accent: 168 80% 42%; --warning: 38 92% 50%; --border: 224 20% 18%; }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: "Lexend", system-ui, sans-serif; color: hsl(var(--foreground)); background: radial-gradient(circle at 15% 15%, hsl(var(--primary) / 0.16), transparent 24%), radial-gradient(circle at 85% 5%, hsl(var(--secondary) / 0.14), transparent 24%), radial-gradient(circle at bottom center, hsl(var(--accent) / 0.08), transparent 30%), hsl(var(--background)); padding: 32px 20px 72px; }
+      .wrap { max-width: 1260px; margin: 0 auto; }
+      .back { display: inline-flex; margin-bottom: 16px; color: hsl(var(--foreground)); text-decoration: none; font-weight: 600; }
+      .hero, .asset { background: hsl(var(--card) / 0.82); border: 1px solid hsl(var(--border)); border-radius: 28px; backdrop-filter: blur(18px) saturate(180%); box-shadow: 0 22px 80px hsl(224 40% 4% / 0.48); }
+      .hero { padding: 34px; margin-bottom: 24px; }
+      .eyebrow, .pill { display: inline-flex; align-items: center; min-height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid hsl(var(--border)); background: hsl(var(--surface)); color: hsl(var(--muted-foreground)); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+      .eyebrow { background: hsl(var(--primary) / 0.12); color: hsl(var(--primary)); border-color: hsl(var(--primary) / 0.24); }
+      h1 { margin: 16px 0 12px; font-size: clamp(2.8rem, 5vw, 4.8rem); line-height: 0.94; letter-spacing: -0.06em; max-width: 12ch; }
+      p { margin: 0; color: hsl(var(--muted-foreground)); line-height: 1.7; }
+      .grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 24px; }
+      .asset { padding: 20px; }
+      .asset.square-asset, .asset.story-asset { grid-column: span 3; }
+      .asset.banner-asset { grid-column: 1 / -1; }
+      .asset h2 { margin: 0 0 8px; font-size: 1.15rem; letter-spacing: -0.03em; }
+      .frame { margin-top: 16px; border-radius: 24px; border: 1px solid hsl(var(--border)); overflow: hidden; background: linear-gradient(150deg, hsl(var(--surface-elevated)), hsl(var(--background))); position: relative; }
+      .frame::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 10% 15%, hsl(var(--primary) / .25), transparent 22%), radial-gradient(circle at 90% 5%, hsl(var(--secondary) / .2), transparent 24%), radial-gradient(circle at 50% 100%, hsl(var(--accent) / .12), transparent 30%); pointer-events: none; }
+      .square { aspect-ratio: 1 / 1; padding: 24px; overflow: hidden; }
+      .story { aspect-ratio: 9 / 16; padding: 22px; overflow: hidden; }
+      .banner { aspect-ratio: 16 / 7; padding: 26px; overflow: hidden; }
+      .inner { position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; }
+      .topline { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+      .mark { width: 52px; height: 52px; border-radius: 18px; display: grid; place-items: center; background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary))); box-shadow: 0 0 30px hsl(var(--primary) / 0.25); }
+      .headline { font-size: clamp(2rem, 3.8vw, 3.2rem); line-height: 0.96; letter-spacing: -0.05em; max-width: 9ch; }
+      .subcopy { max-width: 28ch; }
+      .glass { border: 1px solid hsl(var(--border)); background: hsl(var(--card) / 0.78); backdrop-filter: blur(16px); border-radius: 20px; padding: 14px; }
+      .stack { display: grid; gap: 10px; }
+      .msg { border: 1px solid hsl(var(--border)); border-radius: 16px; background: hsl(var(--surface) / 0.88); padding: 12px 14px; }
+      .msg.primary { background: hsl(var(--primary) / 0.18); border-color: hsl(var(--primary) / 0.26); }
+      .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+      .cta { display: inline-flex; align-items: center; justify-content: center; min-height: 46px; padding: 0 18px; border-radius: 16px; background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary))); color: white; font-weight: 700; box-shadow: 0 0 28px hsl(var(--primary) / 0.24); }
+      .small { font-size: 13px; }
+      .square .headline { font-size: clamp(1.4rem, 2.5vw, 2.2rem); max-width: 10ch; line-height: 1; }
+      .square .subcopy { max-width: 26ch; font-size: 12px; line-height: 1.5; }
+      .square .glass { padding: 10px; border-radius: 16px; }
+      .square .stack { gap: 6px; }
+      .square .msg { padding: 8px 10px; font-size: 12px; line-height: 1.4; }
+      .square .topline .mark { width: 40px; height: 40px; border-radius: 14px; }
+      .square .topline .mark svg { width: 22px; height: 22px; }
+      .square .pill { min-height: 28px; font-size: 10px; padding: 0 10px; }
+      code { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; color: hsl(var(--foreground)); }
+      @media (max-width: 1120px) { .grid { grid-template-columns: 1fr; } .asset.square-asset, .asset.story-asset, .asset.banner-asset { grid-column: auto; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <a class="back" href="./index.html">&#8592; Back to asset pack</a>
+      <section class="hero">
+        <div class="eyebrow">Campaign-ready layouts</div>
+        <h1>External marketing assets built in the same language as the app.</h1>
+        <p>These mockups are self-contained HTML compositions for social, paid, pitch, and outbound use. They intentionally reuse the live NeuroChat design system rather than introducing a second brand dialect.</p>
+      </section>
+
+      <section class="grid">
+        <article class="asset square-asset">
+          <h2>Square social post</h2>
+          <p>For LinkedIn, Instagram, app updates, and launch announcements.</p>
+          <div class="frame square">
+            <div class="inner">
+              <div class="topline">
+                <div class="mark" aria-hidden="true">
+                  <svg width="28" height="28" viewBox="0 0 36 36" fill="none">
+                    <path d="M11 11.5c0-2.5 2-4.5 4.5-4.5 1.8 0 3.3.9 4.1 2.4A4.8 4.8 0 0 1 28 13c0 1.6-.8 3-2 3.9a4.5 4.5 0 0 1-4 6.5h-6.2A4.8 4.8 0 0 1 11 18v-6.5Z" fill="white" fill-opacity=".92"/>
+                    <circle cx="14" cy="14" r="1.4" fill="#4D74ED"/>
+                    <circle cx="22" cy="11.5" r="1.4" fill="#8E60F7"/>
+                    <circle cx="24" cy="18.5" r="1.4" fill="#20C39B"/>
+                  </svg>
+                </div>
+                <span class="pill">Calmer conversations</span>
+              </div>
+              <div>
+                <div class="headline">Dating and chat that respect how people actually communicate.</div>
+                <p class="subcopy" style="margin-top:12px">NeuroChat combines compatibility cues, AI explanation, and energy-aware messaging into one calmer interface.</p>
+              </div>
+              <div class="glass">
+                <div class="stack">
+                  <div class="msg">I might go quiet later. That is low energy, not disinterest.</div>
+                  <div class="msg primary">AI explain: boundary-setting plus reassurance. Suggest warm, low-pressure reply.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="asset story-asset">
+          <h2>Story / paid social</h2>
+          <p>For vertical ads, app-store campaigns, and creator collaborations.</p>
+          <div class="frame story">
+            <div class="inner">
+              <div class="topline">
+                <span class="pill">NeuroChat</span>
+                <span class="pill" style="color:hsl(var(--accent));background:hsl(var(--accent)/.12);border-color:hsl(var(--accent)/.22)">Safety on</span>
+              </div>
+              <div>
+                <div class="headline" style="max-width:8ch">Less guessing. More clarity.</div>
+                <p class="subcopy" style="margin-top:12px">Read tone, understand intent, and pace conversations around energy instead of pressure.</p>
+              </div>
+              <div class="glass">
+                <div class="chips">
+                  <span class="pill" style="color:hsl(var(--primary));background:hsl(var(--primary)/.12);border-color:hsl(var(--primary)/.24)">Tone tags</span>
+                  <span class="pill" style="color:hsl(var(--secondary));background:hsl(var(--secondary)/.12);border-color:hsl(var(--secondary)/.24)">Compatibility</span>
+                  <span class="pill" style="color:hsl(var(--accent));background:hsl(var(--accent)/.12);border-color:hsl(var(--accent)/.24)">Energy-aware</span>
+                </div>
+                <div class="cta" style="margin-top:14px">See the product</div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="asset banner-asset">
+          <h2>Email / partner banner</h2>
+          <p>For newsletters, announcement headers, media kits, and co-marketing slots.</p>
+          <div class="frame banner">
+            <div class="inner">
+              <div class="topline">
+                <span class="pill">Launch creative</span>
+                <span class="pill">Use in HTML email</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1.1fr .9fr;gap:18px;align-items:center">
+                <div>
+                  <div class="headline" style="max-width:12ch">Built for people who want clearer communication.</div>
+                  <p class="subcopy" style="margin-top:12px">NeuroChat supports dating and conversation with adaptive pacing, accessibility-minded design, and AI-supported intent clarity.</p>
+                  <div class="cta" style="margin-top:16px;width:max-content">Open NeuroChat</div>
+                </div>
+                <div class="glass">
+                  <div class="small" style="margin-bottom:10px;color:hsl(var(--muted-foreground))">Suggested callouts</div>
+                  <div class="stack">
+                    <div class="msg">Explain tone without flattening it</div>
+                    <div class="msg">Show compatibility beyond attraction</div>
+                    <div class="msg">Adjust for energy, overload, and recovery</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+    </div>
+  </body>
+</html>

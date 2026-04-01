@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NeuroChat External Marketing Kit</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap");
+      :root { --background: 224 35% 7%; --foreground: 213 31% 91%; --card: 224 30% 10%; --muted: 224 25% 15%; --muted-foreground: 218 15% 55%; --primary: 225 80% 63%; --secondary: 258 90% 66%; --accent: 168 80% 42%; --border: 224 20% 18%; }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; font-family: "Lexend", system-ui, sans-serif; color: hsl(var(--foreground)); background: radial-gradient(ellipse at 20% 20%, hsl(var(--primary) / 0.14), transparent 45%), radial-gradient(ellipse at 80% 10%, hsl(var(--secondary) / 0.11), transparent 40%), radial-gradient(ellipse at 50% 100%, hsl(var(--accent) / 0.08), transparent 55%), hsl(var(--background)); padding: 40px 24px 72px; }
+      .wrap { max-width: 1100px; margin: 0 auto; }
+      .hero, .tile { border: 1px solid hsl(var(--border) / 0.8); background: hsl(var(--card) / 0.78); backdrop-filter: blur(18px) saturate(160%); border-radius: 28px; box-shadow: 0 20px 60px hsl(224 35% 4% / 0.45); }
+      .hero { padding: 40px; display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 28px; margin-bottom: 28px; }
+      .eyebrow { display: inline-flex; align-items: center; gap: 10px; border-radius: 999px; padding: 8px 14px; background: hsl(var(--primary) / 0.12); color: hsl(var(--primary)); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+      h1 { margin: 18px 0 14px; font-size: clamp(2.4rem, 5vw, 4.2rem); line-height: 0.96; letter-spacing: -0.05em; }
+      p { margin: 0; color: hsl(var(--muted-foreground)); line-height: 1.7; }
+      .logo { width: 72px; height: 72px; border-radius: 24px; display: grid; place-items: center; background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary))); box-shadow: 0 0 32px hsl(var(--primary) / 0.28); }
+      .hero-right { display: grid; gap: 14px; }
+      .pill { border-radius: 18px; padding: 16px 18px; background: hsl(var(--muted) / 0.7); border: 1px solid hsl(var(--border)); }
+      .pill strong { display: block; margin-bottom: 6px; font-size: 13px; }
+      .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+      .tile { padding: 24px; }
+      .tile h2 { margin: 0 0 10px; font-size: 1.15rem; }
+      .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+      .button { display: inline-flex; align-items: center; justify-content: center; min-height: 46px; padding: 0 18px; border-radius: 14px; border: 1px solid hsl(var(--border)); color: hsl(var(--foreground)); text-decoration: none; font-weight: 600; background: hsl(var(--muted) / 0.6); }
+      .button.primary { border-color: transparent; background: hsl(var(--primary)); color: white; box-shadow: 0 0 26px hsl(var(--primary) / 0.25); }
+      .meta { margin-top: 28px; font-size: 12px; color: hsl(var(--muted-foreground)); }
+      @media (max-width: 900px) { .hero, .grid { grid-template-columns: 1fr; } .hero { padding: 28px; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <section class="hero">
+        <div>
+          <div class="logo" aria-hidden="true">
+            <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+              <path d="M11 11.5c0-2.5 2-4.5 4.5-4.5 1.8 0 3.3.9 4.1 2.4A4.8 4.8 0 0 1 28 13c0 1.6-.8 3-2 3.9a4.5 4.5 0 0 1-4 6.5h-6.2A4.8 4.8 0 0 1 11 18v-6.5Z" fill="white" fill-opacity=".92"/>
+              <circle cx="14" cy="14" r="1.4" fill="#4D74ED"/>
+              <circle cx="22" cy="11.5" r="1.4" fill="#8E60F7"/>
+              <circle cx="24" cy="18.5" r="1.4" fill="#20C39B"/>
+              <path d="M14 14l8-2.5 2 7" stroke="#18233E" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="eyebrow">External marketing kit</div>
+          <h1>NeuroChat standalone HTML asset pack.</h1>
+          <p>These files are independent from the website build and are based on the real NeuroChat frontend language inside <code>neurochat-web</code>: dark-blue theme, Lexend typography, glass surfaces, blue-violet gradients, soft neon glow, and low-stimulation spacing.</p>
+          <div class="actions">
+            <a class="button primary" href="./brandkit.html">Open brand system</a>
+            <a class="button" href="./device-previews.html">Open device previews</a>
+            <a class="button" href="./campaign-assets.html">Open campaign assets</a>
+          </div>
+          <div class="meta">Files are self-contained and can be opened directly in a browser or handed to design, growth, or content teams without depending on the app runtime.</div>
+        </div>
+        <div class="hero-right">
+          <div class="pill"><strong>Source alignment</strong>Tokens, motion feel, and component styling were pulled from <code>neurochat-web/src/index.css</code> and the main feature pages.</div>
+          <div class="pill"><strong>Feature focus</strong>Messaging, AI explanation, discover, energy tracking, accessibility, and calm/safe interaction states.</div>
+          <div class="pill"><strong>Output structure</strong>One file for the brand system, one file for device-led product storytelling, and one file for social and campaign-ready layouts.</div>
+        </div>
+      </section>
+      <section class="grid">
+        <article class="tile"><h2>Brand system</h2><p>Core palette, surface styles, logo treatment, typography rules, and the UI atoms that define the product voice.</p></article>
+        <article class="tile"><h2>Phone and tablet previews</h2><p>Product-in-use compositions that mirror NeuroChat screens instead of abstract marketing mockups.</p></article>
+        <article class="tile"><h2>Campaign assets</h2><p>Social cards, stories, launch panels, and email/banner concepts built in the same visual system.</p></article>
+      </section>
+    </div>
+  </body>
+</html>

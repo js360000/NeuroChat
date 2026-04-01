@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NeuroChat Device Previews</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap");
+      :root { --background: 224 35% 7%; --foreground: 213 31% 91%; --card: 224 30% 10%; --surface: 224 28% 12%; --surface-elevated: 224 25% 15%; --muted: 224 25% 15%; --muted-foreground: 218 15% 55%; --primary: 225 80% 63%; --secondary: 258 90% 66%; --accent: 168 80% 42%; --warning: 38 92% 50%; --info: 199 89% 48%; --border: 224 20% 18%; }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: "Lexend", system-ui, sans-serif; color: hsl(var(--foreground)); background: radial-gradient(circle at 15% 15%, hsl(var(--primary) / 0.14), transparent 24%), radial-gradient(circle at 85% 0%, hsl(var(--secondary) / 0.12), transparent 24%), radial-gradient(circle at 50% 100%, hsl(var(--accent) / 0.08), transparent 30%), hsl(var(--background)); padding: 32px 20px 72px; }
+      .wrap { max-width: 1260px; margin: 0 auto; }
+      .back { display: inline-flex; margin-bottom: 16px; color: hsl(var(--foreground)); text-decoration: none; font-weight: 600; }
+      .hero, .block, .device { background: hsl(var(--card) / 0.8); border: 1px solid hsl(var(--border)); border-radius: 28px; backdrop-filter: blur(18px) saturate(180%); box-shadow: 0 22px 80px hsl(224 40% 4% / 0.48); }
+      .hero { padding: 34px; margin-bottom: 24px; display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: end; }
+      .eyebrow, .chip { display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid hsl(var(--border)); background: hsl(var(--surface)); color: hsl(var(--muted-foreground)); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+      .eyebrow { background: hsl(var(--primary) / 0.12); color: hsl(var(--primary)); border-color: hsl(var(--primary) / 0.24); }
+      h1 { margin: 16px 0 12px; font-size: clamp(2.6rem, 5vw, 4.8rem); line-height: 0.94; letter-spacing: -0.06em; max-width: 12ch; }
+      p { margin: 0; color: hsl(var(--muted-foreground)); line-height: 1.7; }
+      .stage { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: start; }
+      .block { padding: 24px; }
+      .block h2 { margin: 0 0 8px; font-size: 1.2rem; letter-spacing: -0.03em; }
+      /* ── Modern Android (Pixel-style) device frame ── */
+      .device { position: relative; background: #1a1a1a; box-shadow: 0 0 0 2px #333, 0 0 0 4px #111, 0 24px 80px hsl(224 40% 4% / 0.6); }
+      .phone { width: 100%; max-width: 320px; margin: 0 auto; border-radius: 40px; padding: 10px; }
+      .tablet { width: 100%; max-width: 520px; margin: 0 auto; border-radius: 30px; padding: 10px; }
+      /* Status bar — Android style */
+      .status-bar { display: flex; align-items: center; justify-content: space-between; padding: 6px 20px 4px; font-size: 11px; font-weight: 600; color: hsl(var(--foreground) / 0.7); letter-spacing: 0.02em; }
+      .status-left { display: flex; align-items: center; gap: 4px; }
+      .status-right { display: flex; align-items: center; gap: 6px; }
+      .status-right svg { opacity: 0.65; }
+      /* Camera punch-hole */
+      .punch-hole { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); width: 12px; height: 12px; border-radius: 50%; background: #0a0a0a; border: 1.5px solid #222; z-index: 10; box-shadow: inset 0 0 3px rgba(0,0,0,0.8); }
+      .tablet .punch-hole { top: 14px; width: 10px; height: 10px; }
+      /* Screen area */
+      .screen { border-radius: 32px; padding: 0 14px 14px; background: hsl(var(--background)); min-height: 620px; overflow: hidden; position: relative; }
+      .tablet .screen { min-height: 480px; border-radius: 22px; }
+      .screen-content { padding-top: 4px; }
+      /* Gesture nav bar */
+      .gesture-bar { display: flex; justify-content: center; padding: 8px 0 6px; }
+      .gesture-bar::after { content: ""; display: block; width: 120px; height: 4px; border-radius: 999px; background: hsl(var(--foreground) / 0.2); }
+      /* Side buttons (power + volume) */
+      .phone::before { content: ""; position: absolute; right: -3px; top: 120px; width: 3px; height: 42px; border-radius: 0 3px 3px 0; background: #333; }
+      .phone::after { content: ""; position: absolute; left: -3px; top: 100px; width: 3px; height: 28px; border-radius: 3px 0 0 3px; background: #333; box-shadow: 0 40px 0 #333; }
+      .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+      .avatar { width: 38px; height: 38px; border-radius: 14px; background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary))); }
+      .muted { color: hsl(var(--muted-foreground)); }
+      .stack { display: grid; gap: 12px; }
+      .bubble { max-width: 88%; padding: 12px 14px; border-radius: 18px; background: hsl(var(--surface-elevated)); border: 1px solid hsl(var(--border)); line-height: 1.5; }
+      .bubble.me { margin-left: auto; background: hsl(var(--primary) / 0.18); border-color: hsl(var(--primary) / 0.28); }
+      .toolbar, .mini-grid, .energy-grid { display: grid; gap: 10px; }
+      .toolbar { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .badge { display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; font-size: 11px; font-weight: 600; border: 1px solid hsl(var(--border)); }
+      .badge.primary { color: hsl(var(--primary)); background: hsl(var(--primary) / 0.12); border-color: hsl(var(--primary) / 0.24); }
+      .badge.accent { color: hsl(var(--accent)); background: hsl(var(--accent) / 0.12); border-color: hsl(var(--accent) / 0.24); }
+      .badge.info { color: hsl(var(--info)); background: hsl(var(--info) / 0.12); border-color: hsl(var(--info) / 0.24); }
+      .card { border: 1px solid hsl(var(--border)); border-radius: 20px; padding: 14px; background: hsl(var(--surface) / 0.9); }
+      .profile { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; }
+      .ring { width: 52px; height: 52px; border-radius: 50%; background: conic-gradient(hsl(var(--accent)) 0 35%, hsl(var(--primary)) 35% 78%, hsl(var(--muted)) 78% 100%); padding: 5px; }
+      .ring::before { content: ""; display: block; width: 100%; height: 100%; border-radius: 50%; background: hsl(var(--background)); }
+      .bar { height: 10px; border-radius: 999px; background: hsl(var(--muted)); overflow: hidden; }
+      .bar > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--secondary))); }
+      .energy-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .caption { margin-top: 14px; font-size: 13px; color: hsl(var(--muted-foreground)); }
+      @media (max-width: 1120px) { .stage { grid-template-columns: 1fr; } .hero { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <a class="back" href="./index.html">&#8592; Back to asset pack</a>
+      <section class="hero">
+        <div>
+          <div class="eyebrow">Device-led storytelling</div>
+          <h1>Phone and tablet previews built from real NeuroChat features.</h1>
+          <p>These are standalone compositions for decks, press kits, partner pitches, social posts, and app launch material. They reflect live product behavior: communication cues, AI explanation, compatibility signals, and energy-aware controls.</p>
+        </div>
+        <div class="chip">Source surfaces: messages, discover, energy dashboard</div>
+      </section>
+
+      <section class="stage">
+        <article class="block">
+          <h2>Messaging preview</h2>
+          <p>Shows the strongest differentiator: calmer conversations with AI-supported interpretation instead of raw message streams.</p>
+          <div class="device phone" style="margin-top:18px">
+            <div class="punch-hole"></div>
+            <div class="screen">
+              <div class="status-bar">
+                <div class="status-left">9:41</div>
+                <div class="status-right">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="12" rx="2"/><line x1="23" y1="10" x2="23" y2="14"/></svg>
+                </div>
+              </div>
+              <div class="screen-content">
+                <div class="header">
+                  <div style="display:flex;gap:10px;align-items:center">
+                    <div class="avatar"></div>
+                    <div><strong>Maya</strong><div class="muted" style="font-size:12px">Energy-aware chat</div></div>
+                  </div>
+                  <div class="badge accent">Grounded</div>
+                </div>
+                <div class="toolbar">
+                  <div class="badge primary">Tone: direct</div>
+                  <div class="badge info">AI explain</div>
+                  <div class="badge accent">Safety on</div>
+                </div>
+                <div class="stack" style="margin-top:14px">
+                  <div class="bubble">I might go quiet later. That is low energy, not disinterest.</div>
+                  <div class="bubble me">Thanks. If that happens I will not assume anything negative.</div>
+                  <div class="bubble">Perfect. A quick check-in tomorrow works better than lots of messages tonight.</div>
+                  <div class="card">
+                    <div style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+                      <strong>AI explanation</strong>
+                      <span class="badge info">Clarity assist</span>
+                    </div>
+                    <p style="margin-top:8px">Likely intent: boundary-setting, reassurance, and planning. Suggested response tone: warm, low pressure, no urgency.</p>
+                  </div>
+                  <div class="bubble me">Got it. I will keep it light and check in tomorrow.</div>
+                </div>
+              </div>
+              <div class="gesture-bar"></div>
+            </div>
+          </div>
+          <div class="caption">Use this composition when selling NeuroChat as communication infrastructure, not just another messaging layer.</div>
+        </article>
+
+        <article class="block">
+          <h2>Discover preview</h2>
+          <p>The matching surface reads more like informed compatibility than shallow swipe mechanics.</p>
+          <div class="device phone" style="margin-top:18px">
+            <div class="punch-hole"></div>
+            <div class="screen">
+              <div class="status-bar">
+                <div class="status-left">10:23</div>
+                <div class="status-right">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="12" rx="2"/><line x1="23" y1="10" x2="23" y2="14"/></svg>
+                </div>
+              </div>
+              <div class="screen-content">
+                <div class="header">
+                  <div><strong>Discover</strong><div class="muted" style="font-size:12px">Find people who communicate clearly</div></div>
+                  <div class="badge primary">92% fit</div>
+                </div>
+                <div class="card" style="padding:0;overflow:hidden">
+                  <div style="height:170px;background:radial-gradient(circle at 20% 20%, hsl(var(--secondary) / .45), transparent 30%), radial-gradient(circle at 80% 25%, hsl(var(--primary) / .5), transparent 34%), linear-gradient(135deg, hsl(var(--surface-elevated)), hsl(var(--card)))"></div>
+                  <div style="padding:14px">
+                    <div class="profile">
+                      <div class="avatar" style="width:48px;height:48px;border-radius:16px"></div>
+                      <div><strong>Alex, 29</strong><div class="muted" style="font-size:12px">Prefers direct language and planned downtime</div></div>
+                      <div class="ring"></div>
+                    </div>
+                    <div class="mini-grid" style="margin-top:12px">
+                      <div style="display:flex;gap:6px;flex-wrap:wrap">
+                        <span class="badge primary">Clear wording</span>
+                        <span class="badge accent">Low drama</span>
+                        <span class="badge info">Routine friendly</span>
+                      </div>
+                      <div class="card">
+                        <strong>Compatibility notes</strong>
+                        <p style="margin-top:8px">Both of you prefer explicit intentions, low-pressure pacing, and advance notice when plans change.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="gesture-bar"></div>
+            </div>
+          </div>
+          <div class="caption">Use this when positioning the product against binary swipe-first apps.</div>
+        </article>
+
+        <article class="block">
+          <h2>Energy dashboard preview</h2>
+          <p>This is the tablet composition for product explainers, investor decks, and homepage hero visuals.</p>
+          <div class="device tablet" style="margin-top:18px">
+            <div class="punch-hole"></div>
+            <div class="screen">
+              <div class="status-bar">
+                <div class="status-left">14:07</div>
+                <div class="status-right">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="12" rx="2"/><line x1="23" y1="10" x2="23" y2="14"/></svg>
+                </div>
+              </div>
+              <div class="screen-content">
+                <div class="header">
+                  <div><strong>Energy dashboard</strong><div class="muted" style="font-size:12px">Adaptive controls for communication load</div></div>
+                  <div class="badge accent">Recovery mode on</div>
+                </div>
+                <div class="energy-grid">
+                  <div class="card"><strong>Social energy</strong><div class="bar" style="margin-top:10px"><span style="width:58%"></span></div><p style="margin-top:8px">Predictive pacing adjusts message expectations.</p></div>
+                  <div class="card"><strong>Masking load</strong><div class="bar" style="margin-top:10px"><span style="width:36%;background:linear-gradient(90deg, hsl(var(--accent)), hsl(var(--primary)))"></span></div><p style="margin-top:8px">Tracks when effort exceeds comfort.</p></div>
+                  <div class="card"><strong>Auto-responder</strong><p style="margin-top:8px">"Low energy right now. I care, I am just offline for a while."</p><span class="badge info" style="margin-top:8px">Ready to send</span></div>
+                  <div class="card"><strong>Suggested settings</strong><p style="margin-top:8px">Reduce notifications, hold non-urgent prompts, surface only priority contacts.</p><span class="badge primary" style="margin-top:8px">AI tuned</span></div>
+                </div>
+                <div class="card" style="margin-top:12px">
+                  <strong>Weekly rhythm</strong>
+                  <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-top:12px">
+                    <div class="bar"><span style="width:40%"></span></div>
+                    <div class="bar"><span style="width:54%"></span></div>
+                    <div class="bar"><span style="width:60%"></span></div>
+                    <div class="bar"><span style="width:48%"></span></div>
+                    <div class="bar"><span style="width:72%"></span></div>
+                    <div class="bar"><span style="width:38%"></span></div>
+                    <div class="bar"><span style="width:44%"></span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="gesture-bar"></div>
+            </div>
+          </div>
+          <div class="caption">Use this to communicate that NeuroChat adapts to users rather than forcing constant availability.</div>
+        </article>
+      </section>
+    </div>
+  </body>
+</html>
