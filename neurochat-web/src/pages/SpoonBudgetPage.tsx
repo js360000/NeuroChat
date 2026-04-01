@@ -1,221 +1,191 @@
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, Battery, BatteryLow, BatteryWarning, TrendingDown, TrendingUp,
-  AlertTriangle, MessageCircle, Shield, Loader2, RefreshCw, Sparkles, Calendar,
+  ArrowLeft, Calendar, Plus, Trash2, AlertTriangle, CheckCircle2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { energyApi } from '@/lib/api/energy'
-import { toast } from 'sonner'
 
-interface Budget {
-  spoonsPerDay: number
-  spoonsThisWeek: number
-  spoonsUsedEstimate: number
-  avgEnergy: number
-  crashRisk: 'low' | 'moderate' | 'high'
-  activeConversations: number
-  dailyAverages: { date: string; social: number; sensory: number; cognitive: number; physical: number }[]
-  recommendations: string[]
-  lowDays: number
-  daysTracked: number
+interface PlannedEvent { id: string; day: number; label: string; spoonCost: number; icon: string; category: string }
+
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+const SHORT_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+const EVENT_TEMPLATES = [
+  { label: 'Social chat', spoonCost: 2, icon: '💬', category: 'social' },
+  { label: 'Phone/video call', spoonCost: 4, icon: '📞', category: 'social' },
+  { label: 'In-person meetup', spoonCost: 5, icon: '🤝', category: 'social' },
+  { label: 'Party or event', spoonCost: 7, icon: '🎉', category: 'social' },
+  { label: 'Family visit', spoonCost: 5, icon: '👨‍👩‍👧', category: 'social' },
+  { label: 'Work/school', spoonCost: 4, icon: '💼', category: 'routine' },
+  { label: 'Appointment', spoonCost: 4, icon: '🏥', category: 'routine' },
+  { label: 'Shopping trip', spoonCost: 3, icon: '🛒', category: 'routine' },
+  { label: 'Exercise', spoonCost: 3, icon: '💪', category: 'self-care' },
+  { label: 'Cooking', spoonCost: 2, icon: '🍳', category: 'routine' },
+  { label: 'Cleaning', spoonCost: 3, icon: '🧹', category: 'routine' },
+  { label: 'Rest day', spoonCost: -2, icon: '😴', category: 'recovery' },
+  { label: 'Special interest time', spoonCost: -1, icon: '⭐', category: 'recovery' },
+  { label: 'Quiet time', spoonCost: -1, icon: '🔇', category: 'recovery' },
+]
+
+const CAT_COLORS: Record<string, string> = {
+  social: 'text-pink-400 bg-pink-500/10', routine: 'text-blue-400 bg-blue-500/10',
+  'self-care': 'text-emerald-400 bg-emerald-500/10', recovery: 'text-violet-400 bg-violet-500/10', custom: 'text-amber-400 bg-amber-500/10',
 }
 
-const RISK_COLORS = { low: 'text-emerald-400 bg-emerald-500/10', moderate: 'text-amber-400 bg-amber-500/10', high: 'text-red-400 bg-red-500/10' }
-const RISK_ICONS = { low: <TrendingUp className="w-4 h-4" />, moderate: <BatteryWarning className="w-4 h-4" />, high: <TrendingDown className="w-4 h-4" /> }
+const BUDGET_KEY = 'neurochat_spoon_budget'
+function loadBudget(): { events: PlannedEvent[]; dailySpoons: number } {
+  try { return JSON.parse(localStorage.getItem(BUDGET_KEY) || 'null') || { events: [], dailySpoons: 10 } } catch { return { events: [], dailySpoons: 10 } }
+}
+function saveBudget(events: PlannedEvent[], dailySpoons: number) { localStorage.setItem(BUDGET_KEY, JSON.stringify({ events, dailySpoons })) }
+
+function getEnergy(): number {
+  try { const u = JSON.parse(localStorage.getItem('neurochat_user') || '{}'); const e = typeof u.energyStatus === 'string' ? JSON.parse(u.energyStatus) : u.energyStatus; return e ? Math.round(((e.social||50)+(e.sensory||50)+(e.cognitive||50)+(e.physical||50))/4) : 50 } catch { return 50 }
+}
 
 export function SpoonBudgetPage() {
   const navigate = useNavigate()
-  const [budget, setBudget] = useState<Budget | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [budget] = useState(loadBudget)
+  const [events, setEvents] = useState<PlannedEvent[]>(budget.events)
+  const [dailySpoons, setDailySpoons] = useState(budget.dailySpoons)
+  const [showAddDay, setShowAddDay] = useState<number | null>(null)
+  const [customLabel, setCustomLabel] = useState('')
+  const [customCost, setCustomCost] = useState(3)
+  const currentEnergy = getEnergy()
 
-  useEffect(() => { loadBudget() }, [])
+  function save(evts: PlannedEvent[], spoons: number) { setEvents(evts); setDailySpoons(spoons); saveBudget(evts, spoons) }
+  function addEvent(day: number, t: typeof EVENT_TEMPLATES[0]) { save([...events, { id: `e-${Date.now()}-${Math.random()}`, day, ...t }], dailySpoons); setShowAddDay(null) }
+  function addCustom(day: number) { if (!customLabel.trim()) return; save([...events, { id: `e-${Date.now()}`, day, label: customLabel.trim(), spoonCost: customCost, icon: '📌', category: 'custom' }], dailySpoons); setCustomLabel(''); setCustomCost(3); setShowAddDay(null) }
+  function removeEvent(id: string) { save(events.filter(e => e.id !== id), dailySpoons) }
 
-  async function loadBudget() {
-    setLoading(true)
-    try {
-      const data = await energyApi.getBudget()
-      setBudget(data.budget)
-    } catch {
-      toast.error('Could not load budget')
-    } finally { setLoading(false) }
-  }
+  const dayAnalysis = useMemo(() => DAYS.map((_, i) => {
+    const dayEvents = events.filter(e => e.day === i)
+    const totalCost = dayEvents.reduce((s, e) => s + e.spoonCost, 0)
+    const remaining = dailySpoons - totalCost
+    return { dayEvents, totalCost, remaining, status: remaining >= dailySpoons * 0.5 ? 'good' as const : remaining >= 0 ? 'tight' as const : 'over' as const }
+  }), [events, dailySpoons])
 
-  if (loading) {
-    return <div className="min-h-screen bg-neural flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
-  }
-
-  if (!budget) {
-    return (
-      <div className="min-h-screen bg-neural flex items-center justify-center p-8 text-center">
-        <div className="space-y-3">
-          <BatteryLow className="w-10 h-10 text-muted-foreground/30 mx-auto" />
-          <p className="text-sm text-muted-foreground">No energy data yet. Log some energy levels first.</p>
-          <button onClick={() => navigate('/energy')} className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm">Go to Energy Dashboard</button>
-        </div>
-      </div>
-    )
-  }
-
-  const spoonsRemaining = Math.max(0, budget.spoonsThisWeek - budget.spoonsUsedEstimate)
-  const spoonsPercent = budget.spoonsThisWeek > 0 ? Math.round((spoonsRemaining / budget.spoonsThisWeek) * 100) : 0
+  const weeklyTotal = dayAnalysis.reduce((s, d) => s + d.totalCost, 0)
+  const crashDays = dayAnalysis.filter(d => d.status === 'over').length
+  const heaviestDay = dayAnalysis.reduce((max, d, i) => d.totalCost > (dayAnalysis[max]?.totalCost || 0) ? i : max, 0)
 
   return (
     <div className="min-h-screen bg-neural pb-24 md:pb-8">
-      {/* Header */}
       <div className="sticky top-0 z-10 glass-heavy border-b border-border/50">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate(-1)} className="p-1.5 rounded-lg hover:bg-muted/50"><ArrowLeft className="w-5 h-5" /></button>
-            <Battery className="w-5 h-5 text-emerald-400" />
-            <h1 className="text-lg font-semibold">Spoon Budget</h1>
-          </div>
-          <button onClick={loadBudget} className="p-2 rounded-xl hover:bg-muted/50"><RefreshCw className="w-4 h-4 text-muted-foreground" /></button>
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
+          <button onClick={() => navigate(-1)} className="p-1.5 rounded-lg hover:bg-muted/50"><ArrowLeft className="w-5 h-5" /></button>
+          <Calendar className="w-5 h-5 text-primary" />
+          <h1 className="text-lg font-semibold">Spoon Budget Planner</h1>
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-
-        {/* Main spoon budget card */}
-        <div className="rounded-2xl glass-heavy p-5 space-y-4 animate-slide-up">
+      <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
+        {/* Energy + budget */}
+        <div className="rounded-2xl glass p-4 space-y-3 animate-slide-up">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">This Week's Budget</h2>
-            <span className="text-[10px] text-muted-foreground">{budget.daysTracked} days tracked</span>
-          </div>
-
-          {/* Spoon gauge */}
-          <div className="flex items-center gap-4">
-            <div className="relative w-20 h-20">
-              <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                <circle cx="50" cy="50" r="42" fill="none" stroke="currentColor" className="text-muted/20" strokeWidth="8" />
-                <circle cx="50" cy="50" r="42" fill="none"
-                  stroke={spoonsPercent > 50 ? '#34d399' : spoonsPercent > 25 ? '#fbbf24' : '#f87171'}
-                  strokeWidth="8" strokeLinecap="round"
-                  strokeDasharray={`${spoonsPercent * 2.64} 264`} />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-lg font-bold">{spoonsRemaining}</span>
-                <span className="text-[8px] text-muted-foreground">spoons left</span>
-              </div>
-            </div>
-
-            <div className="flex-1 space-y-2">
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Daily capacity</span>
-                <span className="font-medium">{budget.spoonsPerDay} spoons/day</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Weekly total</span>
-                <span className="font-medium">{budget.spoonsThisWeek} spoons</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Used (estimated)</span>
-                <span className="font-medium">{budget.spoonsUsedEstimate} spoons</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Active conversations</span>
-                <span className="font-medium">{budget.activeConversations}</span>
+            <div><p className="text-xs text-muted-foreground">Current energy</p><p className="text-2xl font-bold">{currentEnergy}%</p></div>
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Daily spoon budget</p>
+              <div className="flex items-center gap-2">
+                <input type="range" min={5} max={20} value={dailySpoons} onChange={e => save(events, parseInt(e.target.value))} className="w-20 accent-primary" />
+                <span className="text-2xl font-bold">{dailySpoons}</span>
               </div>
             </div>
           </div>
+          <p className="text-[10px] text-muted-foreground">Spoons = units of energy. Higher-cost activities drain more. Adjust your budget to match how you typically feel.</p>
         </div>
 
-        {/* Crash risk */}
-        <div className={cn('rounded-2xl p-4 flex items-center gap-3 animate-slide-up', RISK_COLORS[budget.crashRisk])} style={{ animationDelay: '60ms' }}>
-          {RISK_ICONS[budget.crashRisk]}
-          <div className="flex-1">
-            <p className="text-sm font-semibold capitalize">{budget.crashRisk} crash risk</p>
-            <p className="text-[11px] opacity-80">
-              {budget.crashRisk === 'low' ? 'Your energy has been stable this week.'
-                : budget.crashRisk === 'moderate' ? `You dipped below 30% on ${budget.lowDays} day${budget.lowDays > 1 ? 's' : ''} this week.`
-                : `You crashed on ${budget.lowDays} days this week. Consider reducing commitments.`}
-            </p>
-          </div>
-        </div>
-
-        {/* Energy trend chart */}
-        {budget.dailyAverages.length > 1 && (
-          <div className="rounded-2xl glass p-4 space-y-3 animate-slide-up" style={{ animationDelay: '120ms' }}>
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-primary" />
-              <h3 className="text-sm font-semibold">Energy Trend</h3>
-            </div>
-            <div className="h-32">
-              <svg viewBox={`0 0 ${Math.max(budget.dailyAverages.length * 50, 200)} 120`} className="w-full h-full" preserveAspectRatio="none">
-                {/* Grid lines */}
-                {[25, 50, 75].map(y => (
-                  <line key={y} x1="0" y1={120 - y * 1.1} x2={budget.dailyAverages.length * 50} y2={120 - y * 1.1} stroke="currentColor" className="text-muted/10" strokeWidth="0.5" />
-                ))}
-                {/* Lines per dimension */}
-                {(['social', 'sensory', 'cognitive', 'physical'] as const).map((dim, di) => {
-                  const colors = ['#f472b6', '#22d3ee', '#a78bfa', '#34d399']
-                  const points = budget.dailyAverages.map((d, i) => `${i * 50 + 25},${120 - d[dim] * 1.1}`).join(' ')
-                  return <polyline key={dim} points={points} fill="none" stroke={colors[di]} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                })}
-                {/* Dots */}
-                {budget.dailyAverages.map((d, i) => {
-                  const avg = (d.social + d.sensory + d.cognitive + d.physical) / 4
-                  return <circle key={i} cx={i * 50 + 25} cy={120 - avg * 1.1} r="3" fill={avg < 30 ? '#f87171' : avg < 50 ? '#fbbf24' : '#34d399'} />
-                })}
-              </svg>
-            </div>
-            <div className="flex gap-3 justify-center">
-              {[{ label: 'Social', color: 'bg-pink-400' }, { label: 'Sensory', color: 'bg-cyan-400' }, { label: 'Cognitive', color: 'bg-violet-400' }, { label: 'Physical', color: 'bg-emerald-400' }].map(l => (
-                <span key={l.label} className="flex items-center gap-1 text-[9px] text-muted-foreground">
-                  <span className={cn('w-2 h-2 rounded-full', l.color)} /> {l.label}
-                </span>
-              ))}
+        {/* Warning */}
+        {crashDays > 0 && (
+          <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 flex items-start gap-2 animate-fade-in">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-semibold text-amber-300">{crashDays} day{crashDays > 1 ? 's' : ''} over budget this week</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Consider rescheduling {DAYS[heaviestDay]} or adding recovery time.</p>
             </div>
           </div>
         )}
 
-        {/* Recommendations */}
-        {budget.recommendations.length > 0 && (
-          <div className="rounded-2xl glass p-4 space-y-3 animate-slide-up" style={{ animationDelay: '180ms' }}>
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-primary" />
-              <h3 className="text-sm font-semibold">Recommendations</h3>
-            </div>
-            <div className="space-y-2">
-              {budget.recommendations.map((rec, i) => (
-                <div key={i} className="flex items-start gap-2.5 p-2.5 rounded-xl bg-primary/5 border border-primary/10">
-                  <AlertTriangle className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-                  <p className="text-xs text-muted-foreground leading-relaxed">{rec}</p>
+        {/* Weekly bar chart */}
+        <div className="rounded-2xl glass p-4 space-y-2 animate-slide-up" style={{ animationDelay: '40ms' }}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold">Weekly overview</span>
+            <span className="text-xs text-muted-foreground">{weeklyTotal} / {dailySpoons * 7} spoons</span>
+          </div>
+          <div className="flex gap-1">
+            {dayAnalysis.map((day, i) => (
+              <div key={i} className="flex-1 text-center">
+                <div className="h-16 rounded-lg bg-muted/20 relative overflow-hidden mb-1">
+                  <div className={cn('absolute bottom-0 left-0 right-0 rounded-lg transition-all',
+                    day.status === 'good' ? 'bg-emerald-500/30' : day.status === 'tight' ? 'bg-amber-500/30' : 'bg-red-500/30'
+                  )} style={{ height: `${Math.min(100, Math.max(5, (day.totalCost / dailySpoons) * 100))}%` }} />
+                  {day.status === 'over' && <div className="absolute inset-0 flex items-center justify-center"><AlertTriangle className="w-3 h-3 text-red-400" /></div>}
                 </div>
-              ))}
-            </div>
+                <span className="text-[9px] text-muted-foreground">{SHORT_DAYS[i]}</span>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
 
-        {/* Quick actions */}
-        <div className="rounded-2xl glass p-4 space-y-3 animate-slide-up" style={{ animationDelay: '240ms' }}>
-          <h3 className="text-sm font-semibold">Quick Actions</h3>
-          <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => navigate('/energy')}
-              className="p-3 rounded-xl glass hover:glow-sm text-left transition-all">
-              <Battery className="w-4 h-4 text-emerald-400 mb-1" />
-              <span className="text-xs font-medium block">Log Energy</span>
-              <span className="text-[10px] text-muted-foreground">Update your levels</span>
-            </button>
-            <button onClick={() => navigate('/together')}
-              className="p-3 rounded-xl glass hover:glow-sm text-left transition-all">
-              <MessageCircle className="w-4 h-4 text-blue-400 mb-1" />
-              <span className="text-xs font-medium block">Together Room</span>
-              <span className="text-[10px] text-muted-foreground">Low-pressure presence</span>
-            </button>
-            <button onClick={() => navigate('/settings/async')}
-              className="p-3 rounded-xl glass hover:glow-sm text-left transition-all">
-              <Shield className="w-4 h-4 text-violet-400 mb-1" />
-              <span className="text-xs font-medium block">Auto-Responder</span>
-              <span className="text-[10px] text-muted-foreground">Set up boundaries</span>
-            </button>
-            <button onClick={() => navigate('/interest-rooms')}
-              className="p-3 rounded-xl glass hover:glow-sm text-left transition-all">
-              <Sparkles className="w-4 h-4 text-pink-400 mb-1" />
-              <span className="text-xs font-medium block">Interest Room</span>
-              <span className="text-[10px] text-muted-foreground">Recharge with a passion</span>
-            </button>
-          </div>
+        {/* Day-by-day */}
+        {DAYS.map((day, dayIdx) => {
+          const a = dayAnalysis[dayIdx]
+          return (
+            <div key={dayIdx} className="rounded-2xl glass p-4 space-y-2 animate-slide-up" style={{ animationDelay: `${(dayIdx + 2) * 30}ms` }}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold">{day}</h3>
+                  <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium',
+                    a.status === 'good' ? 'text-emerald-400 bg-emerald-500/10' : a.status === 'tight' ? 'text-amber-400 bg-amber-500/10' : 'text-red-400 bg-red-500/10')}>
+                    {a.remaining >= 0 ? `${a.remaining} left` : `${Math.abs(a.remaining)} over`}
+                  </span>
+                </div>
+                <button onClick={() => setShowAddDay(showAddDay === dayIdx ? null : dayIdx)} className="p-1 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10"><Plus className="w-4 h-4" /></button>
+              </div>
+              {a.dayEvents.length === 0 ? <p className="text-[11px] text-muted-foreground/50 italic">Nothing planned</p> : (
+                <div className="space-y-1">
+                  {a.dayEvents.map(evt => (
+                    <div key={evt.id} className="flex items-center gap-2 py-1">
+                      <span className="text-sm">{evt.icon}</span>
+                      <span className="flex-1 text-xs">{evt.label}</span>
+                      <span className={cn('text-[10px] font-medium', evt.spoonCost > 0 ? 'text-red-400' : 'text-emerald-400')}>{evt.spoonCost > 0 ? `-${evt.spoonCost}` : `+${Math.abs(evt.spoonCost)}`} 🥄</span>
+                      <button onClick={() => removeEvent(evt.id)} className="p-0.5 text-muted-foreground/40 hover:text-red-400"><Trash2 className="w-3 h-3" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {showAddDay === dayIdx && (
+                <div className="pt-2 border-t border-border/20 space-y-2 animate-fade-in">
+                  <div className="flex flex-wrap gap-1">
+                    {EVENT_TEMPLATES.map((t, i) => (
+                      <button key={i} onClick={() => addEvent(dayIdx, t)}
+                        className={cn('flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium active:scale-95', CAT_COLORS[t.category])}>
+                        <span>{t.icon}</span> {t.label} <span className="opacity-60">({t.spoonCost > 0 ? `-${t.spoonCost}` : `+${Math.abs(t.spoonCost)}`})</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input value={customLabel} onChange={e => setCustomLabel(e.target.value)} placeholder="Custom activity..."
+                      className="flex-1 px-2.5 py-1.5 rounded-lg bg-muted/20 text-[11px] placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/30" />
+                    <input type="number" min={-5} max={10} value={customCost} onChange={e => setCustomCost(parseInt(e.target.value) || 0)}
+                      className="w-12 px-1.5 py-1.5 rounded-lg bg-muted/20 text-[11px] text-center focus:outline-none" />
+                    <button onClick={() => addCustom(dayIdx)} disabled={!customLabel.trim()} className="px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-[10px] font-medium disabled:opacity-50">Add</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+
+        {/* Tips */}
+        <div className="rounded-2xl glass p-4 space-y-2 animate-slide-up" style={{ animationDelay: '300ms' }}>
+          <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /><h3 className="text-sm font-semibold">Budgeting tips</h3></div>
+          <ul className="space-y-1.5 text-[11px] text-muted-foreground">
+            <li className="flex items-start gap-1.5"><span className="text-emerald-400 mt-0.5">•</span> Spread social events across the week — back-to-back drains faster</li>
+            <li className="flex items-start gap-1.5"><span className="text-emerald-400 mt-0.5">•</span> Plan recovery time after high-cost days</li>
+            <li className="flex items-start gap-1.5"><span className="text-emerald-400 mt-0.5">•</span> It's okay to cancel plans when your budget runs low</li>
+            <li className="flex items-start gap-1.5"><span className="text-emerald-400 mt-0.5">•</span> Special interest time restores spoons — schedule it deliberately</li>
+            <li className="flex items-start gap-1.5"><span className="text-emerald-400 mt-0.5">•</span> If you're consistently over budget, lower your daily spoons — be honest with yourself</li>
+          </ul>
         </div>
       </div>
     </div>
