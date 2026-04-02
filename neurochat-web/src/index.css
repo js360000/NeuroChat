@@ -97,8 +97,20 @@
     font-size: var(--a11y-font-size, 100%);
     line-height: var(--a11y-line-height, 1.6);
     letter-spacing: var(--a11y-letter-spacing, 0em);
+    word-spacing: var(--a11y-word-spacing, 0em);
+    text-align: var(--a11y-text-align, left);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    filter: var(--a11y-blue-filter, none);
+  }
+
+  html::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: var(--a11y-colour-overlay, transparent);
+    pointer-events: none;
+    z-index: 99999;
   }
 
   body {
@@ -106,17 +118,37 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
-  /* ── Dyslexia-friendly font mode ── */
-  .a11y-dyslexic {
-    font-family: 'OpenDyslexic', 'Comic Sans MS', cursive, sans-serif;
-    letter-spacing: 0.05em;
-    word-spacing: 0.15em;
+  p, li, dd, td, th, blockquote {
+    margin-bottom: var(--a11y-paragraph-spacing, 0em);
+  }
+
+  /* ── Dyslexia-friendly font (OpenDyslexic via CDN) ── */
+  @font-face {
+    font-family: 'OpenDyslexic';
+    src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Regular.woff') format('woff');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'OpenDyslexic';
+    src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Bold.woff') format('woff');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  .a11y-dyslexic,
+  .a11y-dyslexic * {
+    font-family: 'OpenDyslexic', 'Comic Sans MS', cursive, sans-serif !important;
+    letter-spacing: 0.06em;
+    word-spacing: 0.16em;
   }
 
   /* ── Large text mode ── */
   .a11y-large-text {
-    font-size: 112.5%;
-    line-height: 1.7;
+    font-size: 118%;
+    line-height: 1.75;
   }
 
   /* ── Reduced motion ── */
@@ -126,6 +158,48 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  /* ── Monochrome (full greyscale) ── */
+  .a11y-monochrome {
+    filter: grayscale(100%) var(--a11y-blue-filter, none);
+  }
+
+  /* ── Saturation control ── */
+  html:not(.a11y-monochrome) {
+    filter: saturate(var(--a11y-saturation, 100%)) var(--a11y-blue-filter, none);
+  }
+
+  /* ── Focus highlight (thick visible outline on all focused elements) ── */
+  .a11y-focus-highlight *:focus,
+  .a11y-focus-highlight *:focus-visible {
+    outline: 3px solid hsl(var(--primary)) !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 0 6px hsl(var(--primary) / 0.2) !important;
+  }
+
+  /* ── Force underlines on all links ── */
+  .a11y-link-underline a {
+    text-decoration: underline !important;
+    text-underline-offset: 3px;
+  }
+
+  /* ── Hide images (for sensory/distraction reduction) ── */
+  .a11y-hide-images img,
+  .a11y-hide-images video,
+  .a11y-hide-images svg:not([class*="lucide"]) {
+    opacity: 0.1 !important;
+    filter: blur(8px) !important;
+  }
+
+  /* ── Cursor size ── */
+  .a11y-cursor-large,
+  .a11y-cursor-large * {
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23fff' stroke='%23000' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='4' fill='%23000'/%3E%3C/svg%3E") 16 16, auto !important;
+  }
+  .a11y-cursor-xlarge,
+  .a11y-cursor-xlarge * {
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Ccircle cx='24' cy='24' r='22' fill='%23fff' stroke='%23000' stroke-width='2'/%3E%3Ccircle cx='24' cy='24' r='6' fill='%23000'/%3E%3C/svg%3E") 24 24, auto !important;
   }
 }
 
