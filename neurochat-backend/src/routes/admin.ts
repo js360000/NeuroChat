@@ -330,3 +330,77 @@ adminRouter.delete('/messages/:id', (req, res) => {
 
   res.json({ ok: true })
 })
+
+// ═══════════════════════════════════════════
+// Feedback (admin view)
+// ═══════════════════════════════════════════
+
+adminRouter.get('/feedback', (req, res) => {
+  const limit = parseInt(req.query.limit as string) || 100
+  const aspect = req.query.aspect as string || null
+  const sentiment = req.query.sentiment as string || null
+
+  let sql = `
+    SELECT f.*, u.name as user_name
+    FROM user_feedback f JOIN users u ON f.user_id = u.id
+    WHERE 1=1
+  `
+  const params: any[] = []
+  if (aspect) { sql += ' AND f.aspect = ?'; params.push(aspect) }
+  if (sentiment) { sql += ' AND f.sentiment = ?'; params.push(sentiment) }
+  sql += ' ORDER BY f.created_at DESC LIMIT ?'
+  params.push(limit)
+
+  const rows = db.prepare(sql).all(...params) as any[]
+
+  // Summary stats
+  const totalGood = (db.prepare("SELECT COUNT(*) as c FROM user_feedback WHERE sentiment = 'good'").get() as any).c
+  const totalBetter = (db.prepare("SELECT COUNT(*) as c FROM user_feedback WHERE sentiment = 'better'").get() as any).c
+  const aspects = db.prepare("SELECT aspect, sentiment, COUNT(*) as c FROM user_feedback GROUP BY aspect, sentiment ORDER BY c DESC").all() as any[]
+
+  res.json({
+    feedback: rows.map(r => ({
+      id: r.id, userId: r.user_id, userName: r.user_name,
+      aspect: r.aspect, sentiment: r.sentiment,
+      comment: r.comment, createdAt: r.created_at,
+    })),
+    summary: { totalGood, totalBetter, aspects },
+  })
+})
+
+// ═══════════════════════════════════════════
+// Reports (admin view)
+// ═══════════════════════════════════════════
+
+adminRouter.get('/reports', (req, res) => {
+  const status = (req.query.status as string) || 'pending'
+  const rows = db.prepare(`
+    SELECT r.*, reporter.name as reporter_name, reported.name as reported_name
+    FROM user_reports r
+    JOIN users reporter ON r.reporter_id = reporter.id
+    JOIN users reported ON r.reported_id = reported.id
+    WHERE r.status = ?
+    ORDER BY r.created_at DESC LIMIT 100
+  `).all(status) as any[]
+
+  res.json({
+    reports: rows.map(r => ({
+      id: r.id, reporterId: r.reporter_id, reporterName: r.reporter_name,
+      reportedId: r.reported_id, reportedName: r.reported_name,
+      reason: r.reason, details: r.details, status: r.status, createdAt: r.created_at,
+    })),
+  })
+})
+
+adminRouter.patch('/reports/:id', (req, res) => {
+  const adminId = (req as any).userId
+  const { status } = req.body
+  if (!['reviewed', 'actioned', 'dismissed'].includes(status)) return res.status(400).json({ error: 'Invalid status' })
+
+  db.prepare('UPDATE user_reports SET status = ? WHERE id = ?').run(status, req.params.id)
+
+  db.prepare('INSERT INTO audit_log (id, action, target_user_id, admin_user_id, details) VALUES (?, ?, ?, ?, ?)')
+    .run(uuid(), 'report.update', null, adminId, JSON.stringify({ reportId: req.params.id, status }))
+
+  res.json({ ok: true })
+})

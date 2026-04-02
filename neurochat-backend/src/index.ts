@@ -20,6 +20,7 @@ import { moderationRouter } from './routes/moderation.js'
 import { uploadsRouter } from './routes/uploads.js'
 import { contactsRouter } from './routes/contacts.js'
 import { contractsRouter } from './routes/contracts.js'
+import { feedbackRouter } from './routes/feedback.js'
 import { isUserBanned } from './moderation.js'
 import { initSignalling } from './signalling.js'
 import jwt from 'jsonwebtoken'
@@ -82,6 +83,7 @@ app.use('/api/users', moderationRouter)
 app.use('/api/uploads', uploadsRouter)
 app.use('/api/contacts', contactsRouter)
 app.use('/api/contracts', contractsRouter)
+app.use('/api/feedback', feedbackRouter)
 
 // Health check
 app.get('/api/health', (_req, res) => {

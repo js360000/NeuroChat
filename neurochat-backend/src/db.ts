@@ -349,6 +349,15 @@ try { db.exec(`ALTER TABLE together_rooms ADD COLUMN description TEXT`) } catch 
 try { db.exec(`ALTER TABLE together_rooms ADD COLUMN allow_chat INTEGER DEFAULT 0`) } catch { /* exists */ }
 
 db.exec(`
+  CREATE TABLE IF NOT EXISTS user_feedback (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    aspect TEXT NOT NULL,
+    sentiment TEXT NOT NULL CHECK(sentiment IN ('good','better')),
+    comment TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS communication_contracts (
     id TEXT PRIMARY KEY,
     conversation_id TEXT NOT NULL,

@@ -39,6 +39,7 @@ const SupporterDashboardPage = lazy(() => import('./pages/SupporterDashboardPage
 const NewChatPage = lazy(() => import('./pages/NewChatPage').then(m => ({ default: m.NewChatPage })))
 const InterestRoomsPage = lazy(() => import('./pages/InterestRoomsPage').then(m => ({ default: m.InterestRoomsPage })))
 const SpoonBudgetPage = lazy(() => import('./pages/SpoonBudgetPage').then(m => ({ default: m.SpoonBudgetPage })))
+const FeedbackPage = lazy(() => import('./pages/FeedbackPage').then(m => ({ default: m.FeedbackPage })))
 
 // ═══════════════════════════════════════════
 // Error Boundaries
@@ -193,6 +194,7 @@ function App() {
             <Route path="/new-chat" element={<LazyRoute element={<NewChatPage />} />} />
             <Route path="/interest-rooms" element={<LazyRoute element={<InterestRoomsPage />} />} />
             <Route path="/spoon-budget" element={<LazyRoute element={<SpoonBudgetPage />} />} />
+            <Route path="/feedback" element={<LazyRoute element={<FeedbackPage />} />} />
             <Route path="/admin" element={<LazyRoute element={<AdminPage />} />} />
           </Routes>
           <BottomNav />

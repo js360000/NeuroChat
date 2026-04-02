@@ -81,6 +81,24 @@ export const adminApi = {
     return res.data
   },
 
+  // Reports
+  getReports: async (status?: string) => {
+    const params = status ? `?status=${status}` : ''
+    const res = await api.get<{ reports: any[] }>(`/admin/reports${params}`)
+    return res.data
+  },
+
+  updateReport: async (id: string, status: string) => {
+    const res = await api.patch(`/admin/reports/${id}`, { status })
+    return res.data
+  },
+
+  // Feedback
+  getFeedback: async (queryString?: string) => {
+    const res = await api.get<{ feedback: any[]; summary: any }>(`/admin/feedback${queryString ? `?${queryString}` : ''}`)
+    return res.data
+  },
+
   // Content moderation
   deletePost: async (id: string) => {
     const res = await api.delete(`/admin/posts/${id}`)

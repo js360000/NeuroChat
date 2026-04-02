@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, Accessibility, Shield, Bell, User,
+  ArrowLeft, Accessibility, Shield, Bell, User, MessageCircle,
   MessageSquare, Brain, Zap, ChevronRight, LogOut, Heart, Sparkles,
   Clock, Grid3X3, MapPin, Users, ShieldAlert, Battery,
 } from 'lucide-react'
@@ -51,6 +51,7 @@ const SETTINGS_SECTIONS: { title: string; items: SettingItem[] }[] = [
       { icon: Users, label: 'Trusted Supporters', description: 'Add supporters and manage safeguarding', path: '/supporters', color: 'text-green-400 bg-green-500/10', badge: 'New' },
       { icon: Shield, label: 'Privacy & Safety', description: 'Blocking, visibility, and data', path: '/privacy', color: 'text-amber-400 bg-amber-500/10' },
       { icon: Bell, label: 'Notifications', description: 'Alerts, sounds, and quiet mode', path: '/notifications', color: 'text-orange-400 bg-orange-500/10' },
+      { icon: MessageCircle, label: 'Give Feedback', description: 'Tell us what\'s good and what could be better', path: '/feedback', color: 'text-pink-400 bg-pink-500/10' },
     ],
   },
 ]

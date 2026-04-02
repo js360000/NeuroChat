@@ -1,20 +1,22 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Shield, Users, Brain, Settings, BarChart3, AlertTriangle,
-  Ban, Check, X, Search, Loader2, Key, Eye,
+  Shield, Users, Brain, Settings, BarChart3, AlertTriangle, Heart,
+  Ban, Check, X, Search, Loader2, Key, Eye, ThumbsUp, ThumbsDown,
   RefreshCw, Plus, Zap,
 } from 'lucide-react'
 import { adminApi } from '@/lib/api/admin'
 import { cn, formatTime } from '@/lib/utils'
 import { toast } from 'sonner'
 
-type Tab = 'overview' | 'users' | 'moderation' | 'ai' | 'config' | 'audit'
+type Tab = 'overview' | 'users' | 'moderation' | 'reports' | 'feedback' | 'ai' | 'config' | 'audit'
 
 const TABS: { id: Tab; label: string; icon: typeof Shield }[] = [
   { id: 'overview', label: 'Overview', icon: BarChart3 },
   { id: 'users', label: 'Users', icon: Users },
   { id: 'moderation', label: 'Moderation', icon: Shield },
+  { id: 'reports', label: 'Reports', icon: AlertTriangle },
+  { id: 'feedback', label: 'Feedback', icon: Heart },
   { id: 'ai', label: 'AI Config', icon: Brain },
   { id: 'config', label: 'Site Config', icon: Settings },
   { id: 'audit', label: 'Audit Log', icon: Eye },
@@ -559,6 +561,178 @@ function AuditLogTab() {
 }
 
 // ═══════════════════════════════════════════
+// Reports tab
+// ═══════════════════════════════════════════
+
+function ReportsTab() {
+  const [reports, setReports] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [filter, setFilter] = useState('pending')
+
+  function load(status: string) {
+    setIsLoading(true)
+    setFilter(status)
+    adminApi.getReports(status).then(d => { setReports(d.reports); setIsLoading(false) }).catch(() => setIsLoading(false))
+  }
+
+  useEffect(() => { load('pending') }, [])
+
+  async function updateReport(id: string, status: string) {
+    try {
+      await adminApi.updateReport(id, status)
+      toast.success(`Report ${status}`)
+      load(filter)
+    } catch { toast.error('Failed to update report') }
+  }
+
+  if (isLoading) return <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1.5">
+        {['pending', 'reviewed', 'actioned', 'dismissed'].map(s => (
+          <button key={s} onClick={() => load(s)}
+            className={cn('px-2.5 py-1 rounded-lg text-[11px] font-medium capitalize transition-all',
+              filter === s ? 'bg-primary text-primary-foreground' : 'bg-muted/30 text-muted-foreground hover:text-foreground')}>
+            {s}
+          </button>
+        ))}
+      </div>
+      {reports.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-8">No {filter} reports</p>
+      ) : (
+        <div className="space-y-2">
+          {reports.map(r => (
+            <div key={r.id} className="rounded-xl glass p-4 space-y-2">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-xs font-semibold">{r.reporterName}</span>
+                  <span className="text-xs text-muted-foreground"> reported </span>
+                  <span className="text-xs font-semibold text-red-400">{r.reportedName}</span>
+                </div>
+                <span className="text-[10px] text-muted-foreground">{formatTime(r.createdAt)}</span>
+              </div>
+              <p className="text-xs px-2 py-1.5 rounded-lg bg-muted/20">{r.reason}</p>
+              {r.details && <p className="text-[11px] text-muted-foreground">{r.details}</p>}
+              {filter === 'pending' && (
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => updateReport(r.id, 'reviewed')} className="px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 text-[10px] font-medium">Mark reviewed</button>
+                  <button onClick={() => updateReport(r.id, 'actioned')} className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 text-[10px] font-medium">Action taken</button>
+                  <button onClick={() => updateReport(r.id, 'dismissed')} className="px-2.5 py-1 rounded-lg bg-muted/30 text-muted-foreground text-[10px] font-medium">Dismiss</button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════
+// Feedback tab
+// ═══════════════════════════════════════════
+
+function FeedbackTab() {
+  const [feedback, setFeedback] = useState<any[]>([])
+  const [summary, setSummary] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [filterSentiment, setFilterSentiment] = useState<string | null>(null)
+  const [filterAspect, setFilterAspect] = useState<string | null>(null)
+
+  function load() {
+    setIsLoading(true)
+    const params = new URLSearchParams()
+    if (filterSentiment) params.set('sentiment', filterSentiment)
+    if (filterAspect) params.set('aspect', filterAspect)
+    adminApi.getFeedback(params.toString()).then(d => {
+      setFeedback(d.feedback)
+      setSummary(d.summary)
+      setIsLoading(false)
+    }).catch(() => setIsLoading(false))
+  }
+
+  useEffect(() => { load() }, [filterSentiment, filterAspect])
+
+  if (isLoading) return <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
+
+  // Get unique aspects for filter
+  const aspectList = summary?.aspects ? [...new Set(summary.aspects.map((a: any) => a.aspect))] as string[] : []
+
+  return (
+    <div className="space-y-4">
+      {/* Summary cards */}
+      {summary && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl glass p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <ThumbsUp className="w-4 h-4 text-emerald-400" />
+              <span className="text-2xl font-bold tabular-nums">{summary.totalGood}</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground">Positive feedback</p>
+          </div>
+          <div className="rounded-xl glass p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <ThumbsDown className="w-4 h-4 text-amber-400" />
+              <span className="text-2xl font-bold tabular-nums">{summary.totalBetter}</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground">Improvement suggestions</p>
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-1.5">
+        <button onClick={() => setFilterSentiment(null)}
+          className={cn('px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all',
+            !filterSentiment ? 'bg-primary text-primary-foreground' : 'bg-muted/30 text-muted-foreground')}>All</button>
+        <button onClick={() => setFilterSentiment(filterSentiment === 'good' ? null : 'good')}
+          className={cn('px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all',
+            filterSentiment === 'good' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-muted/30 text-muted-foreground')}>Good</button>
+        <button onClick={() => setFilterSentiment(filterSentiment === 'better' ? null : 'better')}
+          className={cn('px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all',
+            filterSentiment === 'better' ? 'bg-amber-500/20 text-amber-400' : 'bg-muted/30 text-muted-foreground')}>Could be better</button>
+      </div>
+      {aspectList.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {aspectList.map(a => (
+            <button key={a} onClick={() => setFilterAspect(filterAspect === a ? null : a)}
+              className={cn('px-2 py-0.5 rounded text-[10px] font-medium capitalize transition-all',
+                filterAspect === a ? 'bg-primary/20 text-primary' : 'bg-muted/20 text-muted-foreground')}>
+              {a.replace(/-/g, ' ')}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Feedback list */}
+      {feedback.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-8">No feedback yet</p>
+      ) : (
+        <div className="space-y-2 max-h-[500px] overflow-y-auto">
+          {feedback.map(f => (
+            <div key={f.id} className="rounded-xl glass p-3 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className={cn('w-5 h-5 rounded flex items-center justify-center',
+                    f.sentiment === 'good' ? 'bg-emerald-500/20' : 'bg-amber-500/20')}>
+                    {f.sentiment === 'good' ? <ThumbsUp className="w-3 h-3 text-emerald-400" /> : <ThumbsDown className="w-3 h-3 text-amber-400" />}
+                  </span>
+                  <span className="text-xs font-semibold">{f.userName}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/30 text-muted-foreground capitalize">{f.aspect.replace(/-/g, ' ')}</span>
+                </div>
+                <span className="text-[10px] text-muted-foreground">{formatTime(f.createdAt)}</span>
+              </div>
+              {f.comment && <p className="text-xs text-foreground/80 pl-7">{f.comment}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════
 // Main Admin Page
 // ═══════════════════════════════════════════
 
@@ -604,6 +778,8 @@ export function AdminPage() {
         {tab === 'overview' && <OverviewTab />}
         {tab === 'users' && <UsersTab />}
         {tab === 'moderation' && <ModerationTab />}
+        {tab === 'reports' && <ReportsTab />}
+        {tab === 'feedback' && <FeedbackTab />}
         {tab === 'ai' && <AIConfigTab />}
         {tab === 'config' && <SiteConfigTab />}
         {tab === 'audit' && <AuditLogTab />}
